@@ -72,5 +72,9 @@ test("invoice drafts include the priced findings", async ({ as }) => {
   await expectHealthy(page);
   await expect(page.getByText("Restore entrance surface").first()).toBeVisible();
   await expect(page.getByText("$1,760.00").first()).toBeVisible();
+  await expect(page.locator(".invoice-doc")).toContainText("Service at");
+  await expect(page.locator(".invoice-doc")).toContainText("Description: Document review");
+  expect(await page.locator(".invoice-doc").evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-invoice");
 });

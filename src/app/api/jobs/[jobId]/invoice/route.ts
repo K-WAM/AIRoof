@@ -23,6 +23,8 @@ import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 import type { JobQuote } from "@/types/quote";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
+import { loadLetter } from "@/lib/documents/letterStore";
+import { renderLetter } from "@/lib/documents/letters";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -45,7 +47,7 @@ async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string,
   const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
   const scope = acceptedQuote?.lines?.length ? acceptedQuote.lines : quoteLinesFromFindings(job.findings ?? []);
   const draft = nothingLogged && scope.length ? { ...logged, ...invoiceLinesFromQuote(scope) } : logged;
-  return { draft, acceptedQuote, business: biz };
+  return { draft, acceptedQuote, business: biz, customer };
 }
 
 // GET /api/jobs/[jobId]/invoice?businessId=xxx — fetch the job's saved invoice, if any
@@ -118,7 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     }
   }
 
-  const { draft, acceptedQuote, business } = await rebuildDraft(db, businessId, job);
+  const { draft, acceptedQuote, business, customer } = await rebuildDraft(db, businessId, job);
   const priceMode = acceptedQuote?.priceMode ?? "lines";
   const customerSubtotal = priceMode === "project" ? acceptedQuote?.subtotal : undefined;
   const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });
@@ -127,17 +129,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const name = typeof business?.businessName === "string" ? business.businessName : "";
   const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.jobNoun };
   const copy = business?.invoiceCopy ?? {};
+  const openingTemplate = await loadLetter(db, businessId, "invoice_opening");
+  const openingLetter = renderLetter(openingTemplate, { date: values.visitDate, "customer.name": job.clientName,
+    "customer.code": customer?.customerCode, billTo: customer?.address ?? job.address, serviceAt: job.address, workOrder: jobId,
+    description: job.title, "business.name": name, "business.license": business?.licenseNumber,
+  }, { includeOptional: openingTemplate.sections.filter(s => s.defaultOn).map(s => s.id) });
   const invoice: JobInvoice = {
     invoiceId,
     businessId,
     jobId,
     customerId: job.customerId,
-    billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: job.address },
+    billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: customer?.address ?? job.address },
+    serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),
     status: "draft",
     issuedAt: now,
     // Settings → Getting paid → payment terms (0 = due on receipt, the old behavior).
     dueAt: now + effectiveBillingPrefs(business).dueDays * 86_400_000,
-    opening: fillInvoiceCopy(copy.opening ?? DEFAULT_INVOICE_COPY.opening, values),
+    opening: openingLetter.blocks.flatMap(b => [...(b.heading ? [b.heading] : []), ...b.paragraphs, ...(b.bullets ?? []).map(s => `- ${s}`)]).join("\n"),
     closing: fillInvoiceCopy(copy.closing ?? DEFAULT_INVOICE_COPY.closing, values),
     thankYou: fillInvoiceCopy(copy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, values),
     terms: copy.terms ?? DEFAULT_INVOICE_COPY.terms,

@@ -38,6 +38,15 @@ describe("Mark paid", () => {
 });
 
 describe("invoice document options", () => {
+  it("snapshots the customer billing address, service site, code and letter opening", async () => {
+    db.__seed("businesses", "b", { businessName: "Example Services" });
+    db.__seed("businesses/b/jobs", "j", { customerId: "c", title: "Entry service", address: "14 Service Avenue", clientName: "Customer" });
+    db.__seed("businesses/b/customers", "c", { address: "90 Billing Lane", customerCode: "EX01" });
+    db.__seed("businesses/b/documentTemplates", "invoice_opening", { kind: "invoice_opening", title: "Opening", sections: [{ id: "opening", body: "Completed {{description}} at {{serviceAt}} for {{customer.code}}." }], updatedAt: 1 });
+    const response = await POST(request({ businessId: "b" }), context);
+    expect(response.status).toBe(201);
+    expect((await response.json()).invoice).toMatchObject({ billTo: { address: "90 Billing Lane" }, serviceAt: "14 Service Avenue", customerCode: "EX01", description: "Entry service", opening: "Completed Entry service at 14 Service Avenue for EX01." });
+  });
   it.each(["lines", "project"] as const)("rebuilds an old zero draft from the accepted %s quote used on the report", async (priceMode) => {
     const lines = [{ lineId: "scope", kind: "other" as const, description: "Restore entrance surface", quantity: 1, unitPrice: 1760 }];
     const quote = { quoteId: "Q-8", status: "accepted", lines, hideMaterials: false, priceMode,

@@ -40,6 +40,9 @@ export interface JobInvoiceDiscount {
 }
 
 export interface JobInvoice {
+  serviceAt?: string;
+  description?: string;
+  customerCode?: string;
   invoiceId: string;   // "INV-1000+" via businesses/{bid}.invoiceCounter — see jobInvoiceNumber.ts
   businessId: string;
   jobId: string;

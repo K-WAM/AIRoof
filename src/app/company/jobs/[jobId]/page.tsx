@@ -212,6 +212,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
   // Bumped when the customer details are edited so the quote panel reloads its (server-updated) bill-to.
   const [clientVersion, setClientVersion] = useState(0);
+  const [invoiceCustomerDetails, setInvoiceCustomerDetails] = useState<Partial<JobInvoice>>({});
   const [invoiceMeta, setInvoiceMeta] = useState<Pick<JobInvoice, "sentAt" | "sentTo" | "paidAt">>({});
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
@@ -508,6 +509,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
         setInvoiceNotes(inv.notes ?? invoiceNotes);
         setInvoiceId(inv.invoiceId);
+        setInvoiceCustomerDetails(inv);
         setInvoiceStatus(inv.status);
         setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
         setInvoiceReady(true);
@@ -612,6 +614,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setInvoiceIssuedAt(inv.issuedAt ?? inv.createdAt);
       setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
       setInvoiceId(inv.invoiceId);
+        setInvoiceCustomerDetails(inv);
       setInvoiceStatus(inv.status);
       setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
       setJob((j) => (j && !j.invoiceId ? { ...j, invoiceId: inv.invoiceId } : j));
@@ -1577,6 +1580,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         <InvoiceMetaRow label="Due" value={due} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Terms" value={invoiceTerms} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Work order" value={jobId} accent={invoiceAccent} />
+                        {invoiceCustomerDetails.description && <InvoiceMetaRow label="Description" value={invoiceCustomerDetails.description} accent={invoiceAccent} />}
                         {invoicePoNumber && <InvoiceMetaRow label="PO number" value={invoicePoNumber} accent={invoiceAccent} />}
                         {job.serviceType && <InvoiceMetaRow label="Service" value={job.serviceType} accent={invoiceAccent} />}
                       </tbody>
@@ -1588,9 +1592,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <div className="invoice-editor-billto" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Bill To</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{job.clientName || "—"}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{invoiceCustomerDetails.billTo?.name || job.clientName || "—"}</div>
+                    {invoiceCustomerDetails.customerCode && <div>Customer ID: {invoiceCustomerDetails.customerCode}</div>}
                     {job.clientPhone && <div style={{ fontSize: 13, color: "#64748b" }}>{fmtPhone(job.clientPhone)}</div>}
-                    {job.address && <div style={{ fontSize: 13, color: "#64748b" }}>{job.address}</div>}
+                    {(invoiceCustomerDetails.billTo?.address ?? job.address) && <div style={{ fontSize: 13, color: "#64748b" }}>{invoiceCustomerDetails.billTo?.address ?? job.address}</div>}
                   </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Service At</div>
@@ -1879,8 +1884,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </p>
                 )}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
-                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
-                  billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
+                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Reference", "Work order " + jobId], ...(invoiceCustomerDetails.description ? [["Description", invoiceCustomerDetails.description] as [string, string]] : []), ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
+                  serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
+                  billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
                   howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
@@ -2238,7 +2244,7 @@ function InvoiceMetaRow({ label, value, accent }: { label: string; value: string
   return (
     <tr>
       <td style={{ padding: "1px 8px 1px 0", textAlign: "right", fontWeight: 700, color: accent, whiteSpace: "nowrap" }}>{label}:</td>
-      <td style={{ padding: "1px 0", textAlign: "left", color: "#1e293b", whiteSpace: "nowrap" }}>{value}</td>
+      <td style={{ padding: "1px 0", textAlign: "left", color: "#1e293b", overflowWrap: "anywhere" }}>{value}</td>
     </tr>
   );
 }

@@ -21,7 +21,9 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   const due = fmtDate(invoice.dueAt ?? invoice.issuedAt ?? invoice.createdAt, business.timezone ?? "America/New_York");
   const meta: [string, string][] = [["Date", issued], ["Number", invoice.invoiceId], ["Terms", invoice.terms ?? DEFAULT_INVOICE_COPY.terms], ["Due", due], ["Work order", invoice.jobId]];
   if (invoice.poNumber) meta.push(["PO number", invoice.poNumber]);
-  if (invoice.billTo.address) meta.push(["Service at", invoice.billTo.address]);
+  if (invoice.description !== undefined) meta.push(["Description", invoice.description]);
+  if (invoice.customerCode) meta.push(["Customer ID", invoice.customerCode]);
+  if (invoice.serviceAt === undefined && invoice.billTo.address) meta.push(["Service at", invoice.billTo.address]);
   if (invoice.showTechnicians && invoice.technicians?.length) meta.push(["Technicians", invoice.technicians.join(", ")]);
   const values = { businessName: business.businessName, address: invoice.billTo.address ?? "the service address", visitDate: issued, industryNoun: getVerticalTemplate(business.industry ?? "").vocab.jobNoun };
   const opening = invoice.opening ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.opening, values);
@@ -32,5 +34,5 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   // Tax/discount rows so the line subtotals visibly add up to Total Due; one Notes block, not three.
   const adjustments = adjustmentsBlock({ lineSum: groups.reduce((sum, group) => sum + group.subtotal, 0), subtotal: invoice.subtotal, taxRate: invoice.taxRate, taxAmount: invoice.taxAmount });
   const notes = [closing, thankYou, invoice.notes].map((text) => text?.trim()).filter(Boolean).join("\n\n");
-  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(groups) + adjustments + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, brand.brandColor) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), brand.brandColor) : "") + notesBlock(notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand));
+  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + (invoice.serviceAt === undefined ? "" : billToBlock({ name: invoice.serviceAt }, "Service at")) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(groups) + adjustments + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, brand.brandColor) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), brand.brandColor) : "") + notesBlock(notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand));
 }
