@@ -6,6 +6,8 @@ export type FinanceStatus = "paid" | "unpaid" | "partly_paid";
 export interface FinanceRow {
   invoiceNo: string;
   jobId?: string;
+  /** Imported history only: the matched customer, used to resolve the row's company. Not returned to screens. */
+  customerId?: string;
   /** The billing company this money row belongs to (effective id; missing = default). */
   companyId?: string;
   customer: string;

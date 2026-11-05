@@ -44,4 +44,52 @@ describe("ended call durability", () => {
     expect(mocks.lead).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ businessId: "biz", callId: "call_1", classification: { outcome: "scheduled", reason: "Booked" } }));
     expect(call()).toMatchObject({ outcome: "scheduled", outcomeReason: "Booked", messages: input.messages });
   });
+
+  describe("company attribution (T-317 fix)", () => {
+    const rdsf = { id: "rdsf", name: "Roof Pros South", shortName: "RDSF", isDefault: true };
+    const rcu = { id: "rcu", name: "Concepts Unlimited", shortName: "RCU" };
+    const attributedInput: EndedCallReportInput = { ...input, callerPhone: "+1 (555) 123-4567" };
+    const runAttributed = () => writeEndedCallReport(db as unknown as Firestore, attributedInput);
+
+    beforeEach(() => {
+      db.__seed("businesses", "biz", { businessName: "RoofDoctors", billingCompanies: [rdsf, rcu] });
+      db.__seed("businesses/biz/customers", "C-1", { phone: "+15551234567", companyId: "rcu", searchTokens: ["1234567"] });
+      mocks.classify.mockResolvedValue({ outcome: "scheduled", reason: "Booked" });
+    });
+
+    it("reads the business document once for attribution and classification", async () => {
+      const ref = db.collection("businesses").doc("biz");
+      const prototype = Object.getPrototypeOf(ref);
+      const originalGet = prototype.get;
+      let businessReads = 0;
+      const spy = vi.spyOn(prototype, "get").mockImplementation(function (this: { id: string }) {
+        if (this.id === "biz") businessReads += 1;
+        return originalGet.call(this);
+      });
+      try {
+        await runAttributed();
+        expect(call()).toMatchObject({ companyId: "rcu" });
+        expect(businessReads).toBe(1);
+      } finally { spy.mockRestore(); }
+    });
+
+    it("a failed company write is logged and never stops classification or the lead safety net", async () => {
+      const ref = db.collection("businesses").doc("biz").collection("calls").doc("call_1");
+      const prototype = Object.getPrototypeOf(ref);
+      const originalSet = prototype.set;
+      const failing = vi.spyOn(prototype, "set").mockImplementation(function (this: unknown, ...args: unknown[]) {
+        const [data] = args as [Record<string, unknown> | undefined];
+        if (data && typeof data === "object" && "companyId" in data && !("messages" in data)) return Promise.reject(new Error("write unavailable"));
+        return originalSet.apply(this, args);
+      });
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await runAttributed();
+        expect(mocks.classify).toHaveBeenCalledOnce();
+        expect(mocks.lead).toHaveBeenCalledOnce();
+        expect(call()).toMatchObject({ status: "ended", outcome: "scheduled", outcomeReason: "Booked", messages: input.messages });
+        expect(logged).toHaveBeenCalledWith("writeEndedCallReport: company attribution failed", expect.any(Error));
+      } finally { failing.mockRestore(); logged.mockRestore(); }
+    });
+  });
 });

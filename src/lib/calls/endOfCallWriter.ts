@@ -101,10 +101,22 @@ export async function writeEndedCallReport(
     { merge: true }
   );
 
+  // The business document is read once and reused: company attribution and outcome classification both need it.
+  let business: Record<string, unknown> | undefined;
+  try {
+    business = (await db.collection("businesses").doc(input.businessId).get()).data();
+  } catch (error) {
+    console.error("writeEndedCallReport: could not read the business for attribution", error);
+  }
+
   // Which company the caller belongs to (T-317). Bounded and non-fatal: no call is ever held up or failed by it, and
-  // a default-company/unknown caller writes no field at all.
-  const companyId = await withinBudget(findCallingCustomerCompanyId(db, input.businessId, input.callerPhone));
-  if (companyId) await callRef.set({ companyId }, { merge: true });
+  // a default-company/unknown caller writes no field at all. A failed write must not skip the work below.
+  try {
+    const companyId = await withinBudget(findCallingCustomerCompanyId(db, input.businessId, input.callerPhone, business));
+    if (companyId) await callRef.set({ companyId }, { merge: true });
+  } catch (error) {
+    console.error("writeEndedCallReport: company attribution failed", error);
+  }
 
   // Optional, bounded enrichment must never delay saving the provider facts.
   let outcome: string | null = null;
@@ -112,8 +124,7 @@ export async function writeEndedCallReport(
   let classification: CallOutcomeOutput | null = null;
   if (input.messages.length > 1) {
     try {
-      const bizSnap = await db.collection("businesses").doc(input.businessId).get();
-      const businessName = bizSnap.data()?.businessName ?? input.businessId;
+      const businessName = typeof business?.businessName === "string" ? business.businessName : input.businessId;
       classification = await classifyCallOutcome({
         transcript: input.messages.map((m) => ({ role: m.role, text: m.text })),
         businessName,

@@ -45,7 +45,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { Hint } from "@/components/ui/Hint";
 import { glossaryMeaning } from "@/lib/copy/glossary";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CompanyBadge } from "@/components/companies/CompanyBadge";
+import { CompanyBadge, CompanyBadgeRow, companyBadgeLabel } from "@/components/companies/CompanyBadge";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
@@ -871,7 +871,7 @@ export default function CalendarBoard() {
           })}
           {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
             <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><CompanyBadge companies={companies} companyId={job.companyId} /><span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span></span>
+            <CompanyBadgeRow companies={companies} companyId={job.companyId}><span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span></CompanyBadgeRow>
             <div className="c1-agenda-actions">
               {!readOnly && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
             </div>
@@ -1447,7 +1447,7 @@ function JobTile({ job, tz, crewGone, readOnly }: { job: Job; tz: string; crewGo
         {job.address && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>{job.address}</div>}
         {booked && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#0369a1", marginTop: 3 }}>Customer booked: {booked}</div>}
         {crewGone && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#b45309", marginTop: 3 }}>{readOnly ? `The office needs to assign an active ${resourceNoun}.` : `Its ${resourceNoun} was removed or turned off — drag it to another ${resourceNoun}`}</div>}
-        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 3 }}>{job.jobId}{companies && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 3 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
       </div>
     </div>
   );
@@ -1616,7 +1616,7 @@ function ScheduledTile({
             </div>
           )}
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
-          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}{companies && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>

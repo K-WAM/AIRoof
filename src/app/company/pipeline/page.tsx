@@ -24,6 +24,7 @@ import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
+import { linkedJobIds } from "@/lib/pipeline/linkedJobs";
 import { displayRequestState } from "@/lib/requests/displayState";
 import { fmtPhone } from "@/lib/format";
 import { contactPhone } from "@/lib/format/phone";
@@ -215,20 +216,29 @@ export default function PipelinePage() {
   const companies = bootstrapBusiness?.companies;
   const multiCompany = (companies?.length ?? 0) >= 2;
   // Multi-company only: which company each job was made under, so a booking/lead card linked to a job can show its
-  // badge. One read per visit; single-company clients never make it.
+  // badge. Looks up exactly the job ids those visible requests link to (batched) and refreshes with the list.
   const [jobCompanyIds, setJobCompanyIds] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!businessId || !multiCompany || !showJobActions) { setJobCompanyIds({}); return; }
+    const ids = linkedJobIds(leads, appointments);
+    if (ids.length === 0) { setJobCompanyIds({}); return; }
     let cancelled = false;
-    fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { jobs?: Array<{ jobId: string; companyId?: string }> }) => {
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+    Promise.all(chunks.map((chunk) =>
+      fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}&ids=${encodeURIComponent(chunk.join(","))}`)
+        .then((response) => (response.ok ? response.json() : Promise.reject()))
+    ))
+      .then((pages: Array<{ jobs?: Array<{ jobId: string; companyId?: string }> }>) => {
         if (cancelled) return;
-        setJobCompanyIds(Object.fromEntries((d.jobs ?? []).filter((j) => typeof j.companyId === "string").map((j) => [j.jobId, j.companyId!])));
+        setJobCompanyIds(Object.fromEntries(pages
+          .flatMap((page) => page.jobs ?? [])
+          .filter((job) => typeof job.companyId === "string")
+          .map((job) => [job.jobId, job.companyId!])));
       })
       .catch(() => { /* the card simply shows no badge */ });
     return () => { cancelled = true; };
-  }, [businessId, multiCompany, showJobActions]);
+  }, [businessId, multiCompany, showJobActions, leads, appointments]);
   const phoneLine = bootstrapBusiness?.phoneLine ?? null;
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);

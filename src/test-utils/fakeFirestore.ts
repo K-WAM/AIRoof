@@ -9,7 +9,7 @@
 // "clears nothing else" contract is observable in tests.)
 
 type DocData = Record<string, unknown>;
-type WhereOp = "==" | "array-contains" | "<" | "<=" | ">" | ">=";
+type WhereOp = "==" | "in" | "array-contains" | "<" | "<=" | ">" | ">=";
 
 interface StoredDoc {
   id: string;
@@ -37,6 +37,11 @@ export class FakeQuery {
     return new FakeQuery(this.store, this.path, this.filters, this.order, n);
   }
 
+  /** Field projection is irrelevant in memory; kept so route code using .select() is testable. */
+  select(..._fields: string[]): FakeQuery {
+    return new FakeQuery(this.store, this.path, this.filters, this.order, this.limitN);
+  }
+
   count() {
     return { get: async () => {
       const snapshot = await this.get();
@@ -50,6 +55,7 @@ export class FakeQuery {
       docs = docs.filter((d) => {
         const v = readPath(d.data, f.field);
         if (f.op === "==") return v === f.value;
+        if (f.op === "in") return Array.isArray(f.value) && f.value.includes(v);
         if (f.op === "array-contains") return Array.isArray(v) && v.includes(f.value);
         if (typeof v !== "number" || typeof f.value !== "number") return false;
         if (f.op === "<") return v < f.value;
@@ -208,6 +214,10 @@ export function makeFakeDb() {
   const db = {
     collection(name: string) {
       return new FakeCollectionRef(store, name);
+    },
+    /** Batched point reads (admin SDK db.getAll) — used when a route must fetch exactly the ids it was given. */
+    async getAll(...refs: FakeDocRef[]) {
+      return Promise.all(refs.map((ref) => ref.get()));
     },
     async runTransaction<T>(fn: (tx: {
       get: (ref: FakeDocRef | FakeQuery) => Promise<ReturnType<FakeStore["snapshotFor"]> | Awaited<ReturnType<FakeQuery["get"]>>>;

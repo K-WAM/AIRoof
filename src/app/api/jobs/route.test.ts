@@ -68,4 +68,19 @@ describe("GET /api/jobs paging", () => {
     const second = await list(`&status=complete&before=${first.body.nextBefore}`);
     expect(second.body.jobs).toHaveLength(3);
   });
+
+  it("reads exactly the job ids a caller asks for (Pipeline company badges)", async () => {
+    db.__seed("businesses/biz/jobs", "J-1", { createdAt: 1, status: "quoted", title: "Job 1", companyId: "rcu" });
+    const res = await GET(new NextRequest("http://localhost/api/jobs?businessId=biz&ids=J-1,missing,J-205"));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.jobs.map((job: { jobId: string }) => job.jobId).sort()).toEqual(["J-1", "J-205"]);
+    expect(body.jobs.find((job: { jobId: string }) => job.jobId === "J-1").companyId).toBe("rcu");
+  });
+
+  it("rejects an empty or oversized ids list", async () => {
+    expect((await list("&ids=")).status).toBe(400);
+    const tooMany = Array.from({ length: 101 }, (_, i) => `J-${i + 1}`).join(",");
+    expect((await list(`&ids=${tooMany}`)).status).toBe(400);
+  });
 });

@@ -22,6 +22,9 @@ describe("finance summary", () => {
 });
 
 describe("company attribution (T-317)", () => {
+  it("keeps the matched customerId on imported history rows", () => {
+    expect(rowsFromHistory([history({ customerId: "C-1" })])[0].customerId).toBe("C-1");
+  });
   it("carries the invoice's own company", () => {
     expect(rowsFromInvoices([invoice({ companyId: "rcu" })])[0].companyId).toBe("rcu");
   });

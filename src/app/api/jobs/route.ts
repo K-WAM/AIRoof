@@ -33,6 +33,19 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  // Pipeline badges: read exactly the jobs its visible requests link to, in one batched point-read list.
+  const idsRaw = req.nextUrl.searchParams.get("ids");
+  if (idsRaw !== null) {
+    const ids = [...new Set(idsRaw.split(",").map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0 || ids.length > 100 || ids.some((id) => id.length > 128 || id.includes("/"))) {
+      return NextResponse.json({ error: "Invalid ids" }, { status: 400 });
+    }
+    const snaps = await db.getAll(...ids.map((id) => db.collection(`businesses/${businessId}/jobs`).doc(id)));
+    return NextResponse.json(fieldResponse({
+      jobs: snaps.filter((snap) => snap.exists).map((snap) => ({ jobId: snap.id, ...snap.data() })),
+    }, gate.user));
+  }
+
   // Calendar's background refresh reads only changed jobs, using the automatic updatedAt index. The server
   // watermark is captured BEFORE the read so a concurrent write is included here or on the next tick.
   const updatedSinceRaw = req.nextUrl.searchParams.get("updatedSince");
