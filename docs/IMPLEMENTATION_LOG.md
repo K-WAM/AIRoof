@@ -2589,3 +2589,15 @@ never impersonation, and read-only for the whole session.
   code, or TODO.md. No .env or client-resources files read; no live service called; nothing pushed,
   merged or deployed. Removals: none.
 
+
+## 2026-11-05 - Integration: two companies (T-316/T-317), View as (T-318), review fixes, Feedback overlay fix
+Merged on local main (not pushed). T-316 (Codex Sol) and T-317 (DeepSeek) were cross-reviewed (DeepSeek reviewed Codex,
+Codex Terra reviewed DeepSeek); both verdicts "fix first", and DeepSeek fixed every finding: deposit switch validation,
+default text regenerated for the new company, no cross-company fallback for payment/address/license/logo (sending under
+a company with no payment details is refused), one company switch per screen ("Issued as X - Change"), sent documents
+never move, no extra Firestore reads for single-company tenants (read-count tests), collected-by-payment-date superadmin
+split, imported history follows its customer's company, call attribution can never break a call, Pipeline badges read
+exactly the linked jobs (GET /api/jobs?ids=, <=100, scoped), byCompany only for multi-company. T-318 View as: Codex
+started, hit the ChatGPT usage limit (resets Nov 8 2:58 PM), DeepSeek finished; Claude reviewed the guard changes.
+Feedback fix: the shell owns one Feedback window and closes the phone menu first (e2e/feedback-overlay.spec.ts). UX laws
+added to the standards repo (4 - UX Guidelines). Unit tests: 348 files, 2811 passed + 1 expected fail.
