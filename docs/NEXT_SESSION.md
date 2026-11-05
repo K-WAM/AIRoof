@@ -1,3 +1,17 @@
+## State 2026-11-05 (Claude K0) - Roof Doctors build merged locally, awaiting owner push approval
+
+- Merged on main, NOT pushed: K1 documents/deposits/letters (T-258, T-304a-f, T-257, T-259, T-255), K2 screens + Finances
+  and Payroll previews (T-286/251/299/300/288/287/294/301/285), K3-K6, T-306 evaluation guard (email + texts + outbound
+  calls), T-315 Pay now via Stripe Connect (4 independent reviews, all findings fixed; off until the owner sets it up:
+  docs/PAY-NOW.md).
+- Gates on the merged tree: tsc clean; vitest 2629 passed + 1 expected fail; next build OK; e2e:call 12/12; full
+  Playwright run + targeted reruns green (the 1.5 h full run's iPhone failures were expired sign-ins).
+- After the push: deploy Firestore rules separately (stripeConnect server-only) -
+  `firebase deploy --only firestore:rules --project business-expense-trackin-ef659`. LEGAL_VERSION is 2026-11-05 (Privacy
+  lists Stripe Connect), so each user's next sign-in records the new version.
+- Then (needs T-306 live first): create the roofdoctors workspace with outboundEmailAllowlist + outboundPhoneAllowlist set
+  BEFORE any import, import dry run -> owner OK -> apply, tailoring pack T-312, T-307 phone agent, T-305 seed job, T-298.
+
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
 > **2026-11-04 late evening — Roof Doctors build RUNNING (owner approved; Claude directs).** Wave 0 done on main (local, NOT
