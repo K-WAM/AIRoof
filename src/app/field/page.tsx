@@ -290,7 +290,7 @@ function FieldApp() {
 
           {!hasWorkerName && <p role="status" style={{ margin: 0, color: "#fbbf24" }}>Type your name above to start</p>}
           <div style={{ position: "relative" }}>
-            {!hasWorkerName && !!selectedJob?.findings?.length && <button type="button" aria-label="Type your name above to start" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
+            {!hasWorkerName && !!selectedJob?.findings?.length && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
             <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
           </div>
 
@@ -302,7 +302,7 @@ function FieldApp() {
           {/* 4. Notes — the composer shows the job + name before anything is said, and a receipt after */}
           <FieldOutbox />
           <div style={{ position: "relative" }}>
-          {!hasWorkerName && <button type="button" aria-label="Type your name above to start" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
+          {!hasWorkerName && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
           <FieldNoteComposer
             businessId={businessId || null}
             // The QR link already names the job: use it straight away, before the job details finish loading.
@@ -320,7 +320,7 @@ function FieldApp() {
 
           {/* Photo and Finding side by side */}
           {!privateDemo && <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {!hasWorkerName && <button type="button" aria-label="Type your name above to start" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
+            {!hasWorkerName && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
             <PhotoCapture
               jobId={selectedJobId || null}
               businessId={businessId}

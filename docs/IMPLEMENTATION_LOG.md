@@ -2172,3 +2172,5 @@ Added the owner and showcase gated endpoint and a filtered, sortable finance scr
 ## T-285 - Payroll preview (integration pending)
 
 Added an owner/showcase-gated, bounded punch endpoint and read-only period screen with CSV and disabled approval. Seeded invented history, properties and punches for the harness. The payroll summary remains a stub in this worktree and no payroll rates source exists in the agreed contract, so rows and pay estimates require integration. TypeScript, lint and route tests pass; browser verification pending. No removals.
+
+T-299 browser follow-up: the first final run found that the blocked-action accessible names also matched the name input locator. Renamed them to Go to name field; TypeScript and lint pass. The corrected selector has not been rerun in the browser.
