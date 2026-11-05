@@ -2164,3 +2164,7 @@ T-299 follow-up: name-blocked finding comments also point to the name; missing j
 ## T-300 - Hold to talk
 
 The shared composer labels the control, shows a timer and pulse while held, supports pointer and keyboard holds, and gives a quick-tap hint without starting a recording. The microphone starts after 500 ms; the hint tells workers to wait for it before speaking. TypeScript, lint and two focused tests pass; browser check follows. No removals.
+
+## T-294/T-301 - Finance screen and endpoint (integration pending)
+
+Added the owner and showcase gated endpoint and a filtered, sortable finance screen with CSV and calculation sheet. It uses the agreed finance math contract, which is still a stub in this worktree; it cannot show real numbers until the math stream is integrated. The shared FinanceRow contract lacks due date and days-late fields required by T-301, so those columns are not implemented. TypeScript, lint and related tests pass; browser verification pending. No removals.
