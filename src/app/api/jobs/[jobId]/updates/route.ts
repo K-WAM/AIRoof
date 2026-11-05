@@ -5,6 +5,7 @@ import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
 import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { recordUsage } from "@/lib/usage/meter";
+import { nonDefaultCompanyId } from "@/lib/business/companyAttribution";
 import { consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   // the same role. Ambiguous text stays undefined and parseFieldUpdate's own model call decides —
   // no extra LLM call either way, this is just a hint for its LANGUAGE instruction block.
   const detectedLanguage: string | undefined = (typeof language === "string" && /^[a-z]{2}$/.test(language) ? language : undefined) ?? detectLanguage(rawText.trim());
-  void recordUsage(db, businessId, { typedNotes: 1, notesRead: 1 });
+  void recordUsage(db, businessId, { typedNotes: 1, notesRead: 1 }, Date.now(), nonDefaultCompanyId(biz, jobSnap.data()?.companyId));
   let parsed;
   try {
     parsed = await parseFieldUpdate({

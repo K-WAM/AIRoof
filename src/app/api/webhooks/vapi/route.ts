@@ -28,6 +28,8 @@ import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AuditProviderIds, AuditResult } from "@/lib/audit";
+import { findCallingCustomerCompanyId } from "@/lib/calls/callCompany";
+import { withinBudget } from "@/lib/voice/returningCaller";
 import type { BusinessConfig } from "@/types";
 import type {
   VapiWebhookPayload,
@@ -562,6 +564,10 @@ async function handleEndOfCallReport(
     },
     { merge: true }
   );
+
+  // Which company the caller belongs to (T-317). Bounded and non-fatal; a default-company/unknown caller writes nothing.
+  const companyId = await withinBudget(findCallingCustomerCompanyId(db, businessId, message.call.customer?.number));
+  if (companyId) await callRef.set({ companyId }, { merge: true });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

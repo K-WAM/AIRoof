@@ -1,6 +1,7 @@
 import { idempotentFieldRequest } from "@/lib/offline/idempotency";
 import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 import { recordUsage } from "@/lib/usage/meter";
+import { nonDefaultCompanyId } from "@/lib/business/companyAttribution";
 import { consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
 
   // Whisper has been paid for by now; count it (and the read below) for the superadmin's Usage & costs page.
-  void recordUsage(db, businessId, { voiceNotes: 1, voiceSeconds: Math.round(audioSeconds), notesRead: 1 });
+  void recordUsage(db, businessId, { voiceNotes: 1, voiceSeconds: Math.round(audioSeconds), notesRead: 1 }, Date.now(), nonDefaultCompanyId(biz, jobSnap.data()?.companyId));
 
   const parseStart = Date.now();
   let parsed;
