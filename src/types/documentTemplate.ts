@@ -14,5 +14,8 @@ export interface ReportLetterOptions {
   layout?: "report" | "inspection_completion" | "repair_completion";
   locations?: string;
   noCharge?: boolean;
+  approvalDate?: string;
+  attention?: string;
+  poNumber?: string;
   logoId?: string | null;
 }

@@ -9,6 +9,8 @@ import type { JobQuote } from "@/types/quote";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { loadLetter } from "@/lib/documents/letterStore";
+import { isCompletion } from "@/lib/documents/completionLetter";
 
 // POST /api/jobs/[jobId]/report/send  body: { businessId, to, reportNotes? }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -51,6 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const bizName: string = biz.businessName ?? "Field Report";
   const projection = job.parsed ?? buildProjection(updatesSnap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[]);
   const html = buildJobReportEmailHtml({
+    reportDocument: job.reportDocument,
+    ...(isCompletion(job.reportDocument) ? { template: await loadLetter(db, businessId, job.reportDocument.layout) } : {}),
     business: biz,
     logos: (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [],
     jobId,

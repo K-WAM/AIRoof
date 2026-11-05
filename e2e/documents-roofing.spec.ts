@@ -2,6 +2,26 @@ import { api, must } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("repair completion lists locations and excludes all quote prices", async ({ as }) => {
+  const owner = await api("owner");
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Completion review", address: "14 Example Avenue", clientName: "Example Customer" }), "completion job");
+  const finding = { findingId: "f", category: "General", problem: "Worn entry", solution: "Restored entry", includeInReport: true, includeInQuote: true, addedAt: Date.now(), lines: [{ kind: "other", description: "Restore entry", quantity: 1, unitPrice: 1250.5 }] };
+  must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings: [finding], reportOptions: { includeQuote: true } }), "findings");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "quote");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: "completion@customer.e2e.test" }), "send quote");
+  must(await owner.patch(`/api/jobs/${job.jobId}/quote`, { businessId: B, status: "accepted" }), "accept quote");
+  must(await owner.put(`/api/jobs/${job.jobId}/report/settings`, { layout: "repair_completion", locations: "North entry\nSouth entry", noCharge: true }), "completion layout");
+  const page = await as("owner");
+  await page.goto(`/company/jobs/${job.jobId}?tab=report`);
+  await settle(page);
+  await expectHealthy(page);
+  await expect(page.locator(".report-doc")).toContainText("North entry");
+  await expect(page.locator(".report-doc")).toContainText("South entry");
+  await expect(page.locator(".report-doc")).toContainText("There is no charge");
+  await expect(page.locator(".report-doc")).not.toContainText("$1,250.50");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, "documents-completion");
+});
 test("proposal scope and T&M labor rates render on customer copies", async ({ as }) => {
   test.setTimeout(150_000);
   const owner = await api("owner");

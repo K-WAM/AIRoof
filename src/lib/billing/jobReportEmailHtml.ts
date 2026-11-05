@@ -9,9 +9,15 @@ import type { JobPhotoMeta, ParsedUpdate } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
 import type { JobQuote } from "@/types/quote";
 import type { JobFinding } from "@/types/workCatalog";
+import type { LetterTemplate, ReportLetterOptions } from "@/types/documentTemplate";
+import { DEFAULT_LETTERS } from "@/lib/documents/letters";
+import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
+import { letterHtml } from "@/lib/documents/letterHtml";
 
 export function buildJobReportEmailHtml(input: {
   business: LetterheadBusiness;
+  reportDocument?: ReportLetterOptions;
+  template?: LetterTemplate;
   logos: LibraryLogo[];
   jobId: string;
   title: string;
@@ -34,5 +40,10 @@ export function buildJobReportEmailHtml(input: {
   if (input.options?.showTechnicians && input.technicians?.length) meta.push(["Technicians", input.technicians.join(", ")]);
   const selectedFindings = (input.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));
   const photos = input.options?.showPhotos === false ? [] : input.photos ?? [];
+  if (isCompletion(input.reportDocument)) {
+    const kind = input.reportDocument!.layout as "inspection_completion" | "repair_completion";
+    const letter = completionLetter({ jobId: input.jobId, title: input.title, address: input.billTo.address, clientName: input.billTo.name, reportDocument: input.reportDocument }, input.business, input.template ?? DEFAULT_LETTERS[kind], Date.now());
+    return documentShell(letterheadBlock(brand, letter.title, meta) + billToBlock(input.billTo, "Prepared for") + letterHtml(letter) + (kind === "repair_completion" && input.reportDocument?.noCharge ? "<p>There is no charge.</p>" : "") + findingsBlock(selectedFindings) + photosBlock(photos) + footerBlock(brand));
+  }
   return documentShell(letterheadBlock(brand, "Report", meta) + billToBlock(input.billTo, "Prepared for") + narrativeBlock(stripHiddenFacts(input.narrative ?? "", input.options)) + findingsBlock(selectedFindings) + sectionsBlock(sections) + quoteSectionBlock(quoteSection, brand.brandColor) + photosBlock(photos) + footerBlock(brand));
 }

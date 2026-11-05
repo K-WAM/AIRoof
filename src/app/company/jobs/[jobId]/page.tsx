@@ -20,6 +20,10 @@ import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { canSendInvoice } from "./jobInvoice";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { ReportLayoutControls } from "./ReportLayoutControls";
+import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
+import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
+import { LetterBody } from "@/lib/documents/LetterBody";
 import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
@@ -1929,6 +1933,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div></details>
               </div>
 
+              <ReportLayoutControls jobId={jobId} address={job.address} value={job.reportDocument} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />
               <details className="no-print" style={{ marginBottom: 16 }}>
                 <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
@@ -2204,6 +2209,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   quote: JobQuote | null;
 }) {
   const { fmtDate } = useFormat();
+  const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
   const brand = resolveLetterhead(businessConfig ?? {}, logos);
@@ -2213,6 +2219,11 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));
+  if (isCompletion(job.reportDocument)) {
+    const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
+    const letter = completionLetter(job, businessConfig ?? {}, templates[kind], Date.now());
+    return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
+  }
   return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
     billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
     narrative={stripHiddenFacts(reportNotes, options)}

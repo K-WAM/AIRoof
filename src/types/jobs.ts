@@ -111,6 +111,7 @@ export interface JobStatusChange {
 }
 
 export interface Job {
+  reportDocument?: import("./documentTemplate").ReportLetterOptions;
   jobId: string;            // e.g. "J-1042"
   businessId: string;
   title: string;
