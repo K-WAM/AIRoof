@@ -22,7 +22,7 @@ import type { ProposedCorrection } from "@/types/jobs";
 export interface ComposerJob { jobId: string; title?: string; address?: string }
 export interface SavedReceipt { jobId: string; by?: string; summary: string; transcript?: string; updatedJob?: FieldAudioResult["updatedJob"] }
 
-const TAP_MS = 400;
+const HOLD_MS = 500;
 const card: React.CSSProperties = { borderRadius: 14, padding: "12px 14px", fontSize: 13, lineHeight: 1.45 };
 const ghostBtn: React.CSSProperties = {
   minHeight: 44, padding: "10px 14px", borderRadius: 12, border: "1px solid #334155", background: "transparent",
@@ -57,10 +57,19 @@ export function FieldNoteComposer({
   const [savingText, setSavingText] = useState(false);
   const [typedProposal, setTypedProposal] = useState<{ correction: ProposedCorrection; jobId: string } | null>(null);
   const [typedError, setTypedError] = useState<string | null>(null);
-  const tapMode = useRef(false);
-  const [tapping, setTapping] = useState(false); // mirrors tapMode for the label
-  const setTap = (on: boolean) => { tapMode.current = on; setTapping(on); };
-  const pressedAt = useRef(0);
+  const held = useRef(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const started = useRef<Promise<void> | null>(null);
+  const [holding, setHolding] = useState(false);
+  const [quickHint, setQuickHint] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
+  useEffect(() => {
+    if (!holding) return;
+    const startedAt = Date.now();
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 250);
+    return () => clearInterval(timer);
+  }, [holding]);
 
   // A different job clears what belonged to the last one: its receipt, a half-typed note's correction, any error.
   useEffect(() => { setReceipt(null); setTypedProposal(null); setTypedError(null); }, [jobId]);
@@ -81,23 +90,23 @@ export function FieldNoteComposer({
   }, [recording, maxRecordingSeconds]);
   const working = audio.status === "transcribing" || savingText;
   const ready = !!jobId && !blockedReason;
-  useEffect(() => { if (!recording && tapMode.current && audio.status !== null) setTap(false); }, [recording, audio.status]);
-
-  // Hold to talk, or tap once to start and tap again to stop — a quick tap no longer records half a second of nothing.
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (!ready || working) return;
-    if (recording && tapMode.current) { setTap(false); void audio.stopRecording(e); return; }
-    setReceipt(null);
-    pressedAt.current = Date.now();
-    setTap(false);
-    void audio.startRecording(e);
-  };
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (tapMode.current) return;
-    if (Date.now() - pressedAt.current < TAP_MS) { setTap(true); return; }
-    void audio.stopRecording(e);
-  };
-  const onPointerLeave = (e: React.PointerEvent) => { if (!tapMode.current && recording) void audio.stopRecording(e); };
+  // Delay the microphone until the hold is deliberate: a short tap never starts an upload.
+  function beginHold() {
+    if (!ready || working || held.current || started.current || audio.unsavedRecordingJobId) return;
+    held.current = true; setHolding(true); setQuickHint(false); setSeconds(0); setReceipt(null);
+    holdTimer.current = setTimeout(() => {
+      holdTimer.current = null;
+      started.current = audio.startRecording();
+    }, HOLD_MS);
+  }
+  function endHold() {
+    if (!held.current) return;
+    held.current = false; setHolding(false);
+    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null; setQuickHint(true); }
+    else if (started.current) { void started.current.then(() => stopVoice.current()).finally(() => { started.current = null; }); }
+  }
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); beginHold(); };
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => { e.preventDefault(); endHold(); };
 
   async function postTyped(body: Record<string, unknown>, targetJobId: string) {
     setSavingText(true); setTypedError(null);
@@ -143,9 +152,9 @@ export function FieldNoteComposer({
 
   const micLabel = !jobId ? "Pick a job above first"
     : blockedReason ? blockedReason
-    : recording ? (tapping ? "Recording… tap to stop" : "Listening… let go to save")
+    : holding ? `Release to send · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
     : audio.status === "transcribing" ? (audio.progress ?? "Saving…")
-    : "Hold to talk, or tap to start";
+    : quickHint ? "Keep holding while you talk, then let go to send" : "Hold to talk";
   const mismatch = !!jobId && !!clockedInJobId && clockedInJobId !== jobId;
 
   return (
@@ -167,31 +176,33 @@ export function FieldNoteComposer({
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 4 }}>
         <button
           type="button"
-          aria-label={recording ? "Stop recording" : "Record a voice note"}
+          aria-label={holding ? "Release to send" : "Hold to talk"}
           data-testid="note-mic"
           title={blockedReason || (!jobId ? "Pick a job above first" : audio.unsavedRecordingJobId ? "Retry saving the earlier recording first" : working ? "Please wait while the note is saved" : undefined)}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
-          onPointerLeave={onPointerLeave}
-          onPointerCancel={onPointerLeave}
+          onPointerCancel={onPointerUp}
+          onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); beginHold(); } }}
+          onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); endHold(); } }}
           onContextMenu={(e) => e.preventDefault()}
           disabled={!ready || working || !!audio.unsavedRecordingJobId}
           style={{
-            width: 112, height: 112, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-            border: recording ? "3px solid #f97316" : "2px solid #334155",
-            background: !ready || working ? "#1e293b" : recording ? "#f97316" : "var(--accent, #0f766e)",
-            boxShadow: recording ? "0 0 0 10px rgba(249,115,22,0.18)" : "0 6px 20px rgba(0,0,0,0.4)",
+            width: 112, height: 112, borderRadius: "50%", display: "flex", flexDirection: "column", gap: 4, alignItems: "center", justifyContent: "center",
+            border: holding ? "3px solid #f97316" : "2px solid #334155",
+            background: !ready || working ? "#1e293b" : holding ? "#f97316" : "var(--accent, #0f766e)",
+            boxShadow: holding ? "0 0 0 10px rgba(249,115,22,0.18)" : "0 6px 20px rgba(0,0,0,0.4)",
             cursor: !ready || working ? "not-allowed" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
-            transition: "background .15s, box-shadow .2s",
+            transition: "background .15s, box-shadow .2s", animation: holding ? "k2-mic-pulse 1s infinite alternate" : undefined,
           }}
         >
-          <Mic size={44} strokeWidth={1.75} color={!ready || working ? "#64748b" : "#fff"} />
+          <Mic size={36} strokeWidth={1.75} color={!ready || working ? "#64748b" : "#fff"} />
+          <span style={{ color: !ready || working ? "#94a3b8" : "#fff", fontSize: 12, fontWeight: 700 }}>{holding ? "Release to send" : "Hold to talk"}</span>
         </button>
         <p role="status" aria-live="polite" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: recording ? "#fdba74" : ready ? "#cbd5e1" : "#64748b", textAlign: "center" }}>
           {micLabel}
         </p>
-        {ready && !recording && !working && (
-          <p style={{ margin: 0, fontSize: 12, color: "#64748b", textAlign: "center" }}>What you used, who worked, what you found.</p>
+        {ready && !holding && !working && (
+          <p style={{ margin: 0, fontSize: 12, color: "#64748b", textAlign: "center" }}>Hold until recording starts, then talk. Release to send.</p>
         )}
       </div>
 

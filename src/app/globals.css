@@ -3753,4 +3753,5 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 /* === K2 screens === */
 :root { --z-modal: 2147483647; }
 .modal-overlay, .sheet-backdrop { z-index: var(--z-modal); }
+@keyframes k2-mic-pulse { from { opacity: 1; } to { opacity: .65; } }
 /* === end K2 === */
