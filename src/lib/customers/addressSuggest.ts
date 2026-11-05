@@ -1,0 +1,96 @@
+// Address suggestions for the job-create form: the addresses the business
+// already has for the selected customer — its saved properties, its own
+// address and the addresses of its past jobs. Pure and network-free so the
+// route, the component and the tests all agree on order, de-duplication and
+// filtering. No external address service is involved.
+import { normalizeName } from "@/lib/format/name";
+import type { CustomerProperty } from "@/types/customer";
+
+export interface AddressSuggestion {
+  address: string;
+  city?: string;
+  state?: string;
+  /** The saved property's own name ("Northside Plaza"), when the suggestion came from one. */
+  name?: string;
+}
+
+export interface AddressSuggestInput {
+  /** The customer's saved service addresses, in stored order. At most CUSTOMER_PROPERTIES_MAX are used. */
+  properties?: CustomerProperty[];
+  /** The customer's own address (Customer.address). */
+  customerAddress?: string;
+  /** Past job addresses, most recent first. */
+  jobAddresses?: string[];
+  /** What the user has typed. Empty means "everything", so the list can open on focus. */
+  query?: string;
+}
+
+export const ADDRESS_SUGGESTIONS_MAX = 8;
+
+/** Lowercase, fold accents and turn every non-letter/number run into one space. */
+function tokenize(value: string | undefined): string[] {
+  return normalizeName(value)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
+function clean(value: string | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function sameAddress(a: AddressSuggestion, b: AddressSuggestion): boolean {
+  const addressKey = (s: AddressSuggestion) => tokenize(s.address).join(" ");
+  if (addressKey(a) !== addressKey(b)) return false;
+  const cityKey = (s: AddressSuggestion) => tokenize(s.city).join(" ");
+  // A job/own address carries no city, so it can't contradict a saved property's city; two explicit
+  // different cities mean two different properties on the same street.
+  return cityKey(a) === "" || cityKey(b) === "" || cityKey(a) === cityKey(b);
+}
+
+function matches(suggestion: AddressSuggestion, queryTokens: string[]): boolean {
+  if (queryTokens.length === 0) return true;
+  const words = tokenize([suggestion.address, suggestion.city, suggestion.state, suggestion.name].filter(Boolean).join(" "));
+  return queryTokens.every((q) => words.some((word) => word.startsWith(q)));
+}
+
+/**
+ * De-duplicated suggestions in trust order — the most recent past job address
+ * first, then the customer's own address, then its saved properties — filtered
+ * by the typed text (any word order; punctuation and accents are ignored).
+ * At most ADDRESS_SUGGESTIONS_MAX, so the list stays a glance, not a directory.
+ */
+export function suggestAddresses(input: AddressSuggestInput): AddressSuggestion[] {
+  const candidates: AddressSuggestion[] = [];
+
+  for (const address of input.jobAddresses ?? []) {
+    const value = clean(address);
+    if (value) candidates.push({ address: value });
+  }
+
+  const own = clean(input.customerAddress);
+  if (own) candidates.push({ address: own });
+
+  for (const property of input.properties ?? []) {
+    const address = clean(property?.address);
+    if (!address) continue;
+    candidates.push({
+      address,
+      ...(clean(property.city) ? { city: clean(property.city) } : {}),
+      ...(clean(property.state) ? { state: clean(property.state) } : {}),
+      ...(clean(property.name) ? { name: clean(property.name) } : {}),
+    });
+  }
+
+  const queryTokens = tokenize(input.query);
+  const seen: AddressSuggestion[] = [];
+  for (const candidate of candidates) {
+    if (!matches(candidate, queryTokens)) continue;
+    if (seen.some((s) => sameAddress(s, candidate))) continue;
+    seen.push(candidate);
+    if (seen.length >= ADDRESS_SUGGESTIONS_MAX) break;
+  }
+
+  return seen;
+}
