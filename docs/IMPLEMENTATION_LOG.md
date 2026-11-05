@@ -2222,4 +2222,16 @@ Evidence: tsc clean; eslint 0 errors on the changed files (warnings: pre-existin
 no-img-element for the remote business logo); no unit test targets the shell, so vitest related found no test files.
 Visual check not run (this stream is barred from Playwright/e2e). No removals.
 
+## 2026-11-05 - T-250 narrowed Needs attention and setup next step (DeepSeek K6)
+
+The Dashboard's "Needs attention" section now shows only open (status new) requests that are escalated/urgent, asked
+for a call back (callbackState pending or callbackConsent), or have waited longer than ATTENTION_WAITING_MS
+(4 hours, one named constant). Each row states the reason in words ("Emergency call", "Urgent request", "Caller
+asked for a call back", "Waiting 6 h") instead of relying on a colour. Routine requests stay in Pipeline; no section
+or page was removed. The subtitle and the all-clear line use the same narrowed list. The setup card header now reads
+"Next: <step>" while collapsed (for example "Next: Add your first crew"), without opening the list.
+Evidence: new attention.test.ts covers the four-hour boundary, urgent/escalated, both callback signals, reason
+priority, non-open statuses and missing timestamps (8 tests). tsc clean; eslint 0 errors on changed files (one
+pre-existing useCallback dependency warning). No browser check (this stream runs no Playwright/e2e). No removals.
+
 
