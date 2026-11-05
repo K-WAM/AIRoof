@@ -456,12 +456,16 @@ async function loadCachedMember(
   return member;
 }
 
+// A view-as session is read-only from the moment it exists: no method that can change data or contact a customer
+// may run in it. This is the error every guard returns, so the app's normal error notice shows the same words.
+function viewAsReadOnly() {
+  return { error: NextResponse.json({ code: "view_as_read_only", error: VIEW_AS_READ_ONLY }, { status: 403, headers: { "Cache-Control": "private, no-store" } }) };
+}
+
 // Admin routes retain platform authority. A company projection carries the REAL actor uid,
 // but superadmin=false so every existing role, crew and product check treats it as a member.
 function viewAsGate(req: NextRequest, session: ViewAsSession, uid: string, allowedRoles: AllowedRole[]) {
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    return { error: NextResponse.json({ code: "view_as_read_only", error: VIEW_AS_READ_ONLY }, { status: 403, headers: { "Cache-Control": "private, no-store" } }) };
-  }
+  if (req.method !== "GET" && req.method !== "HEAD") return viewAsReadOnly();
   if (!allowedRoles.includes(session.role)) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   return { user: { uid, superadmin: false, viewAs: true, role: session.role, businessId: session.businessId,
     trade: session.trade, crewId: session.crewId, displayName: session.label } satisfies VerifiedUser };
@@ -520,6 +524,10 @@ async function verifyAuthAndRoleInner(
     if (!req.nextUrl.pathname.startsWith("/api/admin/")) {
       const viewed = await resolveViewAs(req, decoded);
       if (viewed && businessId === viewed.businessId) return viewAsGate(req, viewed, decoded.uid, allowedRoles);
+      // Platform-only routes (verifySuperadmin passes businessId "") have no tenant boundary to compare, but
+      // /api/tools/execute and the agent test endpoints can book or contact a customer. A write from a view-as
+      // tab must never be allowed to do that.
+      if (viewed && !businessId && req.method !== "GET" && req.method !== "HEAD") return viewAsReadOnly();
     }
     return { user: { uid: decoded.uid, email: decoded.email, superadmin: true } };
   }

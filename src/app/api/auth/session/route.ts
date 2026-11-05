@@ -14,7 +14,8 @@ export async function DELETE(req: NextRequest) {
       const ref = db.collection("viewAsSessions").doc(id);
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
-        if (snap.data()?.uid === decoded.uid) tx.update(ref, { endedAt: Date.now() });
+        const session = snap.data();
+        if (session?.uid === decoded.uid && session.endedAt === null) tx.update(ref, { endedAt: Date.now() });
       });
     }
     evictViewAs(id);

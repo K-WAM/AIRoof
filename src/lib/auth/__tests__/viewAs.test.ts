@@ -117,6 +117,12 @@ describe("real central guards under view-as", () => {
     expect(await verifyAuthAndRole(req("POST", "/api/admin/businesses/a/products"), "a", ["owner"])).toMatchObject({ user: { superadmin: true } });
     expect(await verifySuperadmin(req("POST", "/api/admin/view-as"))).toMatchObject({ user: { superadmin: true } });
   });
+  it("refuses writes on platform-only superadmin routes (tools/agent can contact a customer)", async () => {
+    for (const path of ["/api/tools/execute", "/api/agent/respond", "/api/agent/classify"]) {
+      await denied(await verifySuperadmin(req("POST", path)), VIEW_AS_READ_ONLY);
+    }
+    expect(await verifySuperadmin(req("GET", "/api/tools/execute"))).toMatchObject({ user: { superadmin: true } });
+  });
 });
 
 describe("start, end, menu and sign-out routes", () => {
@@ -183,7 +189,7 @@ describe("start, end, menu and sign-out routes", () => {
     expect(await resolve()).toBeNull(); expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
     expect((await DELETE(req("DELETE", "/api/admin/view-as"))).status).toBe(200);
     seedSession({ expiresAt: Date.now() - 1 }); expect((await DELETE(req("DELETE", "/api/admin/view-as"))).status).toBe(200);
-    const audit = await db.collection("adminAuditEvents").get(); expect(audit.docs.some((d) => d.data().action === "view_as.ended")).toBe(true);
+    const audit = await db.collection("adminAuditEvents").get(); expect(audit.docs.some((d) => d.data()?.action === "view_as.ended")).toBe(true);
   });
   it("cannot end somebody else's session, and clears sign-out cookies even for an expired login", async () => {
     await DELETE(req("DELETE", "/api/admin/view-as", "otherRoot")); expect(db.__peek("viewAsSessions", ID)).toHaveProperty("endedAt", null);

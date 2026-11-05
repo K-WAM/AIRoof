@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
       const record = await auth.getUser(doc.id);
       if (record.disabled || await isPlatformAccount({ getUser: async () => record }, doc.id, member)) return null;
     } catch { return null; }
-    return { uid: doc.id, label: `${member.displayName || "Team member"} — ${userTypeDef(userTypeOf(member)).label}` };
+    const type = userTypeOf({ role: member.role as string | undefined, trade: typeof member.trade === "string" ? member.trade : undefined });
+    return { uid: doc.id, label: `${member.displayName || "Team member"} — ${userTypeDef(type).label}` };
   }))).filter((member) => member !== null);
   return jsonWithCache({ types, members }, "noStore");
 }
@@ -91,7 +92,8 @@ export async function POST(req: NextRequest) {
     role = member.role;
     trade = typeof member.trade === "string" ? member.trade : undefined;
     crewId = typeof member.crewId === "string" ? member.crewId : undefined;
-    label = `${member.displayName || "Team member"} — ${userTypeDef(userTypeOf(member)).label}`;
+    const type = userTypeOf({ role: member.role as string | undefined, trade });
+    label = `${member.displayName || "Team member"} — ${userTypeDef(type).label}`;
   } else {
     const type = VIEW_AS_TYPES.find((type) => type.id === body.userType);
     if (!type) return NextResponse.json({ error: "Unknown user type." }, { status: 400 });

@@ -40,7 +40,9 @@ export async function resolveViewAs(req: NextRequest, verifiedUser: DecodedIdTok
   let hit = cache.get(id);
   if (!hit || hit.until <= now) {
     const db = getAdminFirestore();
-    if (!db) throw new Error("Database unavailable");
+    // No database means the projection cannot be verified. Resolve to no projection (the caller's own
+    // superadmin identity), never to a guessed role, and never leave a caller stuck on a 500.
+    if (!db) return null;
     const doc = await db.collection("viewAsSessions").doc(id).get();
     hit = { session: doc.exists ? doc.data() as ViewAsSession : null, until: now + 30_000 };
     if (cache.size >= 500) cache.clear();
@@ -48,6 +50,7 @@ export async function resolveViewAs(req: NextRequest, verifiedUser: DecodedIdTok
   }
   const s = hit.session;
   if (!s || s.uid !== verifiedUser.uid || s.endedAt !== null || !Number.isFinite(s.expiresAt) ||
-      now >= s.expiresAt || !s.businessId || !["owner", "staff", "crew", "viewer"].includes(s.role)) return null;
+      now >= s.expiresAt || typeof s.businessId !== "string" || !s.businessId ||
+      !["owner", "staff", "crew", "viewer"].includes(s.role)) return null;
   return s;
 }
