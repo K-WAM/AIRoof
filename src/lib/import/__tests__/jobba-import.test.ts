@@ -1,0 +1,15 @@
+import { expect, it } from "vitest";
+import { decodeCsvBuffer, parseCsv, parseMoney, parseUsDate, matchKey, mapCustomers, mapProperties, mapMaterials, mapInvoiceHistory, mapInspections } from "../../../../scripts/lib/jobba-import.mjs";
+it("strips BOM", () => expect(decodeCsvBuffer(Buffer.from([239,187,191,65]))).toBe("A"));
+it("parses quoted comma", () => expect(parseCsv('Name,Status\r\n"A, B",Yes')[0].Name).toBe("A, B"));
+it("parses quoted newline", () => expect(parseCsv('Name\n"A\nB"')[0].Name).toBe("A\nB"));
+it("parses escaped quote", () => expect(parseCsv('Name\n"A ""B"""')[0].Name).toBe('A "B"'));
+it("falls back to windows-1252", () => expect(decodeCsvBuffer(Buffer.from([0x92]))).toBe("’"));
+it.each([["$1,250.00",1250],["($25.00)",-25],["",0]])("parses money %s", (s,n) => expect(parseMoney(s)).toBe(n));
+it.each([["11/3/26",Date.UTC(2026,10,3,17)],["11/3/2026",Date.UTC(2026,10,3,17)],["",undefined]])("parses date %s", (s,n) => expect(parseUsDate(s,"America/New_York")).toBe(n));
+it.each([["Seagrass Property Group","seagrass property group|"],["  Élan  Inc ","elan inc|"],["The Roof Co","the roof co|"]])("matches %s", (name,key) => expect(matchKey({name})).toBe(key));
+it("merges customers", () => expect(mapCustomers([{Name:"Seagrass",Status:"Active"},{Name:"SEAGRASS",Status:"Active"}])).toHaveLength(1));
+it("caps properties", () => { const x=mapProperties(Array.from({length:501},()=>({Owner:"Seagrass"}))); expect(x.properties.get("seagrass|")).toHaveLength(500); expect(x.cut).toBe(1); });
+it("skips disabled materials", () => expect(mapMaterials([{Name:"Nail",Enabled:"No"},{Name:"Board",Enabled:"Yes","Std Cost":"3"}])).toEqual([{name:"Board",unit:"each",unitPrice:3}]));
+it("maps voided invoices", () => expect(mapInvoiceHistory([{ "Invoice ID":"1",Date:"11/3/26",Voided:"Yes","Amt Due":"12.50"}],"America/New_York")[0]).toMatchObject({id:"jobba-1",voided:true,amountDue:12.5}));
+it("maps inspections", () => expect(mapInspections([{ID:"1",Customer:"Seagrass",Due:"11/3/26"}],"America/New_York")[0]).toMatchObject({id:"jobba-1",customerName:"Seagrass",dueAt:Date.UTC(2026,10,3,17)}));
