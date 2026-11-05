@@ -2,6 +2,29 @@ import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("plain subjects keep quote and job numbers distinct", async ({ as }) => {
+  test.setTimeout(150_000);
+  const owner = await api("owner"), email = `copy-${Date.now()}@customer.e2e.test`;
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Entry service", clientName: "Example Customer", clientEmail: email }), "copy job");
+  must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings: [{ findingId: "f", category: "General", problem: "Entry condition", solution: "Restored entry", includeInReport: true, includeInQuote: true, addedAt: Date.now(), lines: [{ kind: "other", description: "Entry service", quantity: 1, unitPrice: 100 }] }] }), "copy finding");
+  const { quote } = must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "copy quote");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: email }), "quote email");
+  must(await owner.post(`/api/jobs/${job.jobId}/report/send`, { businessId: B, to: email }), "report email");
+  const { invoice } = must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "copy invoice");
+  must(await owner.post(`/api/jobs/${job.jobId}/invoice/send`, { businessId: B, to: email }), "invoice email");
+  must(await owner.post(`/api/jobs/${job.jobId}/invoice/payments`, { businessId: B, amount: invoice.total, method: "check" }), "receipt email");
+  const messages = await outbox({ to: email });
+  expect(messages).toHaveLength(4);
+  expect(messages.some(m => String(m.subject).startsWith("Your quote from ") && String(m.subject).includes(quote.quoteId))).toBe(true);
+  expect(messages.some(m => String(m.subject).startsWith("Your invoice from ") && String(m.subject).includes(invoice.invoiceId))).toBe(true);
+  expect(messages.some(m => String(m.subject).startsWith("Your Entry service report from "))).toBe(true);
+  expect(messages.some(m => String(m.subject).startsWith("Payment received by "))).toBe(true);
+  for (const message of messages) { expect(String(message.subject).length).toBeLessThanOrEqual(90); expect(String(message.html)).toContain("display:none;max-height:0"); }
+  const page = await as("owner"); await page.goto(`/company/jobs/${job.jobId}?tab=quote`); await settle(page);
+  await expect(page.locator(".quote-doc")).toContainText(`${quote.quoteId} · Job ${job.jobId}`);
+  await page.emulateMedia({ media: "print" });
+  await shot(page, "documents-quote-numbers-print");
+});
 test("one finding picker and one customer version card with thirty findings", async ({ as }) => {
   test.setTimeout(180_000);
   const owner = await api("owner");

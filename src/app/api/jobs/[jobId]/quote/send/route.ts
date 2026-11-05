@@ -13,6 +13,7 @@ import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { getAppUrl } from "@/lib/config/appUrl";
 import { newQuoteResponseToken, quoteResponseTokenHash, quoteResponseUrl } from "@/lib/billing/quoteResponse";
+import { documentEmailSubject } from "@/lib/documents/emailCopy";
 import { loadLetter } from "@/lib/documents/letterStore";
 import type { LetterRate } from "@/lib/documents/quoteLetter";
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
   }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") }, letterContext);
   const sent = await sendEmail({
-    to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
+    to, subject: documentEmailSubject("quote", businessName, job.title, quote.quoteId), html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
   });
   if (sent.status !== "delivered") {

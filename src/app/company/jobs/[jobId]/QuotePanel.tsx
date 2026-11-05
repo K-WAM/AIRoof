@@ -298,7 +298,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
   return <section className="panel">
     <div className="panel-header no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <h2 className="panel-title">Quote {quote?.quoteId ?? ""}</h2>
+      <h2 className="panel-title">Quote {quote?.quoteId ?? ""}{quote ? " · Job " + quote.jobId : ""}</h2>
       {quote && <span style={{ fontSize: 13, color: "var(--text-muted)" }} aria-live="polite">
         {draft ? (saveState === "saving" ? "Saving…" : dirty ? "Unsaved changes…" : "Saved ✓") : ""}
       </span>}
@@ -458,7 +458,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
         </>}
 
         <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3>{letterLayout ? <QuoteLetterPreview quote={customerQuote!} brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)} template={templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"]} rates={rates} photos={photos.filter(photo => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))} /> : <DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)}
-          meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
+          meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId + " · Job " + quote.jobId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
           billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />}</div>

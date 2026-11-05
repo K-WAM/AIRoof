@@ -9,6 +9,8 @@ import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceSto
 import type { LibraryLogo } from "@/types/library";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { documentEmailSubject } from "@/lib/documents/emailCopy";
+import { fmtDate } from "@/lib/format";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const sent = await sendEmail({
     to,
-    subject: `[Invoice] ${invoice.invoiceId} from ${bizName}`,
+    subject: documentEmailSubject("invoice", bizName, job.title, invoice.invoiceId, invoice.dueAt ? fmtDate(invoice.dueAt, biz.timezone ?? "America/New_York") : ""),
     html,
     fromName: bizName,
     replyTo: biz.contactEmail || biz.notificationEmail,

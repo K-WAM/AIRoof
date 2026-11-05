@@ -9,6 +9,7 @@ import type { JobQuote } from "@/types/quote";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { documentEmailSubject } from "@/lib/documents/emailCopy";
 import { loadLetter } from "@/lib/documents/letterStore";
 import { isCompletion } from "@/lib/documents/completionLetter";
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   });
 
   const sent = await sendEmail({
-    to, subject: `[Report] ${job.title ?? jobId} from ${bizName}`, html,
+    to, subject: documentEmailSubject("report", bizName, job.title ?? jobId), html,
     fromName: bizName, replyTo: biz.contactEmail || biz.notificationEmail,
   });
   if (sent.status !== "delivered") {

@@ -6,6 +6,7 @@
 // Pure rules + email builders only, so the payments route, the reminders cron and the Billing screen share ONE
 // definition of balance, overdue and "paid in full". Money is rounded to cents everywhere (roundCents).
 
+import { documentEmailSubject, documentPreheader } from "@/lib/documents/emailCopy";
 import type { BusinessConfig } from "@/types";
 import type { InvoicePayment, JobInvoice } from "@/types/invoice";
 import { escapeHtml } from "@/lib/documents/letterhead";
@@ -163,7 +164,7 @@ export function buildCustomerReceiptEmail(invoice: Pick<JobInvoice, "invoiceId" 
   const body = `<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Hi ${escapeHtml(invoice.billTo.name || "there")}, thank you — we received your payment.</p>
 <table style="width:100%;border-collapse:collapse;font-size:14px">${row("Invoice", invoice.invoiceId)}${row("Amount received", usd(payment.amount), true)}${row("Paid by", PAYMENT_METHOD_LABEL[payment.method as PaymentMethod] ?? "Other")}${row("Date", when)}${row("Balance remaining", usd(balanceAfter), true)}</table>
 <p style="margin:16px 0 0;font-size:14px;font-weight:600;color:${balanceAfter > 0 ? "#92400e" : "#15803d"}">${balanceAfter > 0 ? `${usd(balanceAfter)} is still due on this invoice.` : "Paid in full. Keep this email as your receipt."}</p>`;
-  return { subject: `[Receipt] Payment received — ${invoice.invoiceId}`, html: shell(business, "Payment received", body) };
+  return { subject: documentEmailSubject("receipt", business.businessName, "", invoice.invoiceId), html: shell(business, "Payment received", `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px">${escapeHtml(documentPreheader(business.businessName, "Thank you for your payment."))}</div>` + body) };
 }
 
 export function buildCustomerReminderEmail(invoice: Pick<JobInvoice, "invoiceId" | "billTo" | "dueAt">, balance: number, lateDays: number, business: PayBusiness, prefs: Pick<EffectiveBillingPrefs, "payInstructions" | "payLink">, timezone = "America/New_York") {

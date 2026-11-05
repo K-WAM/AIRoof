@@ -12,7 +12,7 @@ export function QuoteLetterPreview({ quote, brand, template, rates, photos }: { 
   const model = quoteLetter(quote, brand, template, rates);
   const tm = quote.layout === "tm_authorization";
   return <><div className="no-print">{model.letter.missing.length > 0 && <p role="status">Unfilled letter fields: {model.letter.missing.join(", ")}</p>}</div><DocumentPreview className="quote-doc" title={model.letter.title} brand={brand}
-    meta={[["Date", fmtDate(quote.createdAt, brand.timezone ?? "America/New_York")], ["Quote", quote.quoteId], ["Job", quote.jobId]]} billTo={quote.billTo} photos={photos}>
+    meta={[["Date", fmtDate(quote.createdAt, brand.timezone ?? "America/New_York")], ["Quote", quote.quoteId + " · Job " + quote.jobId]]} billTo={quote.billTo} photos={photos}>
     {quote.attention && <p>Attention: {quote.attention}</p>}
     <p><strong>RE:</strong> {[quote.serviceAt ?? quote.billTo.address, quote.description, `Work order ${quote.jobId}`].filter(Boolean).join(" · ")}</p>
     {quote.narrative && <p style={{ whiteSpace: "pre-wrap" }}>{quote.narrative}</p>}
