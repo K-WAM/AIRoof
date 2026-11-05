@@ -86,6 +86,7 @@ export interface JobInvoice {
   technicians?: string[];
   narrative?: string;
   logoId?: string | null; // null = business.logoUrl; undefined = no logo. Logo library not shipped yet (T-092 follow-up).
+  showFindingSections?: boolean;
   notes?: string;
   taxRate: number;
   discount?: JobInvoiceDiscount;

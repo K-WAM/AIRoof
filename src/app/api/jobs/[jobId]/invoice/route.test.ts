@@ -38,6 +38,12 @@ describe("Mark paid", () => {
 });
 
 describe("invoice document options", () => {
+  it("validates and saves the finding presentation without changing money", async () => {
+    expect((await PATCH(request({ businessId: "b", showFindingSections: "yes" }), context)).status).toBe(400);
+    const response = await PATCH(request({ businessId: "b", showFindingSections: false }), context);
+    expect(response.status).toBe(200);
+    expect((await response.json()).invoice).toMatchObject({ showFindingSections: false, total: 0 });
+  });
   it("snapshots the customer billing address, service site, code and letter opening", async () => {
     db.__seed("businesses", "b", { businessName: "Example Services" });
     db.__seed("businesses/b/jobs", "j", { customerId: "c", title: "Entry service", address: "14 Service Avenue", clientName: "Customer" });

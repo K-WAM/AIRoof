@@ -36,6 +36,10 @@ export function findingsBlock(findings: Array<{ problem: string; solution: strin
   return findings.length ? `<section style="padding:18px 0"><strong>Issues found &amp; work recommended</strong>${findings.map((finding) => `<p style="line-height:1.5"><strong>${escapeHtml(finding.problem)}</strong><br/>${escapeHtml(finding.solution)}${finding.note?.trim() ? `<br/><em style="color:#475569">Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em>` : ""}</p>`).join("")}</section>` : "";
 }
 
+export function findingSectionsBlock(findings: Array<{ category?: string; problem: string; solution: string; note?: string }>): string {
+  return findings.map((finding, index) => `<section style="padding:18px 0;white-space:pre-wrap"><h3>${escapeHtml(finding.category || `Finding ${index + 1}`)}</h3><p><strong>Problem:</strong> ${escapeHtml(finding.problem)}</p><p><strong>Corrective Action:</strong> ${escapeHtml(finding.solution)}</p>${finding.note?.trim() ? `<p><em>Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em></p>` : ""}</section>`).join("");
+}
+
 export function groupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0">${group.title === "Project price" ? "" : `<h3 style="font-size:13px;color:#334155">${group.title}</h3>`}<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.description)}${row.detail ? `<div style="font-size:11px;color:#64748b">${escapeHtml(row.detail)}</div>` : ""}</td><td style="${cell};text-align:right;font-weight:600">${money(row.amount)}</td></tr>`).join("")}</tbody></table>${group.title === "Project price" ? "" : `<div style="text-align:right;padding:8px 12px;font-weight:700">${group.title} subtotal: ${money(group.subtotal)}</div>`}</section>`).join("");
 }

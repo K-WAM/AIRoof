@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     licenseNumber: biz.licenseNumber,
     industry: biz.industry,
     timezone: biz.timezone,
-  }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
+  }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
   noticesForDocument({ doc: "invoice", total: invoice.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
   effectiveBillingPrefs(biz));

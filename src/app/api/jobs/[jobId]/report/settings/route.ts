@@ -12,6 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ jobI
   if (!body || typeof body !== "object" || Array.isArray(body)) return jsonWithCache({ error: "Invalid report settings" }, "noStore", { status: 400 });
   if (body.layout !== undefined && !["report", "inspection_completion", "repair_completion"].includes(body.layout)) return jsonWithCache({ error: "Invalid report layout" }, "noStore", { status: 400 });
   if (body.noCharge !== undefined && typeof body.noCharge !== "boolean") return jsonWithCache({ error: "Invalid no charge choice" }, "noStore", { status: 400 });
+  if (body.showFindingSections !== undefined && typeof body.showFindingSections !== "boolean") return jsonWithCache({ error: "Invalid finding sections choice" }, "noStore", { status: 400 });
   if (body.renewalMonth !== undefined && (typeof body.renewalMonth !== "string" || body.renewalMonth.length > 40)) return jsonWithCache({ error: "Invalid renewalMonth (maximum 40 characters)" }, "noStore", { status: 400 });
   if (body.priceMode !== undefined && body.priceMode !== "lines" && body.priceMode !== "project") return jsonWithCache({ error: "Invalid price presentation" }, "noStore", { status: 400 });
   for (const key of ["locations", "approvalDate", "attention", "poNumber"] as const) if (body[key] !== undefined && (typeof body[key] !== "string" || body[key]!.length > 4000)) return jsonWithCache({ error: `Invalid ${key}` }, "noStore", { status: 400 });
@@ -22,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ jobI
   const ref = db.collection(`businesses/${gate.user.businessId}/jobs`).doc(jobId);
   const snap = await ref.get();
   if (!snap.exists) return jsonWithCache({ error: "Job not found" }, "noStore", { status: 404 });
-  const settings = Object.fromEntries(["layout", "noCharge", "locations", "renewalMonth", "approvalDate", "attention", "poNumber", "logoId", "priceMode"].filter(k => body[k as keyof ReportLetterOptions] !== undefined).map(k => [k, body[k as keyof ReportLetterOptions]]));
+  const settings = Object.fromEntries(["layout", "noCharge", "locations", "renewalMonth", "showFindingSections", "approvalDate", "attention", "poNumber", "logoId", "priceMode"].filter(k => body[k as keyof ReportLetterOptions] !== undefined).map(k => [k, body[k as keyof ReportLetterOptions]]));
   const reportDocument = { ...snap.data()?.reportDocument, ...settings };
   await ref.update({ reportDocument, updatedAt: Date.now() });
   return jsonWithCache({ reportDocument }, "noStore");

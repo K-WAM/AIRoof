@@ -15,6 +15,7 @@ export interface ReportLetterOptions {
   layout?: "report" | "inspection_completion" | "repair_completion";
   locations?: string;
   renewalMonth?: string;
+  showFindingSections?: boolean;
   noCharge?: boolean;
   approvalDate?: string;
   attention?: string;

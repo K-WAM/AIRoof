@@ -16,6 +16,7 @@ it("returns authorization and validation failures", async () => {
   expect((await PUT(req({ locations: "x".repeat(4001) }), ctx)).status).toBe(400);
   expect((await PUT(req({ renewalMonth: "x".repeat(41) }), ctx)).status).toBe(400);
   expect((await PUT(req({ renewalMonth: 2026 }), ctx)).status).toBe(400);
+  expect((await PUT(req({ showFindingSections: "yes" }), ctx)).status).toBe(400);
 });
 it("stores a bounded renewal month", async () => {
   expect((await PUT(req({ renewalMonth: "September 2026" }), ctx)).status).toBe(200);

@@ -180,6 +180,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 }
 
 interface PatchBody {
+  showFindingSections?: boolean;
   logoId?: string | null;
   businessId?: string;
   /** Only "paid", and only from "sent" — the office's "Mark paid". */
@@ -218,6 +219,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return NextResponse.json({ error: "Invalid hideMaterials" }, { status: 400 });
   if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return NextResponse.json({ error: "Invalid hideLabor" }, { status: 400 });
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });
+  if (body.showFindingSections !== undefined && typeof body.showFindingSections !== "boolean") return NextResponse.json({ error: "Invalid showFindingSections" }, { status: 400 });
   if (body.priceMode !== undefined && body.priceMode !== "lines" && body.priceMode !== "project") return NextResponse.json({ error: "Invalid priceMode" }, { status: 400 });
   if (body.customerSubtotal !== undefined && !validCustomerSubtotal(body.customerSubtotal)) return NextResponse.json({ error: "Invalid customerSubtotal" }, { status: 400 });
   if (body.adjustmentNote !== undefined && (typeof body.adjustmentNote !== "string" || body.adjustmentNote.length > 1000 || /[<>\u0000-\u001f]/.test(body.adjustmentNote))) return NextResponse.json({ error: "Invalid adjustmentNote" }, { status: 400 });
@@ -318,6 +320,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const totals = customerTotals({ kind: "invoice", invoice: merged, priceMode, customerSubtotal });
 
   const patch: Partial<JobInvoice> = {
+    ...(body.showFindingSections !== undefined ? { showFindingSections: body.showFindingSections } : {}),
     ...(body.logoId !== undefined ? { logoId: body.logoId } : {}),
     ...merged,
     ...totals,
