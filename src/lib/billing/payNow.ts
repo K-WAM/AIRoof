@@ -10,7 +10,7 @@ export type PayNowBusiness = Pick<BusinessConfig, "products" | "billingPrefs" | 
 
 /** Server eligibility. Only sent invoices with an outstanding balance are payable. */
 export function payNowAvailability(business: PayNowBusiness, invoice: Pick<JobInvoice, "status" | "total" | "amountPaid" | "payLinkNonce" | "payLinkExpiresAt" | "companyId">, ids: { jobCompanyId?: unknown; customerCompanyId?: unknown } = {}): boolean {
-  if (isMultiCompany(business) && resolveDocumentCompany(business, { ...ids, documentCompanyId: invoice.companyId })?.id !== defaultCompany(business)?.id) return false;
+  if (isMultiCompany(business) && resolveDocumentCompany(business, { ...ids, documentCompanyId: invoice.companyId, documentStatus: invoice.status })?.id !== defaultCompany(business)?.id) return false;
   return productsOf(business).billing && business.stripeConfigured && getCapabilityStatus("payNow") === "configured"
     && business.stripeConnect?.chargesEnabled === true && !!business.stripeConnect.accountId
     && business.billingPrefs?.payNow === true && !isEvaluationBusiness(business)

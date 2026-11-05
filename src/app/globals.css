@@ -3823,6 +3823,16 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .company-toggle .button { min-height: var(--control-h); gap: var(--sp-1); }
 .company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); }
 .company-toggle img { height: 20px; max-height: 20px; max-width: 40px; width: auto; object-fit: contain; }
+.company-toggle__label { font-size: 13px; color: var(--text-muted); }
+.company-toggle > [role="radiogroup"] { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+
+/* A draft document's small issuer label; the menu changes THIS document only. */
+.document-company-control { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+.company-issuer { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--text-muted); cursor: pointer; text-align: left; }
+.company-issuer__change { color: var(--accent); text-decoration: underline; }
+.company-issuer__menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; min-width: 220px; display: grid; gap: 2px; padding: 6px; background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16); }
+.company-issuer__menu button { background: none; border: 0; border-radius: 6px; padding: 8px 10px; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+.company-issuer__menu button:hover, .company-issuer__menu button:focus-visible { background: var(--surface-2, #f1f5f9); }
 
 .company-brand-logos { display: flex; gap: var(--sp-1); width: 104px; flex: 0 1 104px; min-width: 0; align-items: center; }
 .company-brand-logos .company-brand-logo { flex: 1 1 0; min-width: 0; width: 0; height: 36px; max-width: 100%; object-fit: contain; }

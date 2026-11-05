@@ -58,8 +58,9 @@ it("multi-company Pay now belongs only to the default company's Stripe account",
   const b = { id: "rcu", name: "Concepts Unlimited", shortName: "RCU" };
   const multi = { ...business, billingCompanies: [a, b] };
   expect(payNowAvailability(multi, { ...invoice, companyId: "rcu" })).toBe(false);
-  expect(payNowAvailability(multi, invoice, { jobCompanyId: "rcu" })).toBe(false);
-  expect(payNowAvailability(multi, invoice, { customerCompanyId: "rcu" })).toBe(false);
+  // A sent invoice is frozen: with no company of its own it belongs to the default company, whatever the job now says.
+  expect(payNowAvailability(multi, invoice, { jobCompanyId: "rcu" })).toBe(true);
+  expect(payNowAvailability(multi, invoice, { customerCompanyId: "rcu" })).toBe(true);
   expect(payNowAvailability(multi, { ...invoice, companyId: "rdsf" }, { jobCompanyId: "rcu" })).toBe(true);
   expect(payNowAvailability(multi, invoice)).toBe(true);
   expect(payNowAvailability({ ...business, billingCompanies: [a] }, { ...invoice, companyId: "rcu" })).toBe(payNowAvailability(business, invoice));

@@ -13,7 +13,9 @@ import { addFindingToQuote, customFinding, findingFromCatalogItem, findingsMissi
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 import { quoteGroups } from "@/lib/documents/groups";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
-import { isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { resolvedQuoteNarrative, staleCompanyName } from "@/lib/companies/documentCopy";
+import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -76,7 +78,10 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const autoCreated = useRef(false);
   const creating = useRef<Promise<JobQuote | null> | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const quoteBrand = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: quote?.companyId, jobCompanyId: job.companyId }), logos, quote?.logoId);
+  const quoteCompany = resolveDocumentCompany(businessConfig, { documentCompanyId: quote?.companyId, jobCompanyId: job.companyId, documentStatus: quote?.status });
+  const quoteBrand = documentLetterhead(businessConfig ?? {}, quoteCompany, logos, quote?.logoId);
+  const displayNarrative = quote?.status === "draft" ? resolvedQuoteNarrative(quote, job, businessConfig ?? {}, quoteCompany?.name ?? "") : quote?.narrative;
+  const staleQuoteName = quote?.status === "draft" ? staleCompanyName(displayNarrative, companiesOf(businessConfig), quoteCompany?.id) : undefined;
   const draft = quote?.status === "draft" && !readOnly;
   const letterLayout = quote?.layout === "proposal" || quote?.layout === "tm_authorization";
   const { templates, error: letterError } = useLetterTemplates(letterLayout);
@@ -311,13 +316,13 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       </span>}
     </div>
     <div className="panel-body quote-panel-body" style={{ display: "grid", gap: 16 }}>
-      {quote && <DocumentCompanyControl jobId={job.jobId} kind="quote" companyId={quote.companyId} jobCompanyId={job.companyId} sent={quote.status !== "draft"} disabled={readOnly || busy || saveState === "saving"} onSaved={companyId => setQuote(q => q ? { ...q, companyId } : q)} />}
       {quote && <CustomerVersionPanel controls={<>        {!isMultiCompany(businessConfig) && <LogoPicker logos={logos} value={quote.logoId} disabled={!draft} onChange={logoId => change({ logoId })} />}
         <div className="no-print"><label>Layout<select aria-label="Quote layout" disabled={!draft} value={quote.layout ?? "itemized"} onChange={e => change({ layout: e.target.value as JobQuote["layout"], includeOptional: undefined })}><option value="itemized">Itemized quote</option><option value="proposal">Proposal letter</option><option value="tm_authorization">T&amp;M authorization</option></select></label>
         {letterLayout && <><label>Attention<input value={quote.attention ?? ""} disabled={!draft} onChange={e => change({ attention: e.target.value })} /></label><label>Description<input value={quote.description ?? job.title} disabled={!draft} onChange={e => change({ description: e.target.value })} /></label>
         {templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.optional).map(s => <label key={s.id}><input type="checkbox" disabled={!draft} checked={(quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id)).includes(s.id)} onChange={e => { const ids = quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id); change({ includeOptional: e.target.checked ? [...ids, s.id] : ids.filter(id => id !== s.id) }); }} /> {s.heading || s.id}</label>)}</>}
         {(letterError || ratesError) && <p role="alert">{letterError || ratesError}</p>}</div></>} intro={<>          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-            <textarea aria-label="Intro text" maxLength={4000} rows={4} disabled={!draft} value={quote.narrative ?? ""} onChange={(e) => change({ narrative: e.target.value })} style={{ width: "100%" }} />
+            {staleQuoteName && <InlineNotice message={`This text mentions ${staleQuoteName} — check it before sending`} />}
+            <textarea aria-label="Intro text" maxLength={4000} rows={4} disabled={!draft} value={displayNarrative ?? ""} onChange={(e) => change({ narrative: e.target.value })} style={{ width: "100%" }} />
             {draft && <div><button className="button small" type="button" onClick={() => change({ narrative: draftQuoteIntro(job, quote.findings, quoteBrand.businessName) })}>Rewrite from the items above</button></div>}
           </div>
 </>} more={<>          <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
@@ -383,6 +388,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
 
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <DocumentCompanyControl jobId={job.jobId} kind="quote" companyId={quote.companyId} jobCompanyId={job.companyId} sent={quote.status !== "draft"} disabled={readOnly || busy || saveState === "saving"} onSaved={(companyId, copy) => setQuote(q => q ? { ...q, companyId, ...(copy?.narrative !== undefined ? { narrative: copy.narrative } : {}) } : q)} />
           {draft && <>
             <textarea rows={2} aria-label="Quote recipient emails" inputMode="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Emails, separated by commas (up to 5)" style={{ flex: "1 1 220px" }} />
             <button className="button primary" type="button" disabled={busy || quote.lines.length === 0} onClick={() => void send()}>Send quote</button>
@@ -467,7 +473,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
         <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3>{letterLayout ? <QuoteLetterPreview quote={customerQuote!} brand={quoteBrand} template={templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"]} rates={rates} photos={photos.filter(photo => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))} /> : <DocumentPreview className="quote-doc" title="Quote" brand={quoteBrand}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId + " · Job " + quote.jobId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
-          billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
+          billTo={quote.billTo} narrative={displayNarrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: quoteBrand.businessName, licenseNumber: quoteBrand.licenseNumber } })} />}</div>
         {draft ? <label className="no-print">Notes<textarea value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>

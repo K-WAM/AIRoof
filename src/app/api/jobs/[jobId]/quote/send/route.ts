@@ -7,6 +7,7 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
 import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { resolvedQuoteNarrative } from "@/lib/companies/documentCopy";
 import { isMultiCompany } from "@/lib/companies/companies";
 import { claimDocumentCompany, finishDocumentCompany } from "@/lib/companies/documentSend";
 import { noticesForDocument } from "@/lib/documents/notices";
@@ -75,7 +76,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     template: await loadLetter(db, businessId, quote.layout),
     rates: ((await db.collection(`businesses/${businessId}/library`).doc("pricing").get()).data()?.laborRates ?? []) as LetterRate[],
   } : undefined;
-  const html = buildQuoteEmailHtml(quote, {
+  const sendableQuote = { ...quote, narrative: resolvedQuoteNarrative(quote, job, storedBusiness, businessName) };
+  const html = buildQuoteEmailHtml(sendableQuote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
   }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") }, letterContext);

@@ -16,11 +16,17 @@ test("two companies share the shell, drafts follow the job, and sent invoices ke
   await expect(brand.getByRole("img", { name: "Roof Pros South logo", exact: true })).toBeInViewport();
   await expect(brand.getByRole("img", { name: "Concepts Unlimited logo", exact: true })).toBeInViewport();
   await expect(brand.locator("img").first()).toHaveAttribute("alt", "Roof Pros South logo");
-  const jobSwitch = page.locator("header.page-header").getByRole("radiogroup", { name: "Company", exact: true });
+  await expect(page.locator("header.page-header").getByText("Company", { exact: true })).toBeVisible();
+  const jobSwitch = page.locator("header.page-header").getByRole("radiogroup", { name: "Company for this job", exact: true });
   await expect(jobSwitch.getByRole("radio", { name: "RCU", exact: true })).toBeChecked();
   await expect(page.locator(".invoice-doc")).toContainText("Concepts Unlimited");
+  // The draft's only per-document control is the small issuer label (not a second switch/radiogroup).
+  await expect(page.getByRole("button", { name: /Issued as RCU/ })).toBeVisible();
+  await expect(page.getByRole("radiogroup")).toHaveCount(1);
   await jobSwitch.getByRole("radio", { name: "RDSF", exact: true }).click();
   await expect(jobSwitch.getByRole("radio", { name: "RDSF", exact: true })).toBeChecked();
+  await expect(page.getByRole("button", { name: /Issued as RDSF/ })).toBeVisible();
+  await expect(page.getByRole("radiogroup")).toHaveCount(1);
   await expect(page.locator(".invoice-doc")).toContainText("Roof Pros South");
   await expect(page.locator(".invoice-doc")).toContainText("Sample RDSF bank transfer instructions");
   await expect(page.locator(".invoice-doc")).not.toContainText("Sample RCU bank transfer instructions");
@@ -53,7 +59,8 @@ test("a single-company owner gets no company switch or extra companies request",
   page.on("request", request => { if (new URL(request.url()).pathname === "/api/company/companies") companyRequests.push(request.url()); });
   await page.goto(`/company/jobs/${job.jobId}`);
   await expect(page.getByRole("heading", { name: "Single company review" })).toBeVisible();
-  await expect(page.getByRole("radiogroup", { name: "Company", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("radiogroup", { name: "Company for this job", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Issued as |Sent as /)).toHaveCount(0);
   await expectHealthy(page);
   await shot(page, "companies-single-job");
   await page.goto("/company/library?section=branding");

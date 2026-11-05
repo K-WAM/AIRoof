@@ -29,7 +29,9 @@ import { LetterBody } from "@/lib/documents/LetterBody";
 import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
-import { isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { resolvedInvoiceCopy, staleCompanyName } from "@/lib/companies/documentCopy";
+import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { noticeApproval, noticesForDocument } from "@/lib/documents/notices";
@@ -995,7 +997,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // tenants will only ever have the one from Settings, so this is a strict upgrade, never a
   // regression: no library logo just means the same fallback as before it existed.
   const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
-  const invoiceLetterhead = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: invoiceCustomerDetails.companyId, jobCompanyId: job.companyId }), logos, invoiceLogoId);
+  const invoiceCompany = resolveDocumentCompany(businessConfig, { documentCompanyId: invoiceCustomerDetails.companyId, jobCompanyId: job.companyId, documentStatus: invoiceStatus ?? undefined });
+  const invoiceLetterhead = documentLetterhead(businessConfig ?? {}, invoiceCompany, logos, invoiceLogoId);
+  const invoiceCompanies = companiesOf(businessConfig);
+  const invoiceDisplayCopy = invoiceStatus === "draft"
+    ? resolvedInvoiceCopy({ closing: invoiceClosing, thankYou: invoiceThankYou, createdAt: invoiceIssuedAt ?? Date.now() }, businessConfig ?? {}, job, invoiceCompany?.name ?? "")
+    : { closing: invoiceClosing, thankYou: invoiceThankYou };
+  const staleInvoiceName = invoiceStatus === "draft"
+    ? [invoiceOpening, invoiceDisplayCopy.closing, invoiceDisplayCopy.thankYou].map(text => staleCompanyName(text, invoiceCompanies, invoiceCompany?.id)).find(Boolean)
+    : undefined;
+  const reportCompany = resolveDocumentCompany(businessConfig, { documentCompanyId: job.reportDocument?.companyId, jobCompanyId: job.companyId, documentStatus: job.reportDocument?.sentAt ? "sent" : "draft" });
+  const staleReportName = !job.reportDocument?.sentAt ? staleCompanyName(reportNotes, companiesOf(businessConfig), reportCompany?.id) : undefined;
   const invoiceBizName = invoiceLetterhead.businessName ?? job.title;
   const invoiceLogoSrc = invoiceLetterhead.logoUrl;
   const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, discount: invoiceDiscount, hideMaterials, hideLabor, priceMode: invoicePriceMode, subtotal, total: grandTotal, laborSubtotal, materialSubtotal, otherSubtotal } as JobInvoice;
@@ -1076,7 +1088,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             {job.title}
             <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" || job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
           </h1>
-          <CompanyToggle companies={companies} value={job.companyId} disabled={companySaving || !(user?.role === "owner" || user?.role === "staff")} onChange={id => void changeJobCompany(id)} />
+          <CompanyToggle companies={companies} value={job.companyId} label="Company" ariaLabel="Company for this job" disabled={companySaving || !(user?.role === "owner" || user?.role === "staff")} onChange={id => void changeJobCompany(id)} />
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
             onSaved={(client) => { setJob((current) => current ? { ...current, ...client } : current); setClientVersion((v) => v + 1); }} />
@@ -1463,8 +1475,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
-              <DocumentCompanyControl jobId={jobId} kind="invoice" companyId={invoiceCustomerDetails.companyId} jobCompanyId={job.companyId} sent={invoiceStatus !== "draft"} disabled={readOnly || invoiceSaving || sending} onSaved={companyId => setInvoiceCustomerDetails(current => ({ ...current, companyId }))} />
-              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<>{!isMultiCompany(businessConfig) && <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />}{!!job.findings?.length && <label><input type="checkbox" checked={invoiceShowFindingSections !== false} disabled={readOnly || invoiceStatus !== "draft"} onChange={e => setInvoiceShowFindingSections(e.target.checked)} /> Show findings as Problem / Corrective Action</label>}</>} intro={<div className="no-print" style={{ marginBottom: 20 }}>
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<>{!isMultiCompany(businessConfig) && <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />}{!!job.findings?.length && <label><input type="checkbox" checked={invoiceShowFindingSections !== false} disabled={readOnly || invoiceStatus !== "draft"} onChange={e => setInvoiceShowFindingSections(e.target.checked)} /> Show findings as Problem / Corrective Action</label>}</>} intro={                <div className="no-print" style={{ marginBottom: 20 }}>
+                  {staleInvoiceName && <InlineNotice message={`This text mentions ${staleInvoiceName} — check it before sending`} />}
                   <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
                   <textarea id="invoiceOpening" disabled={readOnly || invoiceStatus !== "draft"} rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
                   <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
@@ -1504,7 +1516,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus === "draft" ? "Draft" : invoiceStatus === "sent" ? "Sent" : invoiceStatus === "void" ? "Void" : invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
-
+                  <DocumentCompanyControl jobId={jobId} kind="invoice" companyId={invoiceCustomerDetails.companyId} jobCompanyId={job.companyId} sent={invoiceStatus !== "draft"} disabled={readOnly || invoiceSaving || sending} onSaved={(companyId, copy) => {
+                    setInvoiceCustomerDetails(current => ({ ...current, companyId }));
+                    if (copy?.opening !== undefined) setInvoiceOpening(copy.opening);
+                    if (copy?.closing !== undefined) setInvoiceClosing(copy.closing);
+                    if (copy?.thankYou !== undefined) setInvoiceThankYou(copy.thankYou);
+                  }} />
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {invoiceStatus === "draft" && canSendInvoices && <button className={showSendPanel ? "button" : "button primary"} onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1930,7 +1947,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Reference", "Work order " + jobId], ...(invoiceCustomerDetails.description ? [["Description", invoiceCustomerDetails.description] as [string, string]] : []), ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
                   depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
-                  billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
+                  billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceDisplayCopy.closing} thankYou={invoiceDisplayCopy.thankYou}
                   findingSections={invoiceShowFindingSections !== false} findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
                   howToPay={invoiceStatus !== "paid" && hasBilling && invoiceLetterhead.billingPrefs ? { instructions: invoiceLetterhead.billingPrefs.payInstructions ?? "", link: invoiceLetterhead.billingPrefs.payLink ?? "" } : null}
@@ -1969,8 +1986,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
-              <DocumentCompanyControl jobId={jobId} kind="report" companyId={job.reportDocument?.companyId} jobCompanyId={job.companyId} sent={!!job.reportDocument?.sentAt} disabled={readOnly || reportSending} onSaved={companyId => setJob(current => current ? { ...current, reportDocument: { ...current.reportDocument, companyId } } : current)} />
-              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls showLogoPicker={!isMultiCompany(businessConfig)} hasFindings={!!job.findings?.length} jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={<div style={{ marginBottom: 16 }} className="no-print">
+              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls showLogoPicker={!isMultiCompany(businessConfig)} hasFindings={!!job.findings?.length} jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={              <div style={{ marginBottom: 16 }} className="no-print">
+                {staleReportName && <InlineNotice message={`This text mentions ${staleReportName} — check it before sending`} />}
                 <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
                 <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
                 {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
@@ -1990,6 +2007,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }} />
                 </div>} />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
+                <DocumentCompanyControl jobId={jobId} kind="report" companyId={job.reportDocument?.companyId} jobCompanyId={job.companyId} sent={!!job.reportDocument?.sentAt} disabled={readOnly || reportSending} onSaved={companyId => setJob(current => current ? { ...current, reportDocument: { ...current.reportDocument, companyId } } : current)} />
                 {!readOnly && <button className={showReportSend ? "button" : "button primary"} onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo) setReportTo(job?.documentRecipients?.join(", ") || job?.clientEmail || ""); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Send size={14} strokeWidth={1.75} />
                   Mail report
@@ -2262,7 +2280,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
-  const brand = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: job.reportDocument?.companyId, jobCompanyId: job.companyId }), logos, job.reportDocument?.logoId);
+  const brand = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: job.reportDocument?.companyId, jobCompanyId: job.companyId, documentStatus: job.reportDocument?.sentAt ? "sent" : "draft" }), logos, job.reportDocument?.logoId);
   const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
   // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
   const quoteSection = reportQuoteSection(quote, { ...options, priceMode: job.reportDocument?.priceMode }, fmtDate);

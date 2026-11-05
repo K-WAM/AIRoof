@@ -54,6 +54,9 @@ async function linkedQuote(input: Input) {
 }
 
 async function publicBrand(linked: NonNullable<Awaited<ReturnType<typeof linkedQuote>>>, input: Input): Promise<string> {
+  // The quote froze its company when it was sent. No company id means a single-company workspace (or a legacy quote):
+  // print today's page exactly as before, with no business-document read at all.
+  if (typeof linked.quote.companyId !== "string") return "";
   const business = (await linked.db.collection("businesses").doc(input.businessId).get()).data() ?? {};
   if (!isMultiCompany(business)) return "";
   const logos = ((await linked.db.collection(`businesses/${input.businessId}/library`).doc("logos").get()).data()?.logos ?? []) as LibraryLogo[];

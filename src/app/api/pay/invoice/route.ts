@@ -72,7 +72,8 @@ export async function GET(req: NextRequest) {
     const due = invoice.dueAt ? new Date(invoice.dueAt).toLocaleDateString("en-US", { timeZone: business.timezone || "America/New_York", year: "numeric", month: "long", day: "numeric" }) : "On receipt";
     const fields = Object.entries(input).map(([name, value]) => `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`).join("");
     const buttonStyle = "display:block;width:100%;min-height:48px;padding:12px;margin-top:12px;border:1px solid #0f766e;border-radius:8px;font-size:16px;cursor:pointer";
-    return page(link.name, `${link.company ? letterheadBlock(brand, "", []) : safeLogo}<p>Invoice ${escapeHtml(invoice.invoiceId)}</p><p style="font-size:28px;font-weight:bold">${escapeHtml(fmtMoney(invoiceBalance(invoice)))} due</p><p>Due: ${escapeHtml(due)}</p><form method="post" action="/api/pay/invoice">${fields}<button type="submit" name="method" value="card" style="${buttonStyle};background:#0f766e;color:white">Pay by card</button><button type="submit" name="method" value="us_bank_account" style="${buttonStyle};background:white;color:#0f766e">Pay by bank (ACH)</button></form>`);
+    // The letterhead already prints the company's identity; the page heading must not print it a second time.
+    return page(link.company ? "Pay invoice" : link.name, `${link.company ? letterheadBlock(brand, "", []) : safeLogo}<p>Invoice ${escapeHtml(invoice.invoiceId)}</p><p style="font-size:28px;font-weight:bold">${escapeHtml(fmtMoney(invoiceBalance(invoice)))} due</p><p>Due: ${escapeHtml(due)}</p><form method="post" action="/api/pay/invoice">${fields}<button type="submit" name="method" value="card" style="${buttonStyle};background:#0f766e;color:white">Pay by card</button><button type="submit" name="method" value="us_bank_account" style="${buttonStyle};background:white;color:#0f766e">Pay by bank (ACH)</button></form>`);
   } catch { return unavailable(); }
 }
 

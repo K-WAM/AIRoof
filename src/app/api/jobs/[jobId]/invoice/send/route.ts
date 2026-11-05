@@ -6,6 +6,12 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
 import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { resolvedInvoiceCopy, refreshGeneratedText } from "@/lib/companies/documentCopy";
+import { companiesOf, isMultiCompany } from "@/lib/companies/companies";
+import { depositOpeningText, invoiceOpeningText } from "@/lib/companies/documentOpening";
+import { loadLetter } from "@/lib/documents/letterStore";
+import type { Customer } from "@/types/customer";
+import type { JobQuote } from "@/types/quote";
 import { noticesForDocument } from "@/lib/documents/notices";
 import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import type { LibraryLogo } from "@/types/library";
@@ -66,7 +72,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const storedBusiness = bizDoc.exists ? bizDoc.data()! : {};
-  const biz = documentLetterhead(storedBusiness, await loadDocumentCompany(db, businessId, storedBusiness, invoice, job), (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
+  const resolvedCompany = await loadDocumentCompany(db, businessId, storedBusiness, invoice, job);
+  const biz = documentLetterhead(storedBusiness, resolvedCompany, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
+  // A company has to say how a customer pays IT. Without either field there is nothing safe to print, so refuse
+  // instead of falling back to another company's (or the business's) bank account.
+  if (resolvedCompany && !biz.billingPrefs?.payInstructions?.trim() && !biz.billingPrefs?.payLink?.trim()) {
+    return NextResponse.json({ error: `Add ${resolvedCompany.shortName}'s payment details first (Library → Branding).` }, { status: 409 });
+  }
   // Prepare the claimed link for delivery; it becomes payable only after finalization marks it sent.
   const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
   const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;
@@ -81,7 +93,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
   const selected = await loadDocumentPhotos(db, businessId, jobId, photoIds, metas);
   if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
-  const html = buildJobInvoiceEmailHtml(invoice, {
+  // A draft's generated copy follows the company resolved for THIS send (a job switch can move it); edited text is kept.
+  let opening = invoice.opening;
+  if (invoice.status === "draft" && isMultiCompany(storedBusiness) && invoice.opening) {
+    const companies = companiesOf(storedBusiness);
+    const names = companies.map(company => company.name);
+    // Only pay for the extra reads when the stored opening actually names a different company.
+    if (names.some(name => name !== bizName && invoice.opening!.includes(name))) {
+      const customerSnap = job.customerId ? await db.collection(`businesses/${businessId}/customers`).doc(job.customerId).get() : null;
+      const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
+      const template = await loadLetter(db, businessId, invoice.kind === "deposit" ? "deposit_opening" : "invoice_opening");
+      const brands = new Map(companies.map(company => [company.name, documentLetterhead(storedBusiness, company)] as const));
+      const acceptedQuote = quoteSnap?.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
+      opening = refreshGeneratedText(invoice.opening, names, bizName, name => invoice.kind === "deposit"
+        ? depositOpeningText(template, job, customerSnap?.data() as Customer | undefined, name, invoice, storedBusiness)
+        : invoiceOpeningText(template, job, customerSnap?.data() as Customer | undefined, name, brands.get(name)?.licenseNumber, invoice, storedBusiness, acceptedQuote));
+    }
+  }
+  const sendable = invoice.status === "draft" ? { ...invoice, opening, ...resolvedInvoiceCopy(invoice, storedBusiness, job, bizName) } : invoice;
+  const html = buildJobInvoiceEmailHtml(sendable, {
     businessName: bizName,
     brandColor: biz.brandColor,
     logoUrl: letterhead.logoUrl,
