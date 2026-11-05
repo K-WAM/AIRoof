@@ -84,6 +84,28 @@ async function seed({ reset = false } = {}) {
       displayName: account.displayName, ...(account.trade ? { trade: account.trade } : {}), createdAt: Date.now(),
     });
   }
+
+  /* K5 role accounts */
+  // The role test tenant: seat limit, the three showcase modules, and the evaluation email guard (everything
+  // except the owner's address is skipped in the captured outbox). The e2e seed had no crew-link example of its
+  // own, so the crew document below copies the demo seed's shape (writeDemoSeed.ts: crewId in the crew doc,
+  // members linked by a crewId field on their businessUsers doc).
+  const prosBusinessId = TENANTS.pros.id;
+  await db.collection("businesses").doc(prosBusinessId).update({
+    seatLimit: 15,
+    showcase: { finances: true, payroll: true, payments: true },
+    outboundEmailAllowlist: ["owner@roofpros.e2e.test"],
+  });
+  const prosCrewId = "crew_e2e_roofpros_field";
+  await db.collection("businesses").doc(prosBusinessId).collection("crews").doc(prosCrewId).set({
+    crewId: prosCrewId, businessId: prosBusinessId, name: "Pros Field Crew", color: "#0f766e",
+    active: true, kind: "crew", createdAt: Date.now(),
+  });
+  for (const uid of [ACCOUNTS.proForeman.uid, ACCOUNTS.proTechnician.uid, ACCOUNTS.proInspector.uid]) {
+    await db.collection("businessUsers").doc(uid).update({ crewId: prosCrewId });
+  }
+  /* end K5 */
+
   return { tenants: Object.keys(TENANTS).length, accounts: Object.keys(ACCOUNTS).length };
 }
 

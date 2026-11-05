@@ -50,6 +50,12 @@ const TENANTS = {
     id: "e2e-empty", name: "Fresh Roofing Co", industry: "roofing", phone: "+15550400", agentId: "agent-e2e-empty",
     contactEmail: "office@fresh-roofing.test", contactPhone: "+1 (555) 040-0400", address: "400 Fresh Street, Miami, FL 33101", brandColor: "#0f766e",
   },
+  // K5 role test tenant: one business with every office/field user type on it, for the who-sees-what matrix.
+  pros: {
+    id: "e2e-roofpros", name: "E2E Roof Pros", industry: "roofing", phone: "+15550500", agentId: "agent-e2e-roofpros",
+    contactEmail: "office@roofpros.e2e.test", contactPhone: "+1 (555) 050-0500", address: "500 Test Way, Coral Springs, FL 33065",
+    brandColor: "#0f766e",
+  },
 };
 
 // Every account signs in with PASSWORD. `key` is what specs pass to loginAs("owner").
@@ -63,6 +69,15 @@ const ACCOUNTS = {
   fieldCrew: { uid: "e2e-field-crew", email: "fieldcrew@roofing.e2e.test", tenant: "roofing", role: "crew", trade: "installer", displayName: "Frank Field" },
   dentalOwner: { uid: "e2e-dental-owner", email: "owner@dental.e2e.test", tenant: "dental", role: "owner", displayName: "Dana Dentist" },
   emptyOwner: { uid: "e2e-empty-owner", email: "owner@empty.e2e.test", tenant: "empty", role: "owner", displayName: "Erin Empty" },
+  // K5 role accounts: every user type on one tenant (e2e-roofpros). Password is the shared PASSWORD.
+  proOwner: { uid: "e2e-pro-owner", email: "owner@roofpros.e2e.test", tenant: "pros", role: "owner", displayName: "Paula Pro" },
+  proManager: { uid: "e2e-pro-manager", email: "manager@roofpros.e2e.test", tenant: "pros", role: "owner", trade: "manager", displayName: "Mario Manager" },
+  proSupervisor: { uid: "e2e-pro-supervisor", email: "supervisor@roofpros.e2e.test", tenant: "pros", role: "staff", trade: "supervisor", displayName: "Sofia Supervisor" },
+  proOfficeAdmin: { uid: "e2e-pro-officeadmin", email: "officeadmin@roofpros.e2e.test", tenant: "pros", role: "staff", trade: "office_admin", displayName: "Olga Office" },
+  proFrontDesk: { uid: "e2e-pro-frontdesk", email: "frontdesk@roofpros.e2e.test", tenant: "pros", role: "staff", trade: "front_desk", displayName: "Fran Frontdesk" },
+  proForeman: { uid: "e2e-pro-foreman", email: "foreman@roofpros.e2e.test", tenant: "pros", role: "crew", trade: "foreman", displayName: "Felix Foreman" },
+  proTechnician: { uid: "e2e-pro-technician", email: "tech@roofpros.e2e.test", tenant: "pros", role: "crew", trade: "technician", displayName: "Tina Tech" },
+  proInspector: { uid: "e2e-pro-inspector", email: "inspector@roofpros.e2e.test", tenant: "pros", role: "crew", trade: "inspector", displayName: "Ivan Inspector" },
 };
 
 /** Environment the app process runs with. Real provider keys are BLANKED so nothing can reach a live service. */
