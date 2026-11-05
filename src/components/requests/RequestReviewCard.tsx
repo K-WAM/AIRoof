@@ -11,6 +11,7 @@ import { displayLine } from "@/lib/calls/voiceTags";
 
 export type ReviewRequest = RequestReviewEntity & {
   openDecline?: boolean;
+  contactEditor?: ContactEditorProps;
   callerName?: string;
   urgency?: string;
   preferredTime?: string;
@@ -87,6 +88,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
           : request.urgency?.toLowerCase() === "urgent" && <span className="tag urgent">Urgent</span>}
       </div>
 
+      {!readOnly && request.contactEditor && <ContactEditor {...request.contactEditor} />}
       <div className="request-review-grid"><div><b>Service</b><span>{request.serviceRequested || request.serviceType || "Not specified"}</span></div></div>
       {request.startTime
         ? <BookingDetails booking={{ ...request, callSummary: request.callSummary || call?.summary }} inspectorName={request.assignedCrewName} timeZone={timeZone} showName={false} />
@@ -137,4 +139,32 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
       </div>}
     </section>
   );
+}
+
+
+type ContactValues = { name: string; phone: string; email: string; address: string; accessNotes: string };
+export type ContactEditorProps = { businessId: string; kind: "appointments" | "leads"; id: string; initial: ContactValues; onSaved: (values: ContactValues) => void };
+export function ContactEditor({ businessId, kind, id, initial, onSaved }: ContactEditorProps) {
+  const [open, setOpen] = useState(false);
+  const [values, setValues] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function save() {
+    setBusy(true); setError("");
+    try {
+      const res = await fetch(`/api/businesses/${encodeURIComponent(businessId)}/${kind}/${encodeURIComponent(id)}/contact`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save details");
+      onSaved(data.contact); setOpen(false);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save details"); }
+    finally { setBusy(false); }
+  }
+  return <div onClick={(e) => e.stopPropagation()}>
+    <button type="button" className="button secondary" onClick={() => { setValues(initial); setOpen(!open); }}>Edit details</button>
+    {open && <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+      {([ ["name", "Name"], ["phone", "Phone"], ["email", "Email"], ["address", "Address"], ["accessNotes", "Access notes"] ] as const).map(([key, label]) => <label key={key}>{label}<input value={values[key]} onChange={(e) => setValues({ ...values, [key]: e.target.value })} type={key === "email" ? "email" : key === "phone" ? "tel" : "text"} /></label>)}
+      {error && <p role="alert">{error}</p>}
+      <div><button type="button" className="button secondary" onClick={() => setOpen(false)} disabled={busy}>Cancel</button> <button type="button" className="button primary" onClick={() => void save()} disabled={busy}>{busy ? "Saving..." : "Save details"}</button></div>
+    </div>}
+  </div>;
 }

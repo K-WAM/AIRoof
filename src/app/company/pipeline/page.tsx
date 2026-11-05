@@ -18,6 +18,7 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
+import { ContactEditor, type ContactEditorProps } from "@/components/requests/RequestReviewCard";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
@@ -39,6 +40,7 @@ interface Lead {
   /** "es" when the caller spoke Spanish. */
   callerLanguage?: string;
   callerEmail?: string;
+  accessNotes?: string;
   serviceRequested?: string;
   address?: string;
   urgency: string;
@@ -78,6 +80,7 @@ interface Appointment {
   callerName?: string;
   callerPhone?: string;
   callerEmail?: string;
+  accessNotes?: string;
   serviceType?: string;
   address?: string;
   notes?: string;
@@ -396,6 +399,21 @@ export default function PipelinePage() {
     }
   }
 
+  function contactEditor(kind: "appointments" | "leads", item: Appointment | Lead): ContactEditorProps {
+    const id = "appointmentId" in item ? item.appointmentId : item.leadId;
+    return { businessId, kind, id, initial: { name: item.callerName ?? "", phone: item.callerPhone ?? "", email: item.callerEmail ?? "", address: item.address ?? "", accessNotes: item.accessNotes ?? "" }, onSaved: (v) => {
+      const update = { callerName: v.name, callerPhone: v.phone, callerEmail: v.email, address: v.address, accessNotes: v.accessNotes };
+      if (kind === "appointments") {
+        setAppointments((all) => all.map((row) => row.appointmentId === id ? { ...row, ...update } : row));
+        setReviewAppt((row) => row?.appointmentId === id ? { ...row, ...update } : row);
+      } else {
+        setLeads((all) => all.map((row) => row.leadId === id ? { ...row, ...update } : row));
+        setReviewLead((row) => row?.leadId === id ? { ...row, ...update } : row);
+        setSelectedLead((row) => row?.leadId === id ? { ...row, ...update } : row);
+      }
+    } };
+  }
+
   async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
     const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
     if (!res.ok) throw new Error("Job creation failed");
@@ -583,6 +601,7 @@ export default function PipelinePage() {
         </div>
 
         <div className="appt-actions">
+          {!readOnly && <ContactEditor {...contactEditor("appointments", appt)} />}
           {isNewRequest(appt.status) && <span className="tag">New request</span>}
           {appt.jobId && showJobActions ? (
             <Link className="button primary" href={`/company/jobs/${appt.jobId}${previewSuffix}`}>Open {vocab.jobNoun} {appt.jobId}</Link>
@@ -754,6 +773,7 @@ export default function PipelinePage() {
                         <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
                         <details className="c1-phone-only" onClick={(event) => event.stopPropagation()}><summary>Details</summary><p>{lead.serviceRequested || "No service"} · {lead.address || "No address"}</p>{lead.notes && <p>{lead.notes}</p>}</details>
                         <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
+                          {!readOnly && <ContactEditor {...contactEditor("leads", lead)} />}
                           {linkedJobId(lead, appointments) && (
                             <Link className="button small" href={`/company/jobs/${linkedJobId(lead, appointments)}${previewSuffix}`}>
                               Open {vocab.jobNoun} {linkedJobId(lead, appointments)}
@@ -991,7 +1011,7 @@ export default function PipelinePage() {
       <RequestReviewDialog
         open={!!reviewLead}
         onClose={() => setReviewLead(null)}
-        request={reviewLead ? { ...reviewLead, status: reviewLead.status } : null}
+        request={reviewLead ? { ...reviewLead, contactEditor: contactEditor("leads", reviewLead), status: reviewLead.status } : null}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
@@ -1005,7 +1025,7 @@ export default function PipelinePage() {
       <RequestReviewDialog
         open={!!reviewAppt}
         onClose={() => setReviewAppt(null)}
-        request={reviewAppt ? { ...reviewAppt, openDecline, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
+        request={reviewAppt ? { ...reviewAppt, contactEditor: contactEditor("appointments", reviewAppt), openDecline, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}

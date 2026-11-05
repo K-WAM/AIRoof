@@ -2154,3 +2154,7 @@ The QR screen focuses the missing name and redirects taps on name-blocked contro
 ## T-288 - Visible booked request decline
 
 The secondary Decline opens the existing review form with its decline options shown; Send decline remains the explicit final action. TypeScript, eight related tests and 25 booking scenarios pass; lint has one existing hook warning. Browser verification pending. No removals.
+
+## T-287 - Correct caller contact details
+
+Added owner/staff contact editing on Pipeline cards and reviews. Both new tenant-checked routes validate contact fields and preserve original values transactionally on the first edit; booking fields are untouched. Route tests cover tenant/crew denial, invalid email, repeat edits and unchanged scheduling. Browser verification pending. No removals.
