@@ -26,29 +26,9 @@ interface BillingView {
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const PAGE = 30;
 
-type BillingRowWithKind = BillingRow & { kind?: "standard" | "deposit" };
-
 function DepositChip({ kind }: { kind?: string }) {
   if (kind !== "deposit") return null;
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        marginLeft: 6,
-        border: "1px solid #cbd5e1",
-        borderRadius: 999,
-        padding: "0 6px",
-        fontSize: 10.5,
-        fontWeight: 700,
-        color: "#64748b",
-        textTransform: "uppercase",
-        letterSpacing: "0.03em",
-        verticalAlign: "middle",
-      }}
-    >
-      Deposit
-    </span>
-  );
+  return <span className="chip" style={{ marginLeft: 6, fontSize: 11, verticalAlign: "middle" }}>Deposit</span>;
 }
 
 export default function BillingPage() {
@@ -113,7 +93,7 @@ export default function BillingPage() {
             {unpaid.slice(0, shown).map((row) => (
               <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                 <div className="feed-body">
-                  <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={(row as BillingRowWithKind).kind} /></p>
+                  <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} /></p>
                   <p className="feed-sub">
                     {row.daysLate > 0 ? <strong style={{ color: "#b91c1c" }}>{row.daysLate} day{row.daysLate === 1 ? "" : "s"} late</strong> : row.dueAt ? `Due ${fmt.fmtDay(row.dueAt)}` : "Due on receipt"}
                     {row.balance < row.total ? ` · ${usd(row.total - row.balance)} paid so far` : ""}
@@ -132,7 +112,7 @@ export default function BillingPage() {
               {paid.map((row) => (
                 <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                   <div className="feed-body">
-                    <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={(row as BillingRowWithKind).kind} /></p>
+                    <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} /></p>
                     <p className="feed-sub">Paid{row.paidAt ? ` ${fmt.fmtDay(row.paidAt)}` : ""}</p>
                   </div>
                   <strong style={{ whiteSpace: "nowrap" }}>{usd(row.total)}</strong>
