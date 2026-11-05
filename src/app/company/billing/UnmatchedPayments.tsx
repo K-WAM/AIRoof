@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { fmtMoney } from "@/lib/format/money";
 
 interface UnmatchedView { count: number; paymentCount: number; refundCount: number; payments: { eventId: string; kind: "payment" | "refund"; eventType: string; amount: number; currency: string; sessionId?: string; paymentIntentId?: string; chargeId?: string }[] }
 export function UnmatchedPayments({ businessId }: { businessId: string | null }) {
@@ -25,7 +26,7 @@ export function UnmatchedPayments({ businessId }: { businessId: string | null })
     {view.refundCount > 0 && <p>{view.refundCount} refund(s) we couldn&apos;t match.</p>}
     <details><summary>Amounts and Stripe references</summary>
       <ul>{view.payments.map(payment => <li key={payment.eventId}>
-        {payment.kind === "refund" ? "Refund sent" : "Payment received"}: {payment.amount.toFixed(2)} {payment.currency.toUpperCase()} · {[payment.eventId, payment.sessionId, payment.paymentIntentId, payment.chargeId].filter(Boolean).join(" · ")}
+        {payment.kind === "refund" ? `Refund sent ${payment.currency === "usd" ? fmtMoney(payment.amount) : `${payment.amount.toFixed(2)} ${payment.currency.toUpperCase()}`}` : `Payment received: ${payment.amount.toFixed(2)} ${payment.currency.toUpperCase()}`} · {[payment.eventId, payment.sessionId, payment.paymentIntentId, payment.chargeId].filter(Boolean).join(" · ")}
       </li>)}</ul>
       {view.count > view.payments.length && <p>Showing the latest {view.payments.length} events.</p>}
     </details>

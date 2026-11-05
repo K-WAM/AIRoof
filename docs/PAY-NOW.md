@@ -50,6 +50,30 @@ server balance. Form-supplied amounts, account ids and URLs are rejected.
 Stripe Checkout collects all payment information. Static return pages describe
 submission without claiming that a bank payment has cleared.
 
+A valid payment link shows "A bank payment for this invoice is being processed.
+It usually clears in a few business days." while payNowPending is active. GET
+shows no payment buttons and POST creates no Checkout. Invalid/expired tokens
+still receive the neutral unavailable page. Pending markers older than ten days
+are ignored so a lost webhook cannot lock an invoice forever.
+
+Creating Checkout saves payNowCheckout with sessionId, method, amount (cents)
+and createdAt. A second POST within 30 minutes retrieves that session on the
+connected account and reuses its URL. Choosing the other method shows the
+existing method and "A payment was already started - finish it here." A complete
+session shows the processing page; an expired session permits a fresh attempt.
+A retrieval failure retries creation with the saved attempt's identical parameters
+and idempotency key, so it cannot create a second session for that attempt.
+
+payNowCheckoutAttempt reserves a nonce and method transactionally before calling
+Stripe. The key is stable per invoice, attempt nonce and amount in cents, across
+methods, concurrent requests, retries and time buckets. A confirmed expiration,
+failed ACH, or stale pending marker permits a fresh attempt nonce; a changed
+balance or payment-link nonce also starts a new tuple. This avoids reusing Stripe's
+cached terminal session on a legitimate retry. Terminal webhook handling clears
+matching pending, checkout and attempt markers; a late event cannot clear a newer
+session. A fast terminal webhook cannot have its cleared markers restored by the
+Checkout creation response.
+
 Availability has one rule: Billing is on, Stripe and PAY_LINK_SECRET are configured, a connected
 account can charge, the owner opted in, the invoice is sent with a positive
 balance (including partly paid sent invoices), and the business is not in evaluation mode. Draft, invalid, expired, paid,
@@ -76,12 +100,14 @@ a missing or foreign invoice/job (including missing or mismatched metadata), the
 transaction stores a stripeUnmatched record only for completed-paid sessions,
 async payment success, or refunds, then returns 200. Pending/failed ACH leaves
 only a ledger note. Records use pay_<payment_intent> for payments and
-refund_<charge id>_<amount_refunded cents> for refunds under businesses/{businessId}/stripeUnmatched.
+refund_<charge id> for refunds under businesses/{businessId}/stripeUnmatched.
 Each record contains kind (payment/refund), event type, Stripe references, dollars, currency, invoice
 id from metadata when safe, receivedAt and reason; no customer name/email/card data.
 The record and succeeded ledger state commit atomically. Payment notices deduplicate
-completed and async-success events for the same intent; refund notices deduplicate
-the same charge and cumulative refunded amount.
+completed and async-success events for the same intent. Each unmatched charge has
+one refund record containing its cumulative refunded amount in dollars. Only a
+larger cumulative amount updates it: $30 then $50 leaves one $50 record, and a
+later $30 event cannot shrink it.
 Database failures return 500 so
 Stripe retries. Switching off Pay now never drops a payment that already moved.
 
@@ -95,6 +121,9 @@ Events handled:
   status. A final job's paid marker is cleared; completed work dates are preserved.
   Missing charge metadata is resolved from its PaymentIntent on the direct account.
   A refund arriving before its payment returns 500 for retry rather than losing money.
+  For a matched payment, only the increase above its stripeRefunded watermark is
+  subtracted: $30 then cumulative $50 adds negative entries of $30 and $20,
+  reducing amountPaid by exactly $50. Replays and smaller cumulative amounts do nothing.
 - account.updated: updates the connected-account flags; older events are ignored.
 
 Each event has one operation in businesses/{id}/operations. claimOperation creates
@@ -114,6 +143,7 @@ office review. Billing and Finances use the existing payment and invoice balance
 The Billing screen counts payments and refunds separately:
 "Stripe received n payment(s) we couldn't match to an invoice - record them by hand."
 and "n refund(s) we couldn't match." Rows say "Payment received" or "Refund sent".
+Refunds show one row per charge, for example "Refund sent $50.00".
 Expand "Amounts and Stripe references" to see the latest 30 events. GET
 /api/company/billing/unmatched is owner/staff only, uses the central guard, takes
 the tenant from the session, and returns total payment/refund counts and bounded

@@ -76,12 +76,12 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
       const cents = refund ? charge.amount_refunded : session.amount_total;
       const currency = refund ? charge.currency : session.currency;
       // Notice only settled money, keyed by the transfer rather than its webhook delivery.
-      const unmatchedId = refund && validId(charge.id) ? `refund_${charge.id}_${cents}`
+      const unmatchedId = refund && validId(charge.id) ? `refund_${charge.id}`
         : paid && validId(intentId) ? `pay_${intentId}` : null;
       const unmatchedRef = unmatchedId && Number.isSafeInteger(cents) && cents! > 0
         ? bizRef.collection("stripeUnmatched").doc(unmatchedId) : null;
       const existing = unmatchedRef ? await tx.get(unmatchedRef) : null;
-      if (unmatchedRef && !existing?.exists) tx.set(unmatchedRef, {
+      if (unmatchedRef && (!existing?.exists || refund && cents! > Math.round(Number(existing.data()?.amount ?? 0) * 100))) tx.set(unmatchedRef, {
         kind: refund ? "refund" : "payment",
         eventType: event.type,
         ...(!refund && validId(session.id) ? { sessionId: session.id } : {}),
@@ -123,11 +123,19 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
         result = { invoice: { ...invoice, ...fields, status, ...(notice ? { payNowNotice: notice } : {}) }, payment, business, job };
         note = notice ? "payment-office-review" : "payment-recorded";
       }
-      if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef!, { payNowPending: FieldValue.delete() });
+      if (invoice.payNowPending?.sessionId === session.id || invoice.payNowCheckout?.sessionId === session.id) tx.update(invRef!, {
+        payNowCheckoutAttempt: FieldValue.delete(),
+        ...(invoice.payNowPending?.sessionId === session.id ? { payNowPending: FieldValue.delete() } : {}),
+        ...(invoice.payNowCheckout?.sessionId === session.id ? { payNowCheckout: FieldValue.delete() } : {}),
+      });
       tx.set(stateRef!, { state: "paid", updatedAt: now });
     } else if (event.type === "checkout.session.async_payment_failed") {
       if (sessionState?.state !== "paid") {
-        if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef!, { payNowPending: FieldValue.delete(), payNowNotice: "A bank payment failed. Contact the customer to arrange payment." });
+        if (invoice.payNowPending?.sessionId === session.id || invoice.payNowCheckout?.sessionId === session.id) tx.update(invRef!, {
+          payNowCheckoutAttempt: FieldValue.delete(),
+          ...(invoice.payNowPending?.sessionId === session.id ? { payNowPending: FieldValue.delete(), payNowNotice: "A bank payment failed. Contact the customer to arrange payment." } : {}),
+          ...(invoice.payNowCheckout?.sessionId === session.id ? { payNowCheckout: FieldValue.delete() } : {}),
+        });
         tx.set(stateRef!, { state: "failed", updatedAt: now });
         note = "ach-failed";
       }

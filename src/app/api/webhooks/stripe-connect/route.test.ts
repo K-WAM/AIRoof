@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 import { POST } from "./route";
+import { GET as payGet, POST as payPost } from "@/app/api/pay/invoice/route";
+import { issuePayLink, signPayToken } from "@/lib/billing/payNowToken";
 import type Stripe from "stripe";
 
-const mocks = vi.hoisted(() => ({ construct: vi.fn(), email: vi.fn(), retrieve: vi.fn(), unavailable: false }));
+const mocks = vi.hoisted(() => ({ construct: vi.fn(), email: vi.fn(), retrieve: vi.fn(), checkout: vi.fn(), unavailable: false }));
 let db: ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => mocks.unavailable ? null : db }));
-vi.mock("@/lib/billing/stripePayments", () => ({ getStripeClient: () => ({ webhooks: { constructEvent: mocks.construct }, paymentIntents: { retrieve: mocks.retrieve } }) }));
+vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => true, getStripeClient: () => ({ webhooks: { constructEvent: mocks.construct }, paymentIntents: { retrieve: mocks.retrieve }, checkout: { sessions: { create: mocks.checkout } } }) }));
 vi.mock("@/lib/comms/send", () => ({ sendEmail: mocks.email }));
 vi.mock("next/server", async importOriginal => ({ ...await importOriginal<typeof import("next/server")>(), after: (work: () => Promise<void>) => { void work(); } }));
 const metadata = { businessId: "a", invoiceId: "INV-1", jobId: "job1", tokenHashPrefix: "abcdef12" };
@@ -55,8 +57,11 @@ describe("Connect money and event idempotency", () => {
     expect(invoice().amountPaid).toBe(100);
   });
   it("records paid card once, completes the job and sends the guarded tenant receipt", async () => {
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ payNowPending: { sessionId: "cs_1", at: Date.now() }, payNowCheckout: { sessionId: "cs_1", method: "card", amount: 10000, createdAt: Date.now() } });
     expect((await post(event())).status).toBe(200);
     expect(invoice()).toMatchObject({ amountPaid: 100, status: "paid", payments: [{ paymentId: "stripe_pi_1", source: "stripe", amount: 100 }] });
+    expect(invoice()).not.toHaveProperty("payNowPending");
+    expect(invoice()).not.toHaveProperty("payNowCheckout");
     expect(db.__peek("businesses/a/jobs", "job1")).toMatchObject({ status: "complete" });
     expect(mocks.email).toHaveBeenCalledWith(expect.objectContaining({ businessId: "a", to: "c@example.test" }));
     await post(event());
@@ -69,23 +74,52 @@ describe("Connect money and event idempotency", () => {
     expect(invoice().payments).toHaveLength(1);
   });
   it("ACH pending records no money, success records once, and a late pending event stays terminal", async () => {
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ payNowCheckout: { sessionId: "cs_1", method: "us_bank_account", amount: 10000, createdAt: Date.now() } });
     const bank = { ...session, payment_status: "unpaid", payment_method_types: ["us_bank_account"] };
     await post(event("checkout.session.completed", bank));
     expect(invoice()).toHaveProperty("payNowPending.sessionId", "cs_1"); expect(invoice()).not.toHaveProperty("payments");
     await post(event("checkout.session.async_payment_succeeded", { ...bank, payment_status: "paid" }, "evt_success"));
     expect(invoice()).toMatchObject({ amountPaid: 100, payments: [{ method: "bank" }] });
     expect(invoice()).not.toHaveProperty("payNowPending");
+    expect(invoice()).not.toHaveProperty("payNowCheckout");
     await post(event("checkout.session.completed", bank, "evt_late"));
     expect(invoice()).not.toHaveProperty("payNowPending");
   });
   it("ACH failure clears pending and records only a ledger note; late completed stays failed", async () => {
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ payNowCheckout: { sessionId: "cs_1", method: "us_bank_account", amount: 10000, createdAt: Date.now() } });
     const bank = { ...session, payment_status: "unpaid", payment_method_types: ["us_bank_account"] };
     await post(event("checkout.session.completed", bank));
     await post(event("checkout.session.async_payment_failed", bank, "evt_failed"));
     expect(invoice()).not.toHaveProperty("payNowPending"); expect(invoice()).not.toHaveProperty("payments");
+    expect(invoice()).not.toHaveProperty("payNowCheckout");
     expect(db.__peek("businesses/a/operations", "stripe:evt_failed")).toHaveProperty("note", "ach-failed");
     await post(event("checkout.session.completed", bank, "evt_late"));
     expect(invoice()).not.toHaveProperty("payNowPending");
+  });
+  it("a failed ACH clears both markers and makes the valid invoice payable with a new attempt key", async () => {
+    vi.stubEnv("PAY_LINK_SECRET", "test-only-pay-link-secret-32-characters");
+    const link = issuePayLink({});
+    const token = signPayToken("a", "INV-1", link.payLinkNonce);
+    await db.collection("businesses").doc("a").update({ billingPrefs: { payNow: true } });
+    await db.collection("businesses/a/invoices").doc("INV-1").update(link);
+    const fields = new URLSearchParams({ b: "a", i: "INV-1", t: token, method: "us_bank_account" });
+    const checkout = () => payPost(new NextRequest("https://app.test/api/pay/invoice", { method: "POST", body: fields, headers: { "content-type": "application/x-www-form-urlencoded" } }));
+    mocks.checkout.mockResolvedValue({ id: "cs_1", url: "https://checkout.stripe.com/c/pay/first", status: "open" });
+    expect((await checkout()).status).toBe(303);
+    const firstKey = mocks.checkout.mock.calls[0][1].idempotencyKey;
+    const bank = { ...session, payment_status: "unpaid", payment_method_types: ["us_bank_account"] };
+    await post({ ...event("checkout.session.completed", bank), created: Math.floor(Date.now() / 1000) });
+    expect(await (await payGet(new NextRequest(`https://app.test/api/pay/invoice?${fields}`))).text()).toContain("A bank payment for this invoice is being processed.");
+    expect((await checkout()).status).toBe(200);
+    expect(mocks.checkout).toHaveBeenCalledTimes(1);
+    await post(event("checkout.session.async_payment_failed", bank, "evt_failed"));
+    expect(invoice()).not.toHaveProperty("payNowPending");
+    expect(invoice()).not.toHaveProperty("payNowCheckout");
+    expect(invoice()).not.toHaveProperty("payNowCheckoutAttempt");
+    expect(await (await payGet(new NextRequest(`https://app.test/api/pay/invoice?${fields}`))).text()).toContain("Pay by bank (ACH)");
+    mocks.checkout.mockResolvedValueOnce({ id: "cs_2", url: "https://checkout.stripe.com/c/pay/retry", status: "open" });
+    expect((await checkout()).headers.get("location")).toBe("https://checkout.stripe.com/c/pay/retry");
+    expect(mocks.checkout.mock.calls[1][1].idempotencyKey).not.toBe(firstKey);
   });
   it("records and flags overpayments even after Pay now is switched off", async () => {
     await post(event("checkout.session.completed", { ...session, amount_total: 12000 }));
@@ -102,6 +136,13 @@ describe("Connect money and event idempotency", () => {
     expect(db.__peek("businesses/a/jobs", "job1")).not.toHaveProperty("paymentReceivedAt");
     await post(event("charge.refunded", charge, "evt_refund_again"));
     expect(invoice().payments).toHaveLength(2);
+    await post(event("charge.refunded", { ...charge, amount_refunded: 5000 }, "evt_partial_refund"));
+    expect(invoice()).toMatchObject({ amountPaid: 50, payments: [{ amount: 100, stripeRefunded: 50 }, { amount: -30 }, { amount: -20 }] });
+    const afterPartial = invoice();
+    await post(event("charge.refunded", { ...charge, amount_refunded: 5000 }, "evt_partial_refund"));
+    await post(event("charge.refunded", { ...charge, amount_refunded: 5000 }, "evt_partial_replay"));
+    await post(event("charge.refunded", charge, "evt_old_partial"));
+    expect(invoice()).toEqual(afterPartial);
     await post(event("charge.refunded", { ...charge, amount_refunded: 10000 }, "evt_full_refund"));
     expect(invoice()).toMatchObject({ amountPaid: 0, status: "sent" });
   });
@@ -162,15 +203,17 @@ describe("verified event recovery", () => {
     expect(record).toMatchObject({ kind: "payment", amount: 100, paymentIntentId: "pi_1" });
     expect(db.__list("businesses/a/operations")).toHaveLength(2);
   });
-  it("records an unmatched refund separately and collapses repeated cumulative amounts", async () => {
+  it.each([[3000, 5000], [5000, 3000]])("stores one unmatched refund per charge, retaining the largest cumulative amount (%s then %s)", async (first, second) => {
     await db.collection("businesses/a/invoices").doc("INV-1").delete();
-    const charge = { id: "ch_1", payment_intent: "pi_1", currency: "usd", amount_refunded: 3000, metadata };
+    const charge = { id: "ch_1", payment_intent: "pi_1", currency: "usd", amount_refunded: first, metadata };
     await post(event("charge.refunded", charge, "evt_refund"));
-    const record = db.__peek("businesses/a/stripeUnmatched", "refund_ch_1_3000");
-    expect(record).toMatchObject({ kind: "refund", amount: 30, chargeId: "ch_1", paymentIntentId: "pi_1" });
+    expect(db.__peek("businesses/a/stripeUnmatched", "refund_ch_1")).toMatchObject({ kind: "refund", amount: first / 100, chargeId: "ch_1", paymentIntentId: "pi_1" });
+    await post(event("charge.refunded", { ...charge, amount_refunded: second }, "evt_refund_second"));
+    const record = db.__peek("businesses/a/stripeUnmatched", "refund_ch_1");
+    expect(record).toMatchObject({ kind: "refund", amount: 50 });
     await post(event("charge.refunded", charge, "evt_refund_duplicate"));
     expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
-    expect(db.__peek("businesses/a/stripeUnmatched", "refund_ch_1_3000")).toEqual(record);
+    expect(db.__peek("businesses/a/stripeUnmatched", "refund_ch_1")).toEqual(record);
   });
   it("returns 500 for a failed money transaction, leaves the claim pending, and replays exactly once", async () => {
     const run = db.runTransaction.bind(db);

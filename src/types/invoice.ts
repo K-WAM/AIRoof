@@ -43,6 +43,8 @@ export interface JobInvoice {
   payLinkNonce?: string;
   payLinkExpiresAt?: number;
   payNowPending?: { sessionId: string; at: number };
+  payNowCheckout?: { sessionId: string; method: "card" | "us_bank_account"; amount: number; createdAt: number };
+  payNowCheckoutAttempt?: { nonce: string; method: "card" | "us_bank_account"; amount: number; payLinkNonce: string };
   payNowNotice?: string;
   serviceAt?: string;
   description?: string;

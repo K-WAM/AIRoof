@@ -22,4 +22,13 @@ describe("Stripe refunds use existing payment arithmetic", () => {
     expect(applyStripeRefund({ ...invoice, status: "void" }, payment.paymentId, 10, 2)?.status).toBe("void");
     expect(applyPayment(invoice, payment).payments).toHaveLength(1);
   });
+  it("subtracts only the new partial refund: 30 then cumulative 50, with replays and older events ignored", () => {
+    const first = { ...invoice, ...applyStripeRefund(invoice, payment.paymentId, 30, 2)! };
+    const second = { ...first, ...applyStripeRefund(first, payment.paymentId, 50, 3)! };
+    expect(second.amountPaid).toBe(50);
+    expect(second.payments.map(p => p.amount)).toEqual([100, -30, -20]);
+    expect(second.payments[0].stripeRefunded).toBe(50);
+    expect(applyStripeRefund(second, payment.paymentId, 50, 4)).toBeNull();
+    expect(applyStripeRefund(second, payment.paymentId, 30, 5)).toBeNull();
+  });
 });
