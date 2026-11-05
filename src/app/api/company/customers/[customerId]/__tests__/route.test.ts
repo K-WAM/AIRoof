@@ -136,3 +136,107 @@ describe("PATCH /api/company/customers/[customerId]", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("GET /api/company/customers/[customerId]?suggest=1", () => {
+  function seedSuggestCustomer(db: FakeDb, over: Record<string, unknown> = {}) {
+    db.__seed("businesses/biz-1/customers", "C-1000", {
+      customerId: "C-1000", businessId: "biz-1", name: "Lakeview County Schools", kind: "commercial",
+      address: "50 Billing Office Road",
+      properties: [
+        { name: "Northside Plaza", address: "10 Example Way", city: "Miami", state: "FL" },
+        { name: "South Campus", address: "20 Example Way", city: "Miami", state: "FL" },
+      ],
+      jobCount: 2, lastJobAt: 1000, matchKey: "lakeview county schools|", searchTokens: [], active: true,
+      createdAt: 1000, updatedAt: 1000,
+      ...over,
+    });
+  }
+
+  function seedAddressedJob(db: FakeDb, id: string, address: string, createdAt: number) {
+    db.__seed("businesses/biz-1/jobs", id, { jobId: id, businessId: "biz-1", customerId: "C-1000", status: "complete", title: id, address, createdAt, updatedAt: createdAt });
+  }
+
+  function suggestRequest(customerId = "C-1000", businessId: string | null = "biz-1", query = "") {
+    const params = new URLSearchParams();
+    if (businessId !== null) params.set("businessId", businessId);
+    params.set("suggest", "1");
+    if (query) params.set("q", query);
+    return new NextRequest(`http://localhost/api/company/customers/${customerId}?${params.toString()}`);
+  }
+
+  it("400s without businessId, never touching auth", async () => {
+    const res = await GET(suggestRequest("C-1000", null), { params: Promise.resolve({ customerId: "C-1000" }) });
+    expect(res.status).toBe(400);
+    expect(mocks.verifyAuthAndRole).not.toHaveBeenCalled();
+  });
+
+  it("uses the same guard and roles as the customer read, refusing another tenant", async () => {
+    mocks.verifyAuthAndRole.mockResolvedValue({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
+    const res = await GET(suggestRequest("C-1000", "other-biz"), { params: Promise.resolve({ customerId: "C-1000" }) });
+    expect(res.status).toBe(403);
+    expect(mocks.verifyAuthAndRole).toHaveBeenCalledWith(expect.anything(), "other-biz", ["owner", "staff", "viewer", "superadmin"]);
+  });
+
+  it("returns past job addresses first, then the customer's address, then properties — privately cached", async () => {
+    seedSuggestCustomer(currentDb);
+    seedAddressedJob(currentDb, "J-older", "100 Older Road", 1000);
+    seedAddressedJob(currentDb, "J-newer", "300 Newest Road", 2000);
+
+    const res = await GET(suggestRequest(), { params: Promise.resolve({ customerId: "C-1000" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=30, stale-while-revalidate=300");
+    expect(body.suggestions.map((s: { address: string }) => s.address)).toEqual([
+      "300 Newest Road",
+      "100 Older Road",
+      "50 Billing Office Road",
+      "10 Example Way",
+      "20 Example Way",
+    ]);
+  });
+
+  it("filters by the typed words", async () => {
+    seedSuggestCustomer(currentDb);
+    const res = await GET(suggestRequest("C-1000", "biz-1", "way example 20"), { params: Promise.resolve({ customerId: "C-1000" }) });
+    const body = await res.json();
+    expect(body.suggestions.map((s: { address: string }) => s.address)).toEqual(["20 Example Way"]);
+  });
+
+  it("returns an empty list for a customer with nothing on file", async () => {
+    seedSuggestCustomer(currentDb, { properties: [], address: undefined });
+    const res = await GET(suggestRequest(), { params: Promise.resolve({ customerId: "C-1000" }) });
+    const body = await res.json();
+    expect(body.suggestions).toEqual([]);
+  });
+
+  it("404s for an unknown customer", async () => {
+    const res = await GET(suggestRequest("nope"), { params: Promise.resolve({ customerId: "nope" }) });
+    expect(res.status).toBe(404);
+  });
+
+  it("caps properties at 500, so only the first 500 are suggested", async () => {
+    const properties = Array.from({ length: 500 }, (_, i) => ({ address: `${i + 1} Pad Street` }));
+    properties.push({ address: "999 Zebra Lane" });
+    seedSuggestCustomer(currentDb, { properties, address: undefined });
+
+    const res = await GET(suggestRequest("C-1000", "biz-1", "zebra"), { params: Promise.resolve({ customerId: "C-1000" }) });
+    const body = await res.json();
+    expect(body.suggestions).toEqual([]);
+    expect(body.capped).toBe(true);
+  });
+
+  it("reads only the last 20 jobs, so an older address is not suggested", async () => {
+    seedSuggestCustomer(currentDb, { properties: [], address: undefined });
+    for (let i = 1; i <= 21; i++) {
+      seedAddressedJob(currentDb, `J-${i}`, i === 1 ? "1 Ancient Only Road" : `${i} Recent Road`, i);
+    }
+
+    const res = await GET(suggestRequest("C-1000", "biz-1", "ancient"), { params: Promise.resolve({ customerId: "C-1000" }) });
+    const body = await res.json();
+    expect(body.suggestions).toEqual([]);
+
+    const recent = await GET(suggestRequest("C-1000", "biz-1", "21 recent"), { params: Promise.resolve({ customerId: "C-1000" }) });
+    expect((await recent.json()).suggestions.length).toBe(1);
+  });
+});

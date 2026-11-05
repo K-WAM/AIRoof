@@ -2,17 +2,25 @@ import { companyAssignment } from "@/lib/companies/assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { suggestAddresses } from "@/lib/customers/addressSuggest";
 import { buildMatchKey, buildSearchTokens } from "@/lib/customers/search";
-import type { Customer, CustomerContact, CustomerKind } from "@/types/customer";
+import { jsonWithCache } from "@/lib/http/cache";
+import { CUSTOMER_PROPERTIES_MAX, type Customer, type CustomerContact, type CustomerKind } from "@/types/customer";
 import type { Job } from "@/types/jobs";
 
 const OPEN_STATUSES = new Set(["open", "inspection", "quoted", "in_progress"]);
 const JOBS_LIMIT = 200;
+const SUGGEST_JOBS_LIMIT = 20;
 
 // GET /api/company/customers/[customerId]?businessId=
 //   -> { customer, jobs }  — every job for this customer, newest first. This
 //      is the "type walmart, see every job" requirement: the Library drawer
 //      calls this once a row is picked.
+// GET /api/company/customers/[customerId]?businessId=&suggest=1[&q=]
+//   -> { suggestions }  — the addresses already on file for this customer
+//      (saved properties, its own address, the last 20 jobs' addresses),
+//      de-duplicated and filtered by `q`. The job form fetches this once a
+//      customer is picked, then filters locally while the user types.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
@@ -28,6 +36,26 @@ export async function GET(
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const bizRef = db.collection("businesses").doc(businessId);
+
+  if (req.nextUrl.searchParams.get("suggest") === "1") {
+    const [customerSnap, jobsSnap] = await Promise.all([
+      bizRef.collection("customers").doc(customerId).get(),
+      bizRef.collection("jobs").where("customerId", "==", customerId).orderBy("createdAt", "desc").limit(SUGGEST_JOBS_LIMIT).get(),
+    ]);
+    if (!customerSnap.exists) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+
+    const customer = customerSnap.data() as Customer;
+    const suggestions = suggestAddresses({
+      properties: (customer.properties ?? []).slice(0, CUSTOMER_PROPERTIES_MAX),
+      customerAddress: customer.address,
+      jobAddresses: jobsSnap.docs
+        .map((d) => d.data().address)
+        .filter((address): address is string => typeof address === "string" && address.trim().length > 0),
+      query: req.nextUrl.searchParams.get("q") ?? "",
+    });
+    return jsonWithCache({ suggestions, capped: (customer.properties?.length ?? 0) > CUSTOMER_PROPERTIES_MAX }, "semiStatic");
+  }
+
   const [customerSnap, jobsSnap] = await Promise.all([
     bizRef.collection("customers").doc(customerId).get(),
     bizRef.collection("jobs").where("customerId", "==", customerId).orderBy("createdAt", "desc").limit(JOBS_LIMIT).get(),
