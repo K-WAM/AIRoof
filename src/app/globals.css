@@ -3841,3 +3841,6 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .company-topbar .company-brand--multi .company-brand-logos { flex: 0 1 88px; }
   .company-topbar .company-brand--multi .company-brand-text { max-width: 72px; flex: 1 1 0; }
 }
+
+/* Two companies on a phone: the two logos name the business; the name squeezed beside them read as "E." (2026-11-05). */
+@media (max-width: 480px) { .company-topbar .company-brand--multi .company-brand-text { display: none; } }

@@ -19,7 +19,7 @@ export function CompanyFilter({
 }) {
   if (!companies || companies.length < 2) return null;
   return (
-    <div className="segmented-control" role="group" aria-label={label}>
+    <div className="segmented-control segmented-control--row" role="group" aria-label={label}>
       <button className="segment" type="button" aria-pressed={value === "all"} onClick={() => onChange("all")}>All</button>
       {companies.map((company) => (
         <button key={company.id} className="segment" type="button" aria-pressed={value === company.id} onClick={() => onChange(company.id)}>
