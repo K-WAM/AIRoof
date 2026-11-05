@@ -28,6 +28,8 @@ export interface CustomerProperty {
 export const CUSTOMER_PROPERTIES_MAX = 500;
 
 export interface Customer {
+  /** Billing company (src/types/company.ts); missing = the business's default company. */
+  companyId?: string;
   customerId: string; // "C-1000+" via businesses/{bid}.customerCounter
   businessId: string;
   name: string;

@@ -40,6 +40,8 @@ export interface JobInvoiceDiscount {
 }
 
 export interface JobInvoice {
+  /** Company this invoice is issued under (src/lib/companies/companies.ts resolveDocumentCompany); frozen once sent. */
+  companyId?: string;
   payLinkNonce?: string;
   payLinkExpiresAt?: number;
   payNowPending?: { sessionId: string; at: number };

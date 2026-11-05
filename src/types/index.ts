@@ -122,6 +122,8 @@ export interface BusinessConfig {
   /** Server-only Stripe Connect state. Never spread into company bootstrap responses. */
   stripeConnect?: { accountId: string; chargesEnabled: boolean; payoutsEnabled: boolean; detailsSubmitted: boolean; updatedAt: number };
   // How this client's customers pay it. Owner edits in Settings -> Getting paid.
+  /** One business, several legal companies (src/types/company.ts). Missing or one entry = unchanged behaviour. */
+  billingCompanies?: import("./company").BillingCompany[];
   billingPrefs?: {
     payNow?: boolean;
     payInstructions?: string;   // "Zelle to pay@acme.com · Checks to Acme Roofing, 1 Main St"

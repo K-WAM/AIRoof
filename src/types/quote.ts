@@ -6,6 +6,8 @@ export interface QuoteLine extends WorkCatalogLine {
   findingId?: string;
 }
 export interface JobQuote {
+  /** Company this quote is issued under (src/lib/companies/companies.ts resolveDocumentCompany); frozen once sent. */
+  companyId?: string;
   layout?: "itemized" | "proposal" | "tm_authorization";
   includeOptional?: string[];
   serviceAt?: string;

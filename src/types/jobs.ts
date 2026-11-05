@@ -111,6 +111,8 @@ export interface JobStatusChange {
 }
 
 export interface Job {
+  /** Billing company (src/types/company.ts): set from the customer at creation; missing = the default company. */
+  companyId?: string;
   reportDocument?: import("./documentTemplate").ReportLetterOptions;
   documentSendLock?: { invoiceId: string; token: string; at: number };
   documentRecipients?: string[];

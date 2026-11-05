@@ -451,3 +451,21 @@ folder, type-check, lint, unit tests and git add/commit. No network, no pushes, 
 cannot open `client-resources/`). K3 (roles, money math, importer) ran on Codex Terra and is merged. No worker has live keys;
 no import, email or production write happens until the owner approves the push and the evaluation guard (T-306) is live.
 
+
+## Two companies: RDSF and RCU (their email, 2026-11-05)
+
+Roof Doctors bills most work as **RDSF** (Roof Doctors South Florida, the default) and **only T&M and Contract invoices for
+government work (municipalities, Palm Beach County schools)** as **RCU** (Roofing Concepts Unlimited), because those contracts
+are with RCU. Same owner, staff, crews and phone agent; payments go to two separate bank accounts. Their files and the email:
+`client-resources/roofdoctors/INDEX.md` (git-ignored). Owner's brief: an easy toggle, no friction, the app's look unchanged.
+
+- **Customer** carries a company (default RDSF; the government customers are marked RCU once). **Job** inherits it.
+- **Job header and every document** (quote, invoices incl. deposit, report, letters, receipts, emails, print) show one small
+  two-logo switch, RDSF | RCU; the document renders that company's letterhead, license and payment details (its own bank).
+  A sent document keeps the company it was sent under.
+- **Menu** shows both logos. **Finances / Billing**: All | RDSF | RCU filter and a Company column in the CSV. **Jobs,
+  Calendar, Pipeline**: a small chip only on RCU work. **Superadmin** Overview + Usage: each client's split.
+- Pay now (off today) stays limited to the default company until each company connects its own Stripe account.
+- Single-company businesses see none of it (`isMultiCompany`, src/lib/companies/companies.ts). Tasks T-316 (Codex Sol) and
+  T-317 (DeepSeek). Open question for them: on an RCU job, should quotes, work authorizations and completion notices carry
+  RCU too, or only the two invoice types? Default built: the whole job follows its company; any document can be switched.

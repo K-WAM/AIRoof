@@ -28,6 +28,8 @@ export interface CompanyBootstrap {
     smsEnabled: boolean;
     /** Pages shown before general release, for this business only. Missing = off. */
     showcase?: BusinessConfig["showcase"];
+    /** Present only when the business bills under 2+ companies (isMultiCompany). */
+    companies?: import("./company").BootstrapCompany[];
   };
   modules: {
     disabled: CompanyModule[];
