@@ -218,7 +218,7 @@ export default function PipelinePage() {
   // badge. One read per visit; single-company clients never make it.
   const [jobCompanyIds, setJobCompanyIds] = useState<Record<string, string>>({});
   useEffect(() => {
-    if (!businessId || !multiCompany) { setJobCompanyIds({}); return; }
+    if (!businessId || !multiCompany || !showJobActions) { setJobCompanyIds({}); return; }
     let cancelled = false;
     fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -228,7 +228,7 @@ export default function PipelinePage() {
       })
       .catch(() => { /* the card simply shows no badge */ });
     return () => { cancelled = true; };
-  }, [businessId, multiCompany]);
+  }, [businessId, multiCompany, showJobActions]);
   const phoneLine = bootstrapBusiness?.phoneLine ?? null;
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);

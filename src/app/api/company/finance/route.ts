@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
   const filters: FinanceFilters = { from, to, ...(customer ? { customer } : {}), ...(jobType ? { jobType } : {}), ...(status ? { status: status as FinanceStatus } : {}), ...(company ? { company } : {}) };
   const rows = [...rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord)), ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
   // Multi-company: every row carries its effective company (unattributed history rows = the default company).
-  const attributed = multi ? rows.map((r) => ({ ...r, companyId: effectiveCompanyId(biz, r.companyId) ?? undefined })) : rows;
-  const summary = summarizeFinances(attributed, filters, Date.now(), 30, biz.timezone || "America/New_York");
+  // Single-company: strip any stray field so the response is byte-for-byte today's shape.
+  const rowsForResponse = multi ? rows.map((r) => ({ ...r, companyId: effectiveCompanyId(biz, r.companyId) ?? undefined })) : rows.map((r) => { const copy = { ...r }; delete copy.companyId; return copy; });
+  const summary = summarizeFinances(rowsForResponse, filters, Date.now(), 30, biz.timezone || "America/New_York");
   return jsonWithCache({
     ...summary,
     capped: history.size >= 2000 || invoices.size >= 2000,
