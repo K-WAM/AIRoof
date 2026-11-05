@@ -2178,3 +2178,5 @@ T-299 browser follow-up: the first final run found that the blocked-action acces
 ## Roof Doctors screen browser spec - integration pending
 
 Single final run: 6 passed, 6 failed. Calendar overlay, booked request edit/decline, and no-showcase checks passed on desktop and phone. Field checks stopped on an ambiguous selector; the selector and action labels were corrected after the run and need a rerun. Finance and payroll row checks failed because the agreed summary functions are still stubs; their empty-state screenshots and field failure screenshots were inspected on desktop and phone. Finance due-date fields and populated screen review remain pending. No removals.
+
+T-287 follow-up: when a separate callback number exists, preserve caller ID and edit the callback number; keep the original callback in asHeard and use the corrected contact number for Pipeline callbacks. TypeScript, lint and nine related tests pass. Clearing a separate callback number still falls back to caller ID under the existing contactPhone contract; job creation does not copy the new accessNotes field and is outside this stream.

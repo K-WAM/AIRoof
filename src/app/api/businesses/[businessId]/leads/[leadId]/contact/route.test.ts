@@ -21,4 +21,9 @@ describe("contact correction", () => {
     expect((await PATCH(req({ ...values, name: "Again" }), { params })).status).toBe(200);
     expect(mocks.db!.__peek(path, "item")).toMatchObject({ callerName: "Again", status: "requested", startTime: 123, asHeard: { name: "Original", phone: "5551112222", email: "old@example.test", address: "Old St" } });
   });
+  it("updates a separate callback number without overwriting caller ID", async () => {
+    mocks.db!.__seed(path, "item", { callerName: "Original", callerPhone: "5551112222", callbackPhone: "5553334444", callerEmail: "old@example.test", address: "Old St" });
+    expect((await PATCH(req(values), { params })).status).toBe(200);
+    expect(mocks.db!.__peek(path, "item")).toMatchObject({ callerPhone: "5551112222", callbackPhone: "5551234567", asHeard: { phone: "5553334444" } });
+  });
 });

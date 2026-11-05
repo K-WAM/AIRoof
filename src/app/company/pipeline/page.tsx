@@ -79,6 +79,7 @@ interface Appointment {
   appointmentId: string;
   callerName?: string;
   callerPhone?: string;
+  callbackPhone?: string;
   callerEmail?: string;
   accessNotes?: string;
   serviceType?: string;
@@ -401,8 +402,8 @@ export default function PipelinePage() {
 
   function contactEditor(kind: "appointments" | "leads", item: Appointment | Lead): ContactEditorProps {
     const id = "appointmentId" in item ? item.appointmentId : item.leadId;
-    return { businessId, kind, id, initial: { name: item.callerName ?? "", phone: item.callerPhone ?? "", email: item.callerEmail ?? "", address: item.address ?? "", accessNotes: item.accessNotes ?? "" }, onSaved: (v) => {
-      const update = { callerName: v.name, callerPhone: v.phone, callerEmail: v.email, address: v.address, accessNotes: v.accessNotes };
+    return { businessId, kind, id, initial: { name: item.callerName ?? "", phone: contactPhone(item) ?? "", email: item.callerEmail ?? "", address: item.address ?? "", accessNotes: item.accessNotes ?? "" }, onSaved: (v) => {
+      const update = { callerName: v.name, ...(item.callbackPhone ? { callbackPhone: v.phone } : { callerPhone: v.phone }), callerEmail: v.email, address: v.address, accessNotes: v.accessNotes };
       if (kind === "appointments") {
         setAppointments((all) => all.map((row) => row.appointmentId === id ? { ...row, ...update } : row));
         setReviewAppt((row) => row?.appointmentId === id ? { ...row, ...update } : row);
@@ -426,13 +427,14 @@ export default function PipelinePage() {
 
   /** "confirm" = the office has confirmed and the AI tells the customer; "callback" = the AI follows up on the request. */
   async function callBackAppt(appt: Appointment, purpose: "confirm" | "callback" = "callback") {
-    if (!appt.callerPhone) return;
+    const phone = contactPhone(appt);
+    if (!phone) return;
     setApptCalling(appt.appointmentId);
     try {
       const res = await fetch("/api/calls/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, targetPhone: appt.callerPhone, appointmentId: appt.appointmentId, purpose }),
+        body: JSON.stringify({ businessId, targetPhone: phone, appointmentId: appt.appointmentId, purpose }),
       });
       if (res.ok) {
         showToast(`The AI is calling ${appt.callerName || "the customer"} now${purpose === "confirm" ? " to confirm" : ""}.`, "ok");
@@ -624,7 +626,7 @@ export default function PipelinePage() {
                 <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} />
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
-              {!readOnly && appt.callerPhone && <button className="button secondary" title="Places a real call from your AI line (billed per minute)" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
+              {!readOnly && contactPhone(appt) && <button className="button secondary" title="Places a real call from your AI line (billed per minute)" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
               {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => { setOpenDecline(false); setReviewAppt(appt); }}>Review details</button>}
               {!readOnly && !isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
               {!readOnly && !isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
@@ -1032,7 +1034,7 @@ export default function PipelinePage() {
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
         readOnly={readOnly}
-        onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
+        onCallBack={reviewAppt && contactPhone(reviewAppt) ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
         onAccept={async () => { if (!reviewAppt) return; if (!await sendConfirmation(reviewAppt)) return; if (showJobActions && !reviewAppt.jobId) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />

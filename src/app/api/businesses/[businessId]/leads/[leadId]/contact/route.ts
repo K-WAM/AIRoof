@@ -28,8 +28,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ bu
     const snap = await tx.get(ref);
     if (!snap.exists) return false;
     const old = snap.data() ?? {};
-    const update: Record<string, unknown> = { callerName: clean.name, callerPhone: clean.phone, callerEmail: clean.email, address: clean.address, accessNotes: clean.accessNotes, updatedAt: Date.now(), editedBy: gate.user.uid };
-    if (!old.asHeard) update.asHeard = { name: old.callerName ?? "", phone: old.callerPhone ?? "", email: old.callerEmail ?? "", address: old.address ?? "" };
+    const update: Record<string, unknown> = { callerName: clean.name, ...(old.callbackPhone ? { callbackPhone: clean.phone } : { callerPhone: clean.phone }), callerEmail: clean.email, address: clean.address, accessNotes: clean.accessNotes, updatedAt: Date.now(), editedBy: gate.user.uid };
+    if (!old.asHeard) update.asHeard = { name: old.callerName ?? "", phone: old.callbackPhone || old.callerPhone || "", email: old.callerEmail ?? "", address: old.address ?? "" };
     tx.update(ref, update);
     return true;
   });
