@@ -2,6 +2,19 @@ import { api, must } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("letters editor previews and saves plain text", async ({ as }) => {
+  const page = await as("owner");
+  await page.goto("/company/library?section=documents");
+  await settle(page);
+  await expectHealthy(page);
+  const editor = page.getByRole("region", { name: "Letters and notices" });
+  await expect(editor.getByLabel("Title", { exact: true })).toBeEnabled();
+  await editor.getByLabel("Letter", { exact: true }).selectOption("repair_completion");
+  await expect(editor.getByText("Main entrance", { exact: false }).last()).toBeVisible();
+  await editor.getByRole("button", { name: "Save letter", exact: true }).click();
+  await expect(editor.getByRole("status")).toHaveText("Saved");
+  await shot(page, "documents-letters-editor");
+});
 test("invoice drafts include the priced findings", async ({ as }) => {
   test.setTimeout(150_000);
   const owner = await api("owner");
