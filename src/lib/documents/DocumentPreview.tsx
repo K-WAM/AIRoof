@@ -3,14 +3,14 @@ import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import type { ReportQuoteSection } from "./reportQuote";
 import type { RenderedNotice } from "./notices";
-import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
-import { fmtPhone } from "@/lib/format/phone";
-import { fmtMoney } from "@/lib/format/money";
+import { StandardDocument } from "./StandardDocument";
+import { ClassicDocument } from "./ClassicDocument";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }:  {
+export interface DocumentPreviewProps {
+  /** Grouped, numbered findings by default; false retains the compact presentation. */
   findingSections?: boolean;
   serviceAt?: string; customerCode?: string; depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   children?: ReactNode;
@@ -19,6 +19,8 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ category?: string; problem: string; solution: string; note?: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
+  /** INVOICE, classic look only: the Subtotal / Sales Tax rows printed above the total (the standard look shows the total alone). */
+  totals?: { subtotal: number; tax: number };
   /** REPORT only: the optional "Include the quote" block (a sent/accepted quote's work and prices). Built by reportQuoteSection(). */
   quoteSection?: ReportQuoteSection | null;
   /** QUOTE / INVOICE only: "Terms & notices" — pass what noticesForDocument() approved (nothing until the owner approves the wording). */
@@ -26,73 +28,10 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   photos?: DocumentPhoto[];
   /** INVOICE only (Billing product): the business's own payment details, printed under the total. */
   howToPay?: { instructions: string; link: string } | null;
-}) {
-  const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
-  return <article className={`k1-document ${className}`} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
-    <header style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 24, borderBottom: `3px solid ${accent}`, paddingBottom: 20 }}>
-      <div>{brand.logoUrl && <>
-        {/* Library logos may be data URIs, which next/image cannot optimize. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={brand.logoUrl} alt={brand.businessName ?? ""} style={{ width: "auto", maxWidth: 140, maxHeight: 54, ...brand.logoStyle }} />
-      </>}
-        <div style={{ fontSize: 19, fontWeight: 800 }}>{brand.businessName}</div>
-        {[brand.address, brand.contactPhone, brand.contactEmail].filter(Boolean).map((line, i) => <div key={i} style={{ fontSize: 12, color: "#475569" }}>{line}</div>)}
-        {brand.licenseNumber && <div style={{ fontSize: 12, color: "#475569" }}>License #{brand.licenseNumber}</div>}
-      </div>
-      <div><h2 style={{ margin: "0 0 8px", fontSize: 28, color: accent }}>{title}</h2>{meta.map(([key, value]) => <div key={key} style={{ fontSize: 12 }}><strong>{key}:</strong> {value}</div>)}</div>
-    </header>
-    <section style={{ padding: "20px 0", borderBottom: "1px solid #e2e8f0" }}><strong>{partyLabel}</strong><div>{billTo.name}</div>{billTo.address && <div>{billTo.address}</div>}{billTo.phone && <div>{fmtPhone(billTo.phone)}</div>}</section>
-    {customerCode && <p><strong>Customer ID:</strong> {customerCode}</p>}
-    {serviceAt !== undefined && <section style={{ padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}><strong>Service at</strong><div>{serviceAt}</div></section>}
-    {children}
-    {opening && <section style={{ padding: "20px 0", whiteSpace: "pre-wrap" }}><p>{opening}</p></section>}
-    {findingSections ? findings?.map((finding, index) => <section key={index} className="document-finding" style={{ padding: "18px 0", whiteSpace: "pre-wrap" }}><h3>{finding.category || `Finding ${index + 1}`}</h3><p><strong>Problem:</strong> {finding.problem}</p><p><strong>Corrective Action:</strong> {finding.solution}</p>{finding.note?.trim() && <p><em>Inspector&apos;s note: {finding.note.trim()}</em></p>}</section>) : !!findings?.length && <section style={{ padding: "18px 0" }}><strong>{title === "Invoice" ? "Findings and corrective action" : "Issues found & work recommended"}</strong>{findings.map((finding, index) => <p key={index} style={{ whiteSpace: "pre-wrap" }}>{title === "Invoice" ? <><strong>Problem:</strong> {finding.problem}<br /><strong>Corrective action:</strong> {finding.solution}</> : <><strong>{finding.problem}</strong><br />{finding.solution}</>}{finding.note?.trim() && <><br /><em style={{ color: "#475569" }}>Inspector&apos;s note: {finding.note.trim()}</em></>}</p>)}</section>}
-    {narrative && <section style={{ padding: "20px 0", whiteSpace: "pre-wrap" }}><strong>Description of work</strong><p>{narrative}</p></section>}
-    {groups.map((group) => <section key={group.title} style={{ marginTop: 20 }}>{group.title !== "Project price" && <h3 style={{ fontSize: 14 }}>{group.title}</h3>}
-      {title === "Invoice" && serviceAt === undefined && group.title !== "Project price" ? <div style={{ overflowX: "auto" }}><table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 12 }}><thead><tr>{["Item", "Description", "Qty", "Unit price", "Amount"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #e2e8f0" }}>{heading}</th>)}</tr></thead><tbody>{group.rows.map((row, i) => <tr key={i}>{[row.item ?? group.title, row.description, row.quantity ?? "", row.unitPrice === undefined ? "" : `${fmtMoney(row.unitPrice)}`, `${fmtMoney(row.amount)}`].map((value, j) => <td key={j} style={{ padding: 8, borderBottom: "1px solid #e2e8f0" }}>{value}</td>)}</tr>)}</tbody></table></div> : <div style={{ borderTop: "1px solid #e2e8f0" }}>{group.rows.map((row, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}><div>{serviceAt !== undefined && row.item && row.item !== group.title ? <>{row.item}<br /></> : null}{row.description}{serviceAt !== undefined && row.quantity !== undefined && <small style={{ display: "block", color: "#64748b" }}>{row.quantity}{group.title === "Labor" ? " h" : ""} × {fmtMoney(row.unitPrice ?? 0)}</small>}{row.detail && <small style={{ display: "block", color: "#64748b" }}>{row.detail}</small>}</div><strong>{fmtMoney(row.amount)}</strong></div>)}</div>}
-      {group.title !== "Project price" && <div style={{ textAlign: "right", padding: "8px 0", fontSize: 13, fontWeight: 700 }}>{group.title} subtotal: {fmtMoney(group.subtotal)}</div>}</section>)}
-    {sections.map((section) => <section key={section.title} style={{ marginTop: 20 }}><h3 style={{ fontSize: 14 }}>{section.title}</h3>
-      <div style={{ borderTop: "1px solid #e2e8f0" }}>{section.lines.map((line, i) => <div key={i} style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}>{line}</div>)}</div></section>)}
-    {quoteSection && <section style={{ marginTop: 28 }}>
-      <h3 style={{ fontSize: 15, margin: "0 0 4px" }}>{quoteSection.heading}</h3>
-      {quoteSection.groups.map((group) => <div key={group.title} style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155" }}>{group.title}</div>
-        <div style={{ borderTop: "1px solid #e2e8f0" }}>{group.rows.map((row, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}><div>{row.description}{row.detail && <small style={{ display: "block", color: "#64748b" }}>{row.detail}</small>}</div><strong>{fmtMoney(row.amount)}</strong></div>)}</div>
-      </div>)}
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 16, fontWeight: 800 }}><span>Quoted total</span><span>{fmtMoney(quoteSection.total)}</span></div>
-    </section>}
-    {!!depositsApplied?.length && <section style={{ marginTop: 20 }}>{depositsApplied.map(deposit => <div key={deposit.invoiceId} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0" }}><span>Less deposit ({deposit.invoiceId})</span><strong>−{fmtMoney(deposit.amount)}</strong></div>)}<small>Tax is calculated on work; deposits are deducted after tax.</small></section>}
-    {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span style={{ whiteSpace: "nowrap" }}>{fmtMoney(total)}</span></div>}
-    {howToPay && (howToPay.instructions || howToPay.link) && <section data-testid="how-to-pay" style={{ marginTop: 16, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", breakInside: "avoid" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748b", marginBottom: 4 }}>How to pay</div>
-      {howToPay.instructions && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{howToPay.instructions}</div>}
-      {howToPay.link && <div style={{ fontSize: 13, marginTop: 4 }}>Pay online: <a href={howToPay.link} style={{ color: accent }}>{howToPay.link}</a></div>}
-    </section>}
-    {afterHowToPay}
-    {closing && <p style={{ whiteSpace: "pre-wrap", marginTop: 24 }}>{closing}</p>}
-    {thankYou && <p style={{ whiteSpace: "pre-wrap", marginTop: 16 }}>{thankYou}</p>}
-    {notices.length > 0 && <section aria-label="Terms and notices" style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", breakInside: "avoid-page" }}>
-      <h3 style={{ fontSize: 13, color: "#334155", margin: "0 0 8px" }}>Terms &amp; notices</h3>
-      {notices.map((notice) => <div key={notice.id} style={{ margin: "0 0 12px", ...(notice.statutory ? { border: "1px solid #94a3b8", padding: "10px 12px" } : {}) }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{notice.title}</div>
-        <div style={{ fontSize: 12, lineHeight: 1.55, color: "#475569", whiteSpace: "pre-wrap", ...(notice.statutory ? { fontWeight: 700 } : {}) }}>{notice.text}</div>
-      </div>)}
-    </section>}
-    {photoPages(photos).map((page, pageIndex) => <section key={pageIndex} className="document-photo-page" style={{ marginTop: 28, ...(pageIndex ? { breakBefore: "page", pageBreakBefore: "always" } : {}) }}>
-      <h3 style={{ fontSize: 14 }}>Photo documentation</h3>{page.rows.map((row, rowIndex) => <div key={rowIndex} className="document-photo-row" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, breakInside: "avoid", pageBreakInside: "avoid", marginTop: 12 }}><PhotoCard title={row.before?.phase === "before" ? "Before" : "Photo"} photo={row.before as DocumentPhoto | undefined} /><PhotoCard title={row.after?.phase === "after" ? "After" : "Photo"} photo={row.after as DocumentPhoto | undefined} /></div>)}
-    </section>)}
-    <footer style={{ marginTop: 32, borderTop: "1px solid #e2e8f0", paddingTop: 14, textAlign: "center", fontSize: 11, color: "#64748b" }}>{[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).join(" · ")}</footer>
-  </article>;
 }
 
-function PhotoCard({ title, photo }: { title: string; photo?: DocumentPhoto }) {
-  if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ minHeight: 80 }} />;
-  const src = photo.src ?? (photo.fullB64 ? `data:image/jpeg;base64,${photo.fullB64}` : `data:image/jpeg;base64,${photo.thumbB64}`);
-  return <figure style={{ margin: 0 }}>
-    <strong style={{ fontSize: 11, color: "#475569" }}>{title}</strong>
-    {/* Full-resolution document photos are data URIs and cannot use next/image. */}
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={src} alt={photo.label} style={{ display: "block", width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 5, border: "1px solid #e2e8f0", borderRadius: 6 }} />
-    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
-  </figure>;
+export function DocumentPreview(props: DocumentPreviewProps) {
+  // A business on the classic letterhead (BusinessConfig.documentStyle) gets its own layout; everyone else is unchanged.
+  if (props.brand.documentStyle === "classic") return <ClassicDocument {...props} />;
+  return <StandardDocument {...props} />;
 }

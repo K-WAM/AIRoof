@@ -1,7 +1,7 @@
 import { documentPreheader } from "@/lib/documents/emailCopy";
 import type { LetterheadBusiness } from "@/lib/documents/letterhead";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
-import { billToBlock, documentShell, findingsBlock, findingSectionsBlock, footerBlock, letterheadBlock, narrativeBlock, photosBlock, quoteSectionBlock, sectionsBlock } from "@/lib/documents/emailBlocks";
+import { billToBlock, documentShell, emailAccent, findingsBlock, findingSectionsBlock, footerBlock, letterheadBlock, narrativeBlock, photosBlock, quoteSectionBlock, sectionsBlock } from "@/lib/documents/emailBlocks";
 import { reportSections, stripHiddenFacts } from "@/lib/documents/report";
 import { reportQuoteSection } from "@/lib/documents/reportQuote";
 import { fmtDate } from "@/lib/format";
@@ -45,7 +45,13 @@ export function buildJobReportEmailHtml(input: {
   if (isCompletion(input.reportDocument)) {
     const kind = input.reportDocument!.layout as "inspection_completion" | "repair_completion";
     const letter = completionLetter({ jobId: input.jobId, title: input.title, address: input.billTo.address, clientName: input.billTo.name, reportDocument: input.reportDocument, findings: input.findings }, input.business, input.template ?? DEFAULT_LETTERS[kind], Date.now(), input.quote);
-    return documentShell(letterheadBlock(brand, letter.title, meta) + billToBlock(input.billTo, "Prepared for") + letterHtml(letter) + (kind === "repair_completion" && input.reportDocument?.noCharge ? "<p>There is no charge.</p>" : "") + findingContent + photosBlock(photos) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
+    // Same details as the in-app notice: the order it closes, the work's description and the PO (2026-11-06).
+    const noticeMeta: [string, string][] = [
+      ...meta.map(([key, value]) => (key === "Reference" ? [key, `Work order ${input.jobId}`] : [key, value]) as [string, string]),
+      ...(input.title ? [["Description", input.title] as [string, string]] : []),
+      ...(input.reportDocument?.poNumber ? [["PO number", input.reportDocument.poNumber] as [string, string]] : []),
+    ];
+    return documentShell(letterheadBlock(brand, letter.title, noticeMeta) + billToBlock(input.billTo, "Customer") + letterHtml(letter, brand.documentStyle === "classic") + (kind === "repair_completion" && input.reportDocument?.noCharge ? "<p>There is no charge.</p>" : "") + findingContent + photosBlock(photos) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
   }
-  return documentShell(letterheadBlock(brand, "Report", meta) + billToBlock(input.billTo, "Prepared for") + narrativeBlock(stripHiddenFacts(input.narrative ?? "", input.options)) + findingContent + sectionsBlock(sections) + quoteSectionBlock(quoteSection, brand.brandColor) + photosBlock(photos) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
+  return documentShell(letterheadBlock(brand, "Report", meta) + billToBlock(input.billTo, "Prepared for") + narrativeBlock(stripHiddenFacts(input.narrative ?? "", input.options)) + findingContent + sectionsBlock(sections) + quoteSectionBlock(quoteSection, emailAccent(brand)) + photosBlock(photos) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
 }

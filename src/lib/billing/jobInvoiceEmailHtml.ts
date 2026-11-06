@@ -2,7 +2,7 @@ import { documentPreheader } from "@/lib/documents/emailCopy";
 import { findingSectionsBlock } from "@/lib/documents/emailBlocks";
 import type { JobInvoice } from "@/types/invoice";
 import { invoiceGroups } from "@/lib/documents/groups";
-import { adjustmentsBlock, billToBlock, documentShell, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import { adjustmentsBlock, billToBlock, documentShell, emailAccent, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
 import type { JobPhotoMeta } from "@/types/jobs";
 import type { RenderedNotice } from "@/lib/documents/notices";
 import { resolveLetterhead, type LetterheadBusiness } from "@/lib/documents/letterhead";
@@ -28,7 +28,7 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   if (invoice.customerCode) meta.push(["Customer ID", invoice.customerCode]);
   if (invoice.serviceAt === undefined && invoice.billTo.address) meta.push(["Service at", invoice.billTo.address]);
   if (invoice.showTechnicians && invoice.technicians?.length) meta.push(["Technicians", invoice.technicians.join(", ")]);
-  const values = { businessName: business.businessName, address: invoice.billTo.address ?? "the service address", visitDate: issued, industryNoun: getVerticalTemplate(business.industry ?? "").vocab.jobNoun };
+  const values = { businessName: business.businessName, address: invoice.billTo.address ?? "the service address", visitDate: issued, industryNoun: getVerticalTemplate(business.industry ?? "").vocab.industryNoun };
   const opening = invoice.opening ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.opening, values);
   const closing = invoice.closing ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.closing, values);
   const thankYou = invoice.thankYou ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.thankYou, values);
@@ -38,6 +38,7 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   const adjustments = adjustmentsBlock({ lineSum: groups.reduce((sum, group) => sum + group.subtotal, 0), subtotal: invoice.subtotal, taxRate: invoice.taxRate, taxAmount: invoice.taxAmount });
   const deposits = (invoice.depositsApplied ?? []).map(d => `<div style="padding:8px 0">Less deposit (${escapeHtml(d.invoiceId)}) <strong>−${escapeHtml(fmtMoney(d.amount))}</strong></div>`).join("") + (invoice.depositsApplied?.length ? "<p>Tax is calculated on work; deposits are deducted after tax.</p>" : "");
   const notes = [closing, thankYou, invoice.notes].map((text) => text?.trim()).filter(Boolean).join("\n\n");
-  const payNow = payNowUrl ? `<p style="margin:20px 0"><a href="${escapeHtml(payNowUrl)}" style="display:inline-block;background:${brand.brandColor && /^#[a-f0-9]{6}$/i.test(brand.brandColor) ? brand.brandColor : "#0f766e"};color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold">Pay now</a></p>` : "";
-  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + (invoice.serviceAt === undefined ? "" : billToBlock({ name: invoice.serviceAt }, "Service at")) + narrativeBlock(opening) + (invoice.showFindingSections === false ? findingLines : findingSectionsBlock(findings)) + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(groups) + adjustments + deposits + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, brand.brandColor) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), brand.brandColor) : "") + payNow + notesBlock(notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
+  const accent = emailAccent(brand);
+  const payNow = payNowUrl ? `<p style="margin:20px 0"><a href="${escapeHtml(payNowUrl)}" style="display:inline-block;background:${accent};color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold">Pay now</a></p>` : "";
+  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + (invoice.serviceAt === undefined ? "" : billToBlock({ name: invoice.serviceAt }, "Service at")) + narrativeBlock(opening) + (invoice.showFindingSections === false ? findingLines : findingSectionsBlock(findings)) + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(groups, brand.documentStyle === "classic") + adjustments + deposits + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, accent) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), accent) : "") + payNow + notesBlock(notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
 }

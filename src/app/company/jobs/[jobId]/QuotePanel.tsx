@@ -17,7 +17,7 @@ import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/compa
 import { resolvedQuoteNarrative, staleCompanyName } from "@/lib/companies/documentCopy";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
-import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { LazyDocumentPreview as DocumentPreview } from "@/lib/documents/LazyDocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
@@ -36,7 +36,9 @@ import type { JobPhotoMeta } from "@/types/jobs";
 import { NumberField } from "@/components/ui/NumberField";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { LogoPicker } from "@/lib/documents/LogoPicker";
-import { QuoteLetterPreview } from "@/lib/documents/QuoteLetterPreview";
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
+const QuoteLetterPreview = dynamic(() => import("@/lib/documents/QuoteLetterPreview").then(m => m.QuoteLetterPreview), { ssr: false, loading: () => <PanelSkeleton label="Loading letter" document /> });
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
 import type { LetterRate } from "@/lib/documents/quoteLetter";
 
@@ -442,9 +444,19 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
                 </>
               ) : <strong>Other work</strong>}
               <div style={{ display: "grid", gap: 8 }}>
+                {/* Column names over the price inputs (2026-11-06): which box is the quantity and which the price. */}
+                {group.lines.length > 0 && <div className="quote-line-head" aria-hidden="true">
+                  <span style={{ width: 96 }}>Type</span>
+                  <span style={{ flex: "2 1 160px", minWidth: 0 }}>Description</span>
+                  <span style={{ width: 70 }}>Qty</span>
+                  <span style={{ width: 64 }}>Unit</span>
+                  <span style={{ width: 86 }}>Unit price</span>
+                  <span style={{ minWidth: 72, textAlign: "right" }}>Amount</span>
+                  {draft && <span style={{ width: 34 }} />}
+                </div>}
                 {(showAllItems ? group.lines : group.lines.slice(0, 5)).map((line) => (
                   <div key={line.lineId} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <select aria-label="Line kind" disabled={!draft} value={line.kind} onChange={(e) => changeLine(line.lineId, { kind: e.target.value as QuoteLine["kind"] })}>
+                    <select aria-label="Line kind" disabled={!draft} value={line.kind} onChange={(e) => changeLine(line.lineId, { kind: e.target.value as QuoteLine["kind"] })} style={{ width: 96 }}>
                       <option value="material">Material</option><option value="labor">Labor</option><option value="other">Other</option>
                     </select>
                     <input aria-label="Line description" disabled={!draft} value={line.description} onChange={(e) => changeLine(line.lineId, { description: e.target.value })} style={{ flex: "2 1 160px", minWidth: 0 }} />

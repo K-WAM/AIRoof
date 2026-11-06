@@ -98,6 +98,12 @@ export interface BusinessConfig {
    */
   outboundPhoneAllowlist?: string[];
   invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
+  /**
+   * How quotes, reports and invoices look (2026-11-06). "classic" = a traditional contractor letterhead: logo with
+   * address and license under it, the title in the brand colour, a boxed item table, Subtotal / Sales Tax / Total Due
+   * box, license and website in the footer (src/lib/documents/documentStyle.ts). Missing = "standard" (today's look).
+   */
+  documentStyle?: "standard" | "classic";
   /** Terms & notices on quotes/invoices: per-notice edits + the owner's approval. Nothing prints until approved (documents/notices.ts). */
   documentNotices?: import("@/lib/documents/notices").DocumentNoticeSettings;
   contactEmail?: string;

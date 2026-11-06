@@ -24,7 +24,8 @@ const dropUnderPointer: CollisionDetection = (args) => {
   const underPointer = pointerWithin(args);
   return underPointer.length > 0 ? underPointer : rectIntersection(args);
 };
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, GripVertical, HardHat, Phone, Plus, Undo2, Users, X } from "lucide-react";
+import { bookingWorkState, itemLook, itemStateWords, jobWorkState, UNCONFIRMED_STYLE, WORK_STATE_LABEL, WORK_STATE_STYLE, type WorkState } from "@/lib/calendar/itemState";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { createLiveFetch } from "@/lib/http/liveFetch";
@@ -81,6 +82,10 @@ interface SlotPickerState {
 }
 
 const LENGTH_OPTIONS_MIN = [30, 60, 90, 120, 180, 240, 360, 480];
+
+/** Which schedule the week board shows when a business has both inspectors and work crews. */
+type CalendarFocus = "all" | "inspections" | "crews";
+const FOCUS_KEY = "calendar-focus";
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -210,6 +215,17 @@ export default function CalendarBoard() {
   });
   // Default to the full 7-day week so weekends are always visible/schedulable (emergencies).
   const [fullWeek, setFullWeek] = useState(true);
+  // Remembered for the browser tab (the board is client-only: ssr:false in page.tsx).
+  const [focus, setFocusState] = useState<CalendarFocus>(() => {
+    try {
+      const saved = window.sessionStorage.getItem(FOCUS_KEY);
+      return saved === "inspections" || saved === "crews" ? saved : "all";
+    } catch { return "all"; }
+  });
+  const setFocus = (next: CalendarFocus) => {
+    setFocusState(next);
+    try { window.sessionStorage.setItem(FOCUS_KEY, next); } catch { /* private mode: not remembered */ }
+  };
   const [railQuery, setRailQuery] = useState("");
   const [railAll, setRailAll] = useState(false);
   const [crews, setCrews] = useState<Crew[]>([]);
@@ -257,7 +273,9 @@ export default function CalendarBoard() {
       .then(([cr, jr]) => {
         setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
         setMemberCounts(countMembers(cr.people));
-        setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete"));
+        // Finished jobs stay on the board where they were scheduled, in green (owner, 2026-11-06); the
+        // Unscheduled rail still leaves them out.
+        setJobs(jr.jobs ?? []);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -284,7 +302,7 @@ export default function CalendarBoard() {
     if (!businessId || apptMode) return;
     fetch(`/api/jobs?businessId=${businessId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((jr) => setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete")))
+      .then((jr) => setJobs(jr.jobs ?? []))
       .catch(() => {});
   });
 
@@ -345,8 +363,7 @@ export default function CalendarBoard() {
       const [jd, ad, bd] = await Promise.all([jr?.ok ? jr.json() : null, ar?.ok ? ar.json() : null, br.ok ? br.json() : null]);
       if (liveWindowRef.current !== liveWindow || confirmInFlight.current.size) return;
       if (jd) {
-        setJobs((current) => [...new Map([...current, ...(jd.jobs as Job[])].map((job) => [job.jobId, job])).values()]
-          .filter((job) => job.status !== "complete"));
+        setJobs((current) => [...new Map([...current, ...(jd.jobs as Job[])].map((job) => [job.jobId, job])).values()]);
         jobsPolledAt.current = jd.polledAt;
       }
       if (ad) setAppts((ad.appointments as Appointment[]).filter((appt) => appt.status !== "cancelled"));
@@ -361,7 +378,9 @@ export default function CalendarBoard() {
   const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
   // An invoiced job is finished work, not something waiting for a crew slot (it stays on the board where it was scheduled).
   // Newest first: the job someone just created (or just got back from a removed crew) is the one they want to place.
-  const unscheduled = jobs
+  // Finished (complete) jobs are on the board only, never waiting for a slot.
+  const openJobs = jobs.filter((j) => j.status !== "complete");
+  const unscheduled = openJobs
     .filter((j) => j.status !== "invoiced" && (!j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId)))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   // A busy roofer has 40 unscheduled jobs: the rail shows the first few, searchable, "Show all" for the rest (C10).
@@ -373,14 +392,23 @@ export default function CalendarBoard() {
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
   const inspectors = crews.filter((crew) => crew.kind === "inspector");
   const workCrews = crews.filter((crew) => crew.kind !== "inspector");
-  const orderedCrews = apptMode ? crews : [...inspectors, ...workCrews];
+  // Inspections and crew work are scheduled separately (owner, 2026-11-06): a business with both can focus the
+  // board on one of them. "Everything" is the default and shows both, as before.
+  const canFocus = !apptMode && inspectors.length > 0 && workCrews.length > 0;
+  const view: CalendarFocus = canFocus ? focus : "all";
+  const showInspections = view !== "crews";
+  const showCrewWork = view !== "inspections";
+  const orderedCrews = apptMode ? crews : [...(showInspections ? inspectors : []), ...(showCrewWork ? workCrews : [])];
+  // The job each booking became (Pipeline → Create Job), so an inspection shows its progress.
+  const jobsById = useMemo(() => new Map(jobs.map((job) => [job.jobId, job])), [jobs]);
+  const now = Date.now();
 
   // Empty states (docs/NO-TRAINING-UX-PLAN.md §3.3): no resources → "Add your first …"; resources but
   // nothing at all to place → "Nothing to schedule", pointing at waiting requests when there are any.
   const readOnly = user?.role === "viewer";
   const nothingToSchedule = !loading && (apptMode
     ? appts.length === 0
-    : jobs.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0));
+    : openJobs.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0));
   const waitingRequests = useWaitingRequests(businessId, !apptMode && !readOnly && crews.length > 0 && nothingToSchedule);
   const emptyStateOwnsPrimary = !loading && (crews.length === 0 || (nothingToSchedule && waitingRequests > 0));
 
@@ -786,7 +814,7 @@ export default function CalendarBoard() {
             {apptMode
               ? `Who sees which ${vocab.customerNoun.toLowerCase()}, and when.`
               : `Who works where, and when. Confirm a slot to notify the people on it.`}
-            {" "}<Hint label="Calendar status">{`Grey means the time is saved but not confirmed. ${glossaryMeaning("confirmed")} Confirm to send the notification.`}</Hint>
+            {" "}<Hint label="Calendar status">{`Grey means the time is saved but not confirmed. ${glossaryMeaning("confirmed")} Confirm to send the notification. Then the colour shows progress: blue scheduled, amber in progress, green complete.`}</Hint>
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", maxWidth: "100%", minWidth: 0 }}>
@@ -827,6 +855,13 @@ export default function CalendarBoard() {
           <button type="button" className="button small" aria-label="Next day" onClick={() => stepAgenda(1)}><ChevronRight size={16} /></button>
         </div>
         <div className="panel-body c1-agenda-list">
+          {/* The phone's colour key (the week board's legend is desktop-only). Words are on each item too. */}
+          {crews.length > 0 && <div data-testid="calendar-agenda-legend" style={{ order: -1, display: "flex", flexWrap: "wrap", gap: "4px 12px", fontSize: 12, color: "var(--text-muted)" }}>
+            {(["scheduled", "in_progress", "complete"] as WorkState[]).map((state) => <span key={state} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: WORK_STATE_STYLE[state].accent }} />{WORK_STATE_LABEL[state]}
+            </span>)}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, border: `1px dashed ${UNCONFIRMED_STYLE.border}`, background: UNCONFIRMED_STYLE.background }} />Not confirmed</span>
+          </div>}
           {/* Same next step as the desktop board: an empty agenda with nothing to assign to is a locked door (T-144). */}
           {crews.length === 0 && <EmptyState
             icon={Users}
@@ -857,25 +892,33 @@ export default function CalendarBoard() {
           </article>)}
           {appts.filter((appt) => sameDay(appt.startTime, agendaDay, tz) && appt.status !== "cancelled").sort((a, b) => a.startTime - b.startTime).map((appt) => {
             const assignees = apptMode ? crews : inspectors;
-            return <article className="c1-agenda-item" style={{ order: minuteOfDay(appt.startTime, tz) }} key={appt.appointmentId}>
+            // Same colours as the week board once someone is assigned; an unassigned booking keeps the plain card.
+            const apptState = bookingWorkState(appt, appt.jobId ? jobsById.get(appt.jobId) : undefined, now, tz);
+            const apptLook = appt.assignedCrewId ? itemLook(apptState, appt.status === "confirmed") : null;
+            return <article className="c1-agenda-item" data-testid={`calendar-agenda-booking-${appt.appointmentId}`} data-state={appt.assignedCrewId ? apptState : undefined} style={{ order: minuteOfDay(appt.startTime, tz), ...(apptLook ? { borderLeft: `4px solid ${apptLook.accent}`, background: apptLook.background } : {}) }} key={appt.appointmentId}>
               <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "appointment", id: appt.appointmentId })}>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</button>
-              <span>{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}</span>
+              <span>{!apptMode && "Inspection · "}{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}{appt.assignedCrewId && apptState !== "scheduled" ? ` · ${WORK_STATE_LABEL[apptState]}` : ""}</span>
               <div className="c1-agenda-actions">
                 {!readOnly && <select aria-label={`Assign ${appt.callerName ?? "booking"}`} value={appt.assignedCrewId ?? ""} disabled={busyJob === appt.appointmentId} onChange={(event) => { if (event.target.value) void placeAppt(appt.appointmentId, event.target.value, agendaDay); else void unassignAppt(appt.appointmentId); }}>
                   <option value="">Unassigned</option>{assignees.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
                 </select>}
                 {!readOnly && appt.assignedCrewId && appt.status !== "confirmed" && <button type="button" className="button small primary" disabled={busyJob === appt.appointmentId} onClick={() => void confirmAppt(appt)}>{busyJob === appt.appointmentId ? "Confirming…" : "Confirm"}</button>}
-                <Link className="button small" href={`/company/pipeline?tab=appointments&appt=${appt.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`}>Details</Link>
+                <Link className="button small" href={appt.jobId && isEnabled("jobs") ? `/company/jobs/${appt.jobId}${previewSuffix}` : `/company/pipeline?tab=appointments&appt=${appt.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`}>{appt.jobId && isEnabled("jobs") ? "Open job" : "Details"}</Link>
               </div>
             </article>;
           })}
-          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
-            <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>
-            <CompanyBadgeRow companies={companies} companyId={job.companyId}><span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span></CompanyBadgeRow>
+          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => {
+            const finished = job.status === "complete" || job.status === "invoiced";
+            const state = jobWorkState(job, now, tz);
+            const look = itemLook(state, !!job.crewConfirmed || finished);
+            return <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} data-state={state} style={{ order: minuteOfDay(job.scheduledStart!, tz), borderLeft: `4px solid ${look.accent}`, background: look.background }} key={job.jobId}>
+            {finished ? <Link className="calendar-item-title" href={`/company/jobs/${job.jobId}${previewSuffix}`}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</Link> : <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>}
+            <CompanyBadgeRow companies={companies} companyId={job.companyId}><span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}{state !== "scheduled" ? ` · ${WORK_STATE_LABEL[state]}` : ""}</span></CompanyBadgeRow>
             <div className="c1-agenda-actions">
-              {!readOnly && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
+              {!readOnly && !finished && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
             </div>
-          </article>)}
+          </article>;
+          })}
           {appts.every((appt) => !sameDay(appt.startTime, agendaDay, tz) || appt.status === "cancelled") && jobs.every((job) => !job.scheduledStart || !sameDay(job.scheduledStart, agendaDay, tz)) && blocks.every((block) => !sameDay(block.startTime, agendaDay, tz)) && <p>No bookings or {vocab.jobNounPlural.toLowerCase()} this day.</p>}
         </div>
       </section>
@@ -895,25 +938,40 @@ export default function CalendarBoard() {
           </Tooltip>
           <strong style={{ fontSize: 15, color: "#0f172a", marginLeft: 6 }}>{rangeLabel}</strong>
         </div>
-        <div className="segmented-control" aria-label="Week length" style={{ fontSize: 13 }}>
-          <button className="segment" type="button" aria-pressed={!fullWeek} onClick={() => setFullWeek(false)}>Work week</button>
-          <button className="segment" type="button" aria-pressed={fullWeek} onClick={() => setFullWeek(true)}>Full week</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {canFocus && (
+            <div className="segmented-control" role="group" aria-label="Show schedule" data-testid="calendar-focus" style={{ fontSize: 13 }}>
+              <button className="segment" type="button" aria-pressed={view === "all"} onClick={() => setFocus("all")}>Everything</button>
+              <button className="segment" type="button" aria-pressed={view === "inspections"} onClick={() => setFocus("inspections")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <ClipboardCheck size={13} strokeWidth={1.75} aria-hidden="true" />Inspections
+              </button>
+              <button className="segment" type="button" aria-pressed={view === "crews"} onClick={() => setFocus("crews")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <HardHat size={13} strokeWidth={1.75} aria-hidden="true" />Crew work
+              </button>
+            </div>
+          )}
+          <div className="segmented-control" aria-label="Week length" style={{ fontSize: 13 }}>
+            <button className="segment" type="button" aria-pressed={!fullWeek} onClick={() => setFullWeek(false)}>Work week</button>
+            <button className="segment" type="button" aria-pressed={fullWeek} onClick={() => setFullWeek(true)}>Full week</button>
+          </div>
         </div>
       </div>
 
-      {/* Legend + how-to */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
+      {/* Legend + how-to. Status colours (owner, 2026-11-06): blue scheduled, amber in progress, green complete. */}
+      <div data-testid="calendar-legend" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px dashed #94a3b8", background: "#f8fafc", flexShrink: 0 }} />
+          <span style={{ width: 22, height: 14, borderRadius: 4, border: `1px dashed ${UNCONFIRMED_STYLE.border}`, background: UNCONFIRMED_STYLE.background, flexShrink: 0 }} />
           {apptMode ? "Assigned — not confirmed" : "Scheduled — not confirmed"}
         </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
-          Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : vocab.resourceNoun.toLowerCase()} emailed
-        </span>
+        {(["scheduled", "in_progress", "complete"] as WorkState[]).map((state) => (
+          <span key={state} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 22, height: 14, borderRadius: 4, border: `1px solid ${WORK_STATE_STYLE[state].border}`, borderLeft: `4px solid ${WORK_STATE_STYLE[state].accent}`, background: WORK_STATE_STYLE[state].background, flexShrink: 0 }} />
+            {state === "scheduled" ? "Scheduled — confirmed" : WORK_STATE_LABEL[state]}
+          </span>
+        ))}
         {!readOnly && crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0 || (inspectors.length > 0 && unassignedAppts.length > 0)) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
-            <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : vocab.resourceNoun === "Crew" ? "Drag bookings onto inspectors and jobs onto crews." : `Drag ${vocab.jobNounPlural.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} and a day.`}
+            <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : view === "inspections" ? "Drag bookings onto an inspector and a day." : view === "crews" ? `Drag ${vocab.jobNounPlural.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} and a day.` : vocab.resourceNoun === "Crew" ? "Drag bookings onto inspectors and jobs onto crews." : `Drag ${vocab.jobNounPlural.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} and a day.`}
           </span>
         )}
       </div>
@@ -939,10 +997,10 @@ export default function CalendarBoard() {
             <div className="panel-header">
               <h2 className="panel-title" style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
                 <CalendarClock size={15} strokeWidth={1.75} />
-                {apptMode ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
+                {apptMode || view === "inspections" ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
               </h2>
             </div>
-            {!apptMode && !nothingToSchedule && (
+            {!apptMode && view !== "inspections" && !nothingToSchedule && (
               <p style={{ margin: 0, padding: "10px 16px 0", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }} data-testid="calendar-unscheduled-help">
                 No {vocab.resourceNoun.toLowerCase()} or time yet.
               </p>
@@ -970,10 +1028,12 @@ export default function CalendarBoard() {
                 )
               ) : (
                 <>
-                  {inspectors.length > 0 && unassignedAppts.length > 0 && <>
+                  {showInspections && inspectors.length > 0 && unassignedAppts.length > 0 && <>
                     <strong style={{ fontSize: 12 }}>Phone bookings</strong>
                     <p style={{ fontSize: 12, color: "var(--text-muted)" }}>See each booking at its requested time in the Phone bookings row.</p>
                   </>}
+                  {view === "inspections" && unassignedAppts.length === 0 && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Every booking has an inspector.</p>}
+                  {showCrewWork && <>
                   {unscheduled.length > 0 && <strong style={{ fontSize: 12, marginTop: 6 }}>{vocab.jobNounPlural}</strong>}
                   {unscheduled.length > RAIL_PAGE && (
                     <input type="search" aria-label={`Search unscheduled ${vocab.jobNounPlural.toLowerCase()}`} placeholder={`Search ${unscheduled.length} ${vocab.jobNounPlural.toLowerCase()}`}
@@ -986,7 +1046,8 @@ export default function CalendarBoard() {
                   {railMatches.length > railShown.length && (
                     <button type="button" className="button small" onClick={() => setRailAll(true)}>Show all {railMatches.length}</button>
                   )}
-                  {unscheduled.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0) && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Everything is scheduled 🎉</p>}
+                  {unscheduled.length === 0 && (view === "crews" || inspectors.length === 0 || unassignedAppts.length === 0) && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Everything is scheduled 🎉</p>}
+                  </>}
                 </>
               )}
             </div>
@@ -996,7 +1057,7 @@ export default function CalendarBoard() {
           <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff" }}>
             <div style={{ display: "grid", gridTemplateColumns: `136px repeat(${days.length}, minmax(${DAY_MIN_PX}px, 1fr))`, minWidth: 136 + days.length * DAY_MIN_PX }}>
               {/* Header row */}
-              <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
+              <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{view === "inspections" ? "Inspector" : vocab.resourceNoun}</div>
               {days.map((d) => {
                 const isToday = sameDay(Date.now(), d, tz);
                 return (
@@ -1022,7 +1083,7 @@ export default function CalendarBoard() {
               {/* Owner feedback 2026-09-28: this must not look like one more crew. A tinted band, a phone icon,
                   "Phone bookings" + what it is, pill chips with no crew color and no Confirm button, and a heavier
                   divider before the first crew. */}
-              {!apptMode && (
+              {!apptMode && showInspections && (
                 <div data-testid="calendar-bookings-row" style={{ padding: "12px 16px", borderBottom: "2px solid #cbd5e1", background: "#f0f9ff", display: "grid", gap: 2, alignContent: "center" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: "#0369a1" }}>
                     <Phone size={14} strokeWidth={1.75} />
@@ -1031,7 +1092,7 @@ export default function CalendarBoard() {
                   <span style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.35 }}>Booked by your AI — not a {vocab.resourceNoun.toLowerCase()}</span>
                 </div>
               )}
-              {!apptMode && days.map((d) => {
+              {!apptMode && showInspections && days.map((d) => {
                 const dayAppts = unassignedAppts.filter((a) => sameDay(a.startTime, d, tz));
                 return (
                   <div key={d.toISOString()} style={{ padding: "8px 8px", borderBottom: "2px solid #cbd5e1", borderLeft: "1px solid #e0f2fe", background: "#f0f9ff", minHeight: 64, display: "grid", gap: 4, alignContent: "start" }}>
@@ -1048,9 +1109,11 @@ export default function CalendarBoard() {
               {/* Crew rows */}
               {orderedCrews.map((crew, index) => (
                 <Fragment key={crew.crewId}>
-                  {!apptMode && (index === 0 || orderedCrews[index - 1]?.kind !== crew.kind) && (
-                    <div style={{ gridColumn: "1 / -1", padding: "8px 16px", background: "var(--surface-muted, #f8fafc)", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {crew.kind === "inspector" ? "Inspectors" : vocab.resourceNounPlural}
+                  {!apptMode && (index === 0 || (orderedCrews[index - 1]?.kind === "inspector") !== (crew.kind === "inspector")) && (
+                    <div data-testid={crew.kind === "inspector" ? "calendar-section-inspectors" : "calendar-section-crews"} style={{ gridColumn: "1 / -1", padding: "8px 16px", background: crew.kind === "inspector" ? "#f5f3ff" : "var(--surface-muted, #f8fafc)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {crew.kind === "inspector" ? <ClipboardCheck size={14} strokeWidth={1.75} aria-hidden="true" /> : <HardHat size={14} strokeWidth={1.75} aria-hidden="true" />}
+                      <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>{crew.kind === "inspector" ? "Inspectors" : vocab.resourceNounPlural}</span>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{crew.kind === "inspector" ? "Inspections and estimates — drag bookings here" : `Work dispatch — drag ${vocab.jobNounPlural.toLowerCase()} here`}</span>
                     </div>
                   )}
                   <CrewRow
@@ -1058,6 +1121,8 @@ export default function CalendarBoard() {
                     days={days}
                     jobs={apptMode || crew.kind === "inspector" ? [] : jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
                     appts={apptMode || crew.kind === "inspector" ? appts.filter((a) => a.assignedCrewId === crew.crewId) : []}
+                    jobsById={jobsById}
+                    now={now}
                     blocks={blocks.filter((block) => block.crewId === crew.crewId)}
                     tz={tz}
                     memberCount={apptMode ? 0 : memberCounts[crew.crewId] ?? 0}
@@ -1335,12 +1400,15 @@ function SlotPicker({
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onEditAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
+  crew, days, jobs, appts, jobsById, now, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onEditAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
 }: {
   crew: Crew;
   days: Date[];
   jobs: Job[];
   appts: Appointment[];
+  /** Every loaded job by id, so a booking can show the progress of the job made from it. */
+  jobsById: Map<string, Job>;
+  now: number;
   blocks: TimeBlock[];
   tz: string;
   memberCount: number;
@@ -1374,7 +1442,7 @@ function CrewRow({
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
           {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d, tz)).map((job) => (
-            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onChangeTime={onChangeTime} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} readOnly={readOnly} />
+            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} state={jobWorkState(job, now, tz)} onConfirm={onConfirm} onChangeTime={onChangeTime} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} readOnly={readOnly} />
           ))}
           {appts.filter((a) => sameDay(a.startTime, d, tz)).map((appt) => (
             <ScheduledApptTile
@@ -1382,6 +1450,7 @@ function CrewRow({
               appt={appt}
               crew={crew}
               tz={tz}
+              state={bookingWorkState(appt, appt.jobId ? jobsById.get(appt.jobId) : undefined, now, tz)}
               onConfirm={onConfirmAppt}
               onEdit={onEditAppt}
               readOnly={readOnly}
@@ -1509,12 +1578,25 @@ function ApptTile({ appt, tz, readOnly }: { appt: Appointment; tz: string; readO
 }
 
 // ── Placed booking tile (in a resource×day cell) ──────────────────────────────
+/** "In progress" / "Complete" under a placed item, in the state's colour; a scheduled item says nothing extra. */
+function WorkStateLine({ state }: { state: WorkState }) {
+  if (state === "scheduled") return null;
+  return (
+    <div data-testid="calendar-item-state" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: 10.5, fontWeight: 700, color: WORK_STATE_STYLE[state].text }}>
+      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: WORK_STATE_STYLE[state].accent, flexShrink: 0 }} />
+      {WORK_STATE_LABEL[state]}
+    </div>
+  );
+}
+
 function ScheduledApptTile({
-  appt, crew, tz, onConfirm, onEdit, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled, readOnly,
+  appt, crew, tz, state, onConfirm, onEdit, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled, readOnly,
 }: {
   appt: Appointment;
   crew: Crew;
   tz: string;
+  /** Inspection progress (lib/calendar/itemState.ts): blue scheduled, amber in progress, green complete. */
+  state: WorkState;
   onConfirm: (a: Appointment) => void;
   onEdit: (a: Appointment) => void;
   onUnassign: (appointmentId: string) => void;
@@ -1526,21 +1608,25 @@ function ScheduledApptTile({
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId, disabled: readOnly });
   const confirmed = appt.status === "confirmed" || justConfirmed;
+  const look = itemLook(state, confirmed);
   return (
     <div
       ref={setNodeRef}
+      data-state={state}
+      data-testid={`calendar-booking-${appt.appointmentId}`}
       style={{
         borderRadius: 10, overflow: "hidden",
-        border: confirmed ? `1px solid ${crew.color}` : "1px dashed #94a3b8",
-        background: confirmed ? `${crew.color}14` : "#f8fafc",
+        border: `1px ${look.dashed ? "dashed" : "solid"} ${look.border}`,
+        background: look.background,
         boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
       {/* No grip icon here: a day cell is ~80 px on a full week, and the icon cut names to "Jordai". The whole top is the handle. */}
-      <div {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} title={readOnly ? undefined : "Drag to move, or open to reschedule"} onClick={() => { if (!readOnly) onEdit(appt); }} onKeyDown={(event) => { if (!readOnly && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(appt); } }} style={{ padding: "7px 8px", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
+      <div {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} title={readOnly ? undefined : "Drag to move, or open to reschedule"} onClick={() => { if (!readOnly) onEdit(appt); }} onKeyDown={(event) => { if (!readOnly && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(appt); } }} style={{ padding: "7px 8px", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", borderLeft: `4px solid ${look.accent}` }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
+            <ClipboardCheck size={12} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0, color: look.text }} />
             {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
           </div>
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
@@ -1551,6 +1637,8 @@ function ScheduledApptTile({
               {appt.serviceType}
             </div>
           )}
+          <WorkStateLine state={state} />
+          <span className="sr-only">Inspection · {itemStateWords(state, confirmed)}</span>
         </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
@@ -1563,7 +1651,8 @@ function ScheduledApptTile({
             {busy ? "Sending…" : `✓ ${confirmButtonLabel(confirmChannels({ smsEnabled, phone: contactPhone(appt), textOk: appt.textOk, email: appt.callerEmail }))}`}
           </button>
         ) : (
-          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: "var(--accent-dark)", textDecoration: "none" }}>
+          // A booking that already became a job opens the job (its findings, quote and report); otherwise the request.
+          <Link href={appt.jobId ? `/company/jobs/${appt.jobId}${previewSuffix}` : `/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: "var(--accent-dark)", textDecoration: "none" }}>
             Open →
           </Link>
         )}
@@ -1575,13 +1664,15 @@ function ScheduledApptTile({
   );
 }
 
-// ── Scheduled tile (in a crew×day cell) — grey until confirmed, then crew color ──
+// ── Scheduled tile (in a crew×day cell) — grey dashed until confirmed; then blue / amber / green by progress ──
 function ScheduledTile({
-  job, crew, tz, onConfirm, onChangeTime, onUnschedule, busy, previewSuffix, readOnly,
+  job, crew, tz, state, onConfirm, onChangeTime, onUnschedule, busy, previewSuffix, readOnly,
 }: {
   job: Job;
   crew: Crew;
   tz: string;
+  /** Work progress (lib/calendar/itemState.ts): blue scheduled, amber in progress, green complete. */
+  state: WorkState;
   onConfirm: (j: Job) => void;
   onChangeTime?: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
@@ -1589,26 +1680,34 @@ function ScheduledTile({
   previewSuffix: string;
   readOnly: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId, disabled: readOnly });
+  // Finished work stays where it was done: not draggable, no confirm/move buttons, just "Open".
+  const finished = job.status === "complete" || job.status === "invoiced";
+  const locked = readOnly || finished;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId, disabled: locked });
   // This industry's word for who does the work (Crew, Walker, Tech…).
   const resourceNoun = useBusinessModules().vocab.resourceNoun;
   const companies = useBootstrap().data?.business.companies;
   const confirmed = !!job.crewConfirmed;
-  const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+  const look = itemLook(state, confirmed || finished);
+  // No-break spaces keep "11:00 AM" whole; the line may only wrap after the dash (narrow full-week columns).
+  const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }).replace(/\s/g, " ");
   return (
     <div
       ref={setNodeRef}
+      data-state={state}
+      data-testid={`calendar-job-${job.jobId}`}
+      title={`${crew.name} · ${itemStateWords(state, confirmed || finished)}`}
       style={{
         borderRadius: 10, overflow: "hidden",
-        border: confirmed ? `1px solid ${crew.color}` : "1px dashed #94a3b8",
-        background: confirmed ? `${crew.color}14` : "#f8fafc",
+        border: `1px ${look.dashed ? "dashed" : "solid"} ${look.border}`,
+        background: look.background,
         boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} onClick={() => onChangeTime?.(job)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onChangeTime?.(job); } }} style={{ padding: "8px 10px", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
-        {!readOnly && <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />}
-        <div style={{ minWidth: 0, flex: 1 }}>
+      {/* No grip icon (same as booking tiles): on a full week the icon squeezed the time onto four lines. The whole top is the handle. */}
+      <div {...(!locked ? listeners : {})} {...(!locked ? attributes : {})} onClick={() => { if (!finished) onChangeTime?.(job); }} onKeyDown={(event) => { if (!finished && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onChangeTime?.(job); } }} style={{ padding: "7px 8px", cursor: locked ? "default" : "grab", touchAction: locked ? "auto" : "none", borderLeft: `4px solid ${look.accent}` }}>
+        <div style={{ minWidth: 0 }}>
           {job.scheduledStart && (
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
               {fmtTime(job.scheduledStart)}
@@ -1616,22 +1715,24 @@ function ScheduledTile({
             </div>
           )}
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
+          <WorkStateLine state={state} />
+          <span className="sr-only">{itemStateWords(state, confirmed || finished)}</span>
           <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
         </div>
       </div>
-      <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-        {!confirmed && !readOnly ? (
+      <div style={{ display: "flex", flexWrap: "wrap", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+        {!confirmed && !readOnly && !finished ? (
           <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : `✓ Confirm + email ${resourceNoun.toLowerCase()}`}</button>
         ) : (
           <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: "var(--accent-dark)", textDecoration: "none" }}>Open →</Link>
         )}
         {/* Outside the drag handle on purpose: a button nested in the draggable (role="button") is invalid and eats taps. */}
-        {onChangeTime && (
-          <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+        {onChangeTime && !finished && (
+          <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 7px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
             <Clock3 size={14} strokeWidth={1.75} />
           </button>
         )}
-        {!readOnly && <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+        {!readOnly && !finished && <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 7px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
           <Undo2 size={14} strokeWidth={1.75} />
         </button>}
       </div>

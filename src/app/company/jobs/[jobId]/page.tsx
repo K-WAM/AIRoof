@@ -1,11 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
 import { Hint } from "@/components/ui/Hint";
 
 import { parseDocumentRecipients } from "@/lib/documents/recipients";
 import { track } from "@/lib/analytics/client";
 
-import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
 import { fmtPhone } from "@/lib/format/phone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { use, useEffect, useRef, useState, useCallback } from "react";
@@ -20,26 +21,20 @@ import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { canSendInvoice } from "./jobInvoice";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
-import { DepositInvoices } from "./DepositInvoices";
 import { LogoPicker } from "@/lib/documents/LogoPicker";
-import { ReportLayoutControls } from "./ReportLayoutControls";
-import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
-import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
-import { LetterBody } from "@/lib/documents/LetterBody";
-import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
+import { isCompletion } from "@/lib/documents/completionLetter";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
 import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
 import { resolvedInvoiceCopy, staleCompanyName } from "@/lib/companies/documentCopy";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
-import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { LazyDocumentPreview as DocumentPreview } from "@/lib/documents/LazyDocumentPreview";
 import { noticeApproval, noticesForDocument } from "@/lib/documents/notices";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
-import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftReportNotes, reportSections, stripHiddenFacts } from "@/lib/documents/report";
-import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
-import { FindingsPanel } from "./FindingsPanel";
+import type { DocumentOptions } from "@/types/documentOptions";
+import { draftReportNotes, stripHiddenFacts } from "@/lib/documents/report";
+import { QUOTE_SHOWABLE_STATUSES } from "@/lib/documents/reportQuote";
 import { JobHistory } from "./JobHistory";
 import { jobSteps } from "@/lib/jobs/nextStep";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
@@ -49,7 +44,6 @@ import { DocumentOptionToggles } from "@/components/documents/DocumentOptionTogg
 import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
 import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
-import { QuotePanel } from "./QuotePanel";
 import { ClientDetailsEditor } from "./ClientDetailsEditor";
 import { NextStepButton } from "./NextStepButton";
 import { RecordPayment } from "./RecordPayment";
@@ -63,12 +57,10 @@ import { NumberField } from "@/components/ui/NumberField";
 import { JobCrewLine } from "@/components/jobs/JobCrewLine";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
-import dynamic from "next/dynamic";
 // dnd-kit is ~40 KB and only the Photos tab uses it: load it when that tab first opens.
 const SortablePhotoGrid = dynamic(() => import("@/components/photos/SortablePhotoGrid").then((m) => m.SortablePhotoGrid), {
   ssr: false,
-  loading: () => <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading photos…</p>,
+  loading: () => <PanelSkeleton label="Loading photos" />,
 });
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
@@ -93,6 +85,16 @@ import {
   X,
 } from "lucide-react";
 import { fmtMoney } from "@/lib/format/money";
+
+const QuotePanel = dynamic(() => import("./QuotePanel").then(m => m.QuotePanel), { ssr: false, loading: () => <PanelSkeleton label="Loading quote" /> });
+const FindingsPanel = dynamic(() => import("./FindingsPanel").then(m => m.FindingsPanel), { ssr: false, loading: () => <PanelSkeleton label="Loading findings" /> });
+const DepositInvoices = dynamic(() => import("./DepositInvoices").then(m => m.DepositInvoices), { ssr: false, loading: () => <PanelSkeleton label="Loading deposits" /> });
+const ReportLayoutControls = dynamic(() => import("./ReportLayoutControls").then(m => m.ReportLayoutControls), { ssr: false, loading: () => <PanelSkeleton label="Loading report controls" /> });
+const ReportDocument = dynamic(() => import("./ReportDocument").then(m => m.ReportDocument), { ssr: false, loading: () => <PanelSkeleton label="Loading report" document /> });
+const PrivateDemoDocuments = dynamic(() => import("@/components/demo/PrivateDemoDocuments").then(m => m.PrivateDemoDocuments), { ssr: false, loading: () => <PanelSkeleton label="Loading documents" /> });
+const PhotoEditSheet = dynamic(() => import("@/components/field/PhotoEditSheet").then(m => m.PhotoEditSheet), { ssr: false, loading: () => null });
+const CustomerVersionPanel = dynamic(() => import("./CustomerVersionCard").then(m => m.CustomerVersionCard), { ssr: false, loading: () => <PanelSkeleton label="Loading document controls" /> });
+
 
 const SEVERITY_COLOR: Record<string, string> = {
   high: "#b91c1c",
@@ -1400,7 +1402,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </section>
       )}
 
-      {!readOnly && <PhotoEditSheet
+      {!readOnly && editingPhoto && <PhotoEditSheet
         photo={editingPhoto}
         jobId={jobId}
         businessId={businessId}
@@ -1434,7 +1436,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
-      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} quote={pageQuote} onOpenQuote={() => setActiveTab("quote")} onSaved={(findings) => {
+        // A save that adds or removes a finding from the quote changes the draft quote's lines on the server (same
+        // transaction): re-read it so each finding's "On the quote" price stays true. Wording-only saves skip the read.
+        const before = new Set((job.findings ?? []).filter((finding) => finding.includeInQuote).map((finding) => finding.findingId));
+        const after = findings.filter((finding) => finding.includeInQuote).map((finding) => finding.findingId);
+        const quoteChanged = after.length !== before.size || after.some((id) => !before.has(id));
+        setJob((current) => current ? { ...current, findings } : current);
+        if (quoteChanged && job.quoteId && businessId) {
+          fetch(`/api/jobs/${encodeURIComponent(job.jobId)}/quote?businessId=${encodeURIComponent(businessId)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d: { quote?: JobQuote | null } | null) => { if (d?.quote) setPageQuote(d.quote); })
+            .catch(() => {});
+        }
+      }} />}
 
       {activeTab === "quote" && !privateDemo && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         photos={photos} readOnly={readOnly}
@@ -1952,7 +1967,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
                   billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceDisplayCopy.closing} thankYou={invoiceDisplayCopy.thankYou}
                   findingSections={invoiceShowFindingSections !== false} findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }))}
-                  groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
+                  groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal} totals={{ subtotal, tax }}
                   howToPay={invoiceStatus !== "paid" && hasBilling && invoiceLetterhead.billingPrefs ? { instructions: invoiceLetterhead.billingPrefs.payInstructions ?? "", link: invoiceLetterhead.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: invoiceLetterhead.businessName, licenseNumber: invoiceLetterhead.licenseNumber } })} >
@@ -2268,40 +2283,6 @@ function InlineInput({ value, onChange, placeholder, align, width, label }: {
 }
 
 /** Shared customer-copy renderer used by the screen and print/PDF twin. */
-function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos, quote }: {
-  job: Job;
-  jobId: string;
-  businessConfig: BusinessConfig | null;
-  logos: LibraryLogo[];
-  reportNotes: string;
-  reportOptions: Partial<DocumentOptions>;
-  reportTechnicians: string[];
-  reportPhotos: Array<JobPhotoMeta & { fullB64: string }>;
-  quote: JobQuote | null;
-}) {
-  const { fmtDate } = useFormat();
-  const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
-  const options = normalizeDocumentOptions(reportOptions);
-  const sections = reportSections(job.parsed, options);
-  const brand = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: job.reportDocument?.companyId, jobCompanyId: job.companyId, documentStatus: job.reportDocument?.sentAt ? "sent" : "draft" }), logos, job.reportDocument?.logoId);
-  const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
-  // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
-  const quoteSection = reportQuoteSection(quote, { ...options, priceMode: job.reportDocument?.priceMode }, fmtDate);
-  if (job.address) meta.push(["Service at", job.address]);
-  if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
-  const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }));
-  if (isCompletion(job.reportDocument)) {
-    const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
-    const letter = completionLetter(job, brand, templates[kind], Date.now(), quote);
-    return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
-  }
-  return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
-    billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
-    narrative={stripHiddenFacts(reportNotes, options)}
-    findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} sections={sections} quoteSection={quoteSection}
-    photos={options.showPhotos ? reportPhotos : []} />;
-}
-
 // Compact label:value row for the invoice letterhead's Date/Invoice No./Due block — labels in
 // the tenant's brand color (bold, right-aligned) so it reads like the printed-invoice reference
 // style, values in plain dark text immediately to the right.

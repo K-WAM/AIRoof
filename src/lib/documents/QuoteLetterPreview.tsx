@@ -1,7 +1,10 @@
+"use client";
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
 import type { JobQuote } from "@/types/quote";
 import type { LetterTemplate } from "@/types/documentTemplate";
 import type { DocumentPhoto } from "./DocumentPreview";
-import { DocumentPreview } from "./DocumentPreview";
+import { LazyDocumentPreview as DocumentPreview } from "./LazyDocumentPreview";
 import { LetterBody } from "./LetterBody";
 import { quoteLetter, type LetterRate } from "./quoteLetter";
 import type { Letterhead } from "./letterhead";
@@ -11,7 +14,9 @@ import { fmtMoney } from "@/lib/format/money";
 export function QuoteLetterPreview({ quote, brand, template, rates, photos }: { quote: JobQuote; brand: Letterhead; template: LetterTemplate; rates: LetterRate[]; photos: DocumentPhoto[] }) {
   const model = quoteLetter(quote, brand, template, rates);
   const tm = quote.layout === "tm_authorization";
-  return <><div className="no-print">{model.letter.missing.length > 0 && <p role="status">Unfilled letter fields: {model.letter.missing.join(", ")}</p>}</div><DocumentPreview className="quote-doc" title={model.letter.title} brand={brand}
+  const missing = <div className="no-print">{model.letter.missing.length > 0 && <p role="status">Unfilled letter fields: {model.letter.missing.join(", ")}</p>}</div>;
+  if (brand.documentStyle === "classic") return <>{missing}<ClassicQuoteLetter quote={quote} brand={brand} template={template} rates={rates} photos={photos} model={model} tm={tm} /></>;
+  return <>{missing}<DocumentPreview className="quote-doc" title={model.letter.title} brand={brand}
     meta={[["Date", fmtDate(quote.createdAt, brand.timezone ?? "America/New_York")], ["Quote", quote.quoteId + " · Job " + quote.jobId]]} billTo={quote.billTo} photos={photos}>
     {quote.attention && <p>Attention: {quote.attention}</p>}
     <p><strong>RE:</strong> {[quote.serviceAt ?? quote.billTo.address, quote.description, `Work order ${quote.jobId}`].filter(Boolean).join(" · ")}</p>
@@ -22,3 +27,6 @@ export function QuoteLetterPreview({ quote, brand, template, rates, photos }: { 
     <section style={{ borderTop: "1px solid #cbd5e1", marginTop: 32, paddingTop: 20 }}><p>{tm ? "Authorized" : "Accepted"} by: ____________________</p><p>Date: ____________________</p><p>Printed name: ____________________</p>{template.signer?.name && <p>{template.signer.name}<br />{template.signer.title}</p>}</section>
   </DocumentPreview></>;
 }
+
+
+const ClassicQuoteLetter = dynamic(() => import("./ClassicQuoteLetter").then(m => m.ClassicQuoteLetter), { ssr: false, loading: () => <PanelSkeleton label="Loading classic letter" document /> });

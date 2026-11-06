@@ -103,7 +103,7 @@ function ClientTab() {
     <>
       <Section title="Get from the client first" note="Missing any of these is what stalls a launch.">
         <ul className="pb-list">
-          <li>Company, industry, owner&apos;s name + email, main phone, service area, timezone, hours per day.</li>
+          <li>Company, industry, owner&apos;s name + email, business phone (setup), service area, timezone, hours per day.</li>
           <li>Services they sell, their top 5–10 FAQs with answers, what counts as an emergency + who to call.</li>
           <li>Number: <b>new</b>, <b>forward</b> theirs, or <b>port</b> it (slowest). Receptionist name + greeting.</li>
           <li>Logo (PNG), brand color, public phone/email, prices, labor + tax rate, staff list with roles.</li>
@@ -114,7 +114,7 @@ function ClientTab() {
       <Section title="1 · Create the client (10 min)">
         <Steps tick={tick("create")} steps={[
           { text: <><b>New client</b> → fill all 7 steps. Edit the services + FAQs now — there&apos;s no editor for them later.</>, href: "/hub/onboarding", go: "New client" },
-          { text: <>Copy the owner&apos;s <b>temporary password</b> (shown once) and send it privately.</>, see: "lost it? Client → Client Login → Provision Login" },
+          { text: <>Copy the owner&apos;s <b>temporary password</b> (shown once) and send it privately.</>, see: "lost it? Client → Client Login → Reset password" },
           { text: <>Client → <b>Products</b>: turn <b>off</b> what they didn&apos;t buy (all start on).</>, href: CLIENTS, go: "Clients" },
           { text: <>Client → <b>Subscription &amp; Billing</b>: seat limit, plan name, monthly amount, billing day.</> },
         ]} />

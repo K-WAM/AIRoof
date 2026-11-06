@@ -55,6 +55,8 @@ export async function GET(req: NextRequest) {
     afterHoursGreeting: d.afterHoursGreeting ?? "",
     recordingDisclosure: resolveRecordingDisclosure(d),
     invoiceCopy: { ...DEFAULT_INVOICE_COPY, ...d.invoiceCopy },
+    // Document look (src/lib/documents/documentStyle.ts): missing = "standard".
+    documentStyle: d.documentStyle === "classic" ? "classic" : "standard",
     // The quote/invoice screens decide client-side whether any Terms & notices print (documents/notices.ts: only when approved).
     documentNotices: d.documentNotices ?? null,
     billingPrefs: effectiveBillingPrefs(d),
@@ -63,7 +65,10 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure, invoiceCopy } = body;
+  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure, invoiceCopy, documentStyle } = body;
+  if (documentStyle !== undefined && documentStyle !== "standard" && documentStyle !== "classic") {
+    return jsonWithCache({ error: 'documentStyle must be "standard" or "classic"' }, "noStore", { status: 400 });
+  }
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   const hoursValidation = businessHours === undefined ? null : validateBusinessHours(businessHours);
@@ -115,6 +120,10 @@ export async function PUT(req: NextRequest) {
   if (disclosureUpdate !== undefined && !auth.user.superadmin && auth.user.role !== "owner") {
     return NextResponse.json({ error: "Only the owner can change the call recording notice" }, { status: 403 });
   }
+  // The letterhead look is branding, like the logo library's default: owner (or the platform) only.
+  if (documentStyle !== undefined && !auth.user.superadmin && auth.user.role !== "owner") {
+    return jsonWithCache({ error: "Only the owner can change how documents look" }, "noStore", { status: 403 });
+  }
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -134,6 +143,7 @@ export async function PUT(req: NextRequest) {
   }
   if (disclosureUpdate !== undefined) update.recordingDisclosure = disclosureUpdate;
   if (invoiceCopy !== undefined) update.invoiceCopy = { opening: invoiceCopy.opening, closing: invoiceCopy.closing, thankYou: invoiceCopy.thankYou, terms: invoiceCopy.terms };
+  if (documentStyle !== undefined) update.documentStyle = documentStyle;
 
   const businessRef = db.collection("businesses").doc(businessId);
   await businessRef.update(update);
@@ -170,5 +180,5 @@ export async function PUT(req: NextRequest) {
   }
 
   // Bust timezone cache: client sessionStorage is client-side, no server action needed
-  return NextResponse.json({ ok: true, ...(vapiSyncWarning ? { vapiSyncWarning } : {}) });
+  return jsonWithCache({ ok: true, ...(vapiSyncWarning ? { vapiSyncWarning } : {}) }, "noStore");
 }

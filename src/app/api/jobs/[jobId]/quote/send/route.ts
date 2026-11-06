@@ -80,6 +80,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const html = buildQuoteEmailHtml(sendableQuote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
+    // Document look + the company's letterhead extras (src/lib/documents/documentStyle.ts).
+    documentStyle: biz.documentStyle, fax: biz.fax, tagline: biz.tagline, timezone: biz.timezone,
   }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") }, letterContext);
   await jobRef.update({ documentRecipients: recipients, updatedAt: Date.now() });
   const sent = await deliverDocument(recipients, recipient => sendEmail({

@@ -24,6 +24,8 @@ export type VerticalId =
  */
 export interface VerticalVocab {
   jobNoun: string;
+  /** The trade in a sentence: "your roofing needs", "your dental needs" (invoice thank-you line, {industryNoun}). */
+  industryNoun: string;
   jobNounPlural: string;
   customerNoun: string;
   customerNounPlural: string;
@@ -134,6 +136,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Job",
+      industryNoun: "roofing",
       jobNounPlural: "Jobs",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -263,6 +266,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Service call",
+      industryNoun: "heating and cooling",
       jobNounPlural: "Service calls",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -342,6 +346,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Job",
+      industryNoun: "landscaping",
       jobNounPlural: "Jobs",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -420,6 +425,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Clean",
+      industryNoun: "cleaning",
       jobNounPlural: "Cleans",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -507,6 +513,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "care",
     vocab: {
       jobNoun: "Appointment",
+      industryNoun: "dental",
       jobNounPlural: "Appointments",
       customerNoun: "Patient",
       customerNounPlural: "Patients",
@@ -591,6 +598,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "care",
     vocab: {
       jobNoun: "Tour",
+      industryNoun: "care",
       jobNounPlural: "Tours",
       customerNoun: "Family",
       customerNounPlural: "Families",
@@ -699,6 +707,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "ops",
     vocab: {
       jobNoun: "Work order",
+      industryNoun: "property",
       jobNounPlural: "Work orders",
       customerNoun: "Tenant",
       customerNounPlural: "Tenants",
@@ -782,6 +791,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Project",
+      industryNoun: "construction",
       jobNounPlural: "Projects",
       customerNoun: "Client",
       customerNounPlural: "Clients",
@@ -862,6 +872,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Job",
+      industryNoun: "electrical",
       jobNounPlural: "Jobs",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -941,6 +952,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Repair",
+      industryNoun: "appliance repair",
       jobNounPlural: "Repairs",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -1021,6 +1033,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "care",
     vocab: {
       jobNoun: "Booking",
+      industryNoun: "childcare",
       jobNounPlural: "Bookings",
       customerNoun: "Family",
       customerNounPlural: "Families",
@@ -1110,6 +1123,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "care",
     vocab: {
       jobNoun: "Tour",
+      industryNoun: "childcare",
       jobNounPlural: "Tours",
       customerNoun: "Family",
       customerNounPlural: "Families",
@@ -1201,6 +1215,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     family: "field",
     vocab: {
       jobNoun: "Pickup",
+      industryNoun: "junk removal",
       jobNounPlural: "Pickups",
       customerNoun: "Customer",
       customerNounPlural: "Customers",
@@ -1288,6 +1303,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     quotes: false,
     vocab: {
       jobNoun: "Visit",
+      industryNoun: "pet care",
       jobNounPlural: "Visits",
       customerNoun: "Client",
       customerNounPlural: "Clients",

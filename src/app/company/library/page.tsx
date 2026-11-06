@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -13,11 +15,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
-import { CrewsSection } from "./CrewsSection";
-import { CompaniesSection } from "./CompaniesSection";
-import { LogosSection } from "./LogosSection";
-import { WorkCatalogSection } from "./WorkCatalogSection";
-import { LettersSection } from "./LettersSection";
+const CrewsSection = dynamic(() => import("./CrewsSection").then(m => m.CrewsSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const CompaniesSection = dynamic(() => import("./CompaniesSection").then(m => m.CompaniesSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const LogosSection = dynamic(() => import("./LogosSection").then(m => m.LogosSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const DocumentStyleSection = dynamic(() => import("./DocumentStyleSection").then(m => m.DocumentStyleSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const WorkCatalogSection = dynamic(() => import("./WorkCatalogSection").then(m => m.WorkCatalogSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const LettersSection = dynamic(() => import("./LettersSection").then(m => m.LettersSection), { ssr: false, loading: () => <PanelSkeleton /> });
 import {
   BadgeDollarSign,
   BookOpen,
@@ -238,7 +241,7 @@ export default function LibraryPage() {
       )}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} people={crewPeople} setPeople={setCrewPeople} readOnly={readOnly} />}
       {section === "documents" && <><LettersSection readOnly={readOnly} /><DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} /></>}
-      {section === "branding" && <><LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} /><CompaniesSection logos={logos} /></>}
+      {section === "branding" && <><LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />{businessId && <DocumentStyleSection businessId={businessId} readOnly={readOnly} />}<CompaniesSection logos={logos} /></>}
       {section === "work-catalog" && isEnabled("jobs") && (
         <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} readOnly={readOnly} />
       )}

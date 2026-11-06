@@ -2662,3 +2662,39 @@ logos.
   findings through the document suite), `lib/pipeline/jobPrefill.ts` (+ test). Kept on purpose: `DemoHero` (self-led demo plan)
   and `useQuery` (planned cache layer). Unimported files never reach a page bundle, so this tidies the repo; load time is unchanged.
 - **Docs:** Roof Doctors data-gaps doc (Claude Docs, private) https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw.
+
+### T-330 - Calendar progress colours (2026-11-06)
+- Reviewed the supplied implementation; retained completed work, status words and inspection/crew focus. Fixed completed phone cards opening reschedule; linked inspections open their job on phones too.
+- Evidence: tsc clean; changed-file eslint clean; related baseline 1457 passed with guide bullet failure corrected (21 focused tests passed); calendar state/legacy copy 16 passed. Calendar status desktop and 375px phone passed after fixing overlapping test fixtures. Read calendar-status-week and calendar-status-phone screenshots. Existing calendar-smooth, crews-calendar, hints and guide checks passed in the 58-pass browser batch (3 skips; document-route flake passed retry).
+- No stored data or booking-engine changes. Commit: T-330 in task/rd-polish.
+
+### T-333 - Refuse login account takeover (2026-11-06)
+- Refuse platform claims/records, other-tenant memberships and unlinked Auth accounts with 409. Existing same-tenant users require explicit reset; resets preserve membership and privileges. Auth lookup failures fail closed. New logins use crypto-generated temporary passwords; only the password is returned, with no-store, and provider errors are neither logged nor echoed.
+- Added the separate Reset password modal and a plain, readable warning to use the client's own email. Clear displayed credentials when the email changes.
+- Evidence: tsc clean; changed-file eslint clean; related security tests 24/24; desktop and 375px admin-config security flows passed. Read both screenshots, including a full-size crop of the phone login card. No production calls. Commit: T-333 in task/rd-polish.
+
+### T-332 - Findings and quote prices (2026-11-06)
+- Each editable finding shows its quote amount by findingId, or its standard price, with one link to the Quote price editor. Quote inputs have desktop column labels. Refresh the quote after finding inclusion changes.
+- Evidence: tsc and changed-file eslint clean; related baseline 1457 passed; findings-price desktop and 375px phone passed, including changing 100 to 125 in Quote and checking the saved finding price. Read both findings-quote-price screenshots. No stored data removed. Commit: T-332 in task/rd-polish.
+
+### T-331 - Classic letterhead documents (2026-11-06)
+- Reviewed and completed classic previews, print copies and email letterheads; owner/platform Branding picker; company fax/site/tagline isolation; trade-specific generated copy; deposit details. Fixed missing state license on proposal emails, unchanged-company legacy wording refresh, failed-load picker fallback, and a 375px clipped price table.
+- Evidence: tsc clean; changed-file eslint clean; baseline related tests 1457 passed (guide failure fixed separately); 21 focused guide/style tests, 16 calendar/legacy tests, 9 document-style permission/validation tests passed. Classic document spec 2/2 on desktop and phone: proposal, T&M, plain quote, both completion notices, invoice, deposit, photos, RCU license/no inherited site, captured invoice/quote email, Branding radio persistence and finally restoring Standard. Uses the fixture's allowed recipient; no guard changed.
+- Read classic invoice print, proposal, completion, RCU invoice and Branding screenshots on desktop/375px. Existing document/companies/company-split/doc-photos checks passed in the 58-pass batch (3 skips, one route-404 flake passed retry). No data removed. Commit: T-331 in task/rd-polish.
+
+### T-334 - Company Config cleanup (2026-11-06)
+- ElevenLabs fields come first; a missing provider stays missing and says Not set - choose ElevenLabs. Vapi IDs, language overrides and callbacks remain editable in a collapsed Legacy Vapi settings disclosure. Runtime provider behavior is unchanged.
+- Hidden the mock calendar selector unless a non-mock provider is stored. Replaced the Logo URL editor with the library logo and a direct Branding link; the stored URL is untouched. Relabeled Main phone as Business phone (setup), its actual fallback use, and the public contact phone as Phone on documents. No stored fields removed.
+- Added header View as, validated Document look, and Generate invoice -> a saved, editable LX draft with client contact/address, plan price and terms prefilled; never sent automatically. Fixed the invoice editor's clipped phone layout and wrapped amount, keeping descriptions editable and readable. Updated the Playbook's reset label.
+- Evidence: tsc clean, changed-file eslint 0 errors, 31 related tests passed. Admin config flow passed desktop and 375px: hidden values and absent provider preserved, document look saved, invoice line edited/saved with no email, View as read-only. Read admin-config-branding, generated-draft and login-card screenshots, including the corrected phone total. Navigation shortened: direct Branding and View as; draft creation removes blank line/price entry and a separate Save step. Commit: T-334 in task/rd-polish.
+
+### T-329 - Defer inactive job panels and Library tabs (2026-11-06)
+- Dynamically load Quote, Findings, deposits, report controls/rendering, document controls, private-demo documents and the photo editor only when needed. Standard/classic/typed-letter renderers have separate browser chunks; pure DocumentPreview remains available for server/static-markup consumers. Library sections are deferred. Placeholders retain the page header/tab positions. No data, routes or capabilities removed; renderer bodies moved into dedicated modules.
+- Refresh the browser's settings cache after a Document look choice so the next document honors it immediately; the classic scenario now opens documents after both radio choices.
+- Production measurements: job route 72.5 -> 48.1 kB (-34%), first load 211 -> 185 kB; Library 20.5 -> 8.16 kB, first load 153 -> 137 kB. Both builds passed, tsconfig restored byte-for-byte, .next-measure deleted. The job route remains heavier than other company screens.
+- Evidence: tsc clean; changed-file eslint 0 errors, two existing image warnings; 30 related renderer tests passed. Job-lazy desktop/375px checks passed: inactive panels absent from first-paint requests, a new chunk plus skeleton on Findings, and inactive Library tabs deferred. Classic scenarios passed both sizes with immediate style navigation. Read loading/ready and classic screenshots. No added clicks or changed field defaults. Commit: T-329 in task/rd-polish.
+
+### T-342 - Group finding categories once (2026-11-06)
+- Shared display-only grouping keeps first-seen category order and finding order within each category. Blank categories use Findings. Standard/classic app and print documents and emailed HTML print one heading with numbered Problem / Corrective Action / inspector notes. Explicit compact preferences remain supported; stored findings are untouched.
+- Evidence: 10 grouping tests passed; related run 433 passed with one deposit cold-import timeout, isolated deposit retry 10/10. TypeScript and changed-file eslint passed. Both browser sizes passed grouping across report/quote/invoice, print and captured emails. Read desktop and 375px app/print screenshots. Final batch gates are recorded in REVIEW-rd-polish.md.
+- Removed no data or controls. Shortened repeated document headings without another navigation step.

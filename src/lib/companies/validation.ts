@@ -1,8 +1,8 @@
 import type { BillingCompany } from "@/types/company";
 import { MAX_COMPANIES } from "./companies";
 
-export const COMPANY_LIMITS = { id: 16, name: 160, shortName: 8, logoId: 120, address: 500, phone: 40, email: 200, license: 120, payInstructions: 2000, payLink: 500 } as const;
-export const OWNER_COMPANY_FIELDS = ["address", "phone", "email", "license", "payInstructions", "payLink", "logoId"] as const;
+export const COMPANY_LIMITS = { id: 16, name: 160, shortName: 8, logoId: 120, address: 500, phone: 40, fax: 40, email: 200, website: 200, license: 120, tagline: 120, payInstructions: 2000, payLink: 500 } as const;
+export const OWNER_COMPANY_FIELDS = ["address", "phone", "fax", "email", "website", "license", "tagline", "payInstructions", "payLink", "logoId"] as const;
 
 /** Reject rather than silently truncate legal names, bank details or payment URLs. Never accepts logo data/URLs. */
 export function validateCompanies(raw: unknown, logoIds: readonly string[]): { companies: BillingCompany[]; error?: never } | { error: string; companies?: never } {

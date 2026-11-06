@@ -17,6 +17,12 @@ export interface BillingCompany {
   email?: string;
   /** Printed where the business's license prints today. */
   license?: string;
+  /** Fax line on the classic letterhead ("Phone … Fax …"). */
+  fax?: string;
+  /** This company's website, printed in the document footer. A non-default company never borrows the business's. */
+  website?: string;
+  /** A short slogan printed above the classic letter header (e.g. "Quality roofing since 1985"). */
+  tagline?: string;
   /** How a customer pays THIS company — its own bank account (same meaning as billingPrefs.payInstructions). */
   payInstructions?: string;
   /** Its own https pay page (same meaning as billingPrefs.payLink). */

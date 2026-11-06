@@ -2884,6 +2884,11 @@ a.metric:hover {
 .crew-issue-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .finding-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .finding-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+/* Quote line column names (2026-11-06): shown where the inputs sit on one row; a phone stacks them, so it is hidden. */
+.quote-line-head { display: flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+@media (max-width: 640px) { .quote-line-head { display: none; } }
+/* A finding's price, read from the quote when there is one (FindingsPanel). */
+.finding-price { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--surface-muted, #f8fafc); }
 .finding-number { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; }
 
 .sheet-backdrop {

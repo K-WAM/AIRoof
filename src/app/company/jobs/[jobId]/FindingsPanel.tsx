@@ -11,6 +11,8 @@ import { workBullet } from "@/lib/documents/workSummary";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
 import { JobFindingPicker } from "./JobFindingPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { fmtMoney } from "@/lib/format/money";
+import type { JobQuote } from "@/types/quote";
 
 export interface CatalogState {
   items: WorkCatalogItem[];
@@ -21,13 +23,17 @@ export interface CatalogState {
 
 const AUTOSAVE_MS = 800;
 
-export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = false }: {
+export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = false, quote = null, onOpenQuote }: {
   job: Job;
   businessId: string;
   catalog: CatalogState;
   onSaved: (findings: JobFinding[]) => void;
   /** Viewer: readable findings only; no office editing or autosave. */
   readOnly?: boolean;
+  /** The job's quote, when there is one: each finding shows the price it has ON the quote (2026-11-06). */
+  quote?: Pick<JobQuote, "status" | "lines"> | null;
+  /** Opens the Quote tab — the one place prices are edited. */
+  onOpenQuote?: () => void;
 }) {
   const [findings, setFindings] = useState<JobFinding[]>(job.findings ?? []);
   const [dirty, setDirty] = useState(false);
@@ -261,6 +267,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
                     <label><input type="checkbox" checked={f.includeInReport} onChange={(e) => patch(f.findingId, { includeInReport: e.target.checked })} /> In report</label>
                     <label><input type="checkbox" checked={f.includeInQuote} onChange={(e) => patch(f.findingId, { includeInQuote: e.target.checked })} /> In quote</label>
                   </div>
+                  <FindingPrice finding={f} quote={quote} onOpenQuote={onOpenQuote} />
                 </div>
               </article>
             ))}
@@ -289,4 +296,25 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
           </div>} />
     </section>
   );
+}
+
+/**
+ * A finding's price, said once and where it really is (2026-11-06): the amount on the quote when the quote carries this
+ * finding's lines (the quote is where prices are edited), otherwise the Library's standard price the finding brought
+ * with it. Never a second price editor: one way per thing.
+ */
+function FindingPrice({ finding, quote, onOpenQuote }: { finding: JobFinding; quote: Pick<JobQuote, "status" | "lines"> | null; onOpenQuote?: () => void }) {
+  const cents = (lines: Array<{ quantity: number; unitPrice: number }>) => lines.reduce((sum, line) => sum + Math.round(line.quantity * line.unitPrice * 100), 0) / 100;
+  const own = cents(finding.lines ?? []);
+  const quoteLines = (quote?.lines ?? []).filter((line) => line.findingId === finding.findingId);
+  const onQuote = finding.includeInQuote && quoteLines.length > 0;
+  const text = !finding.includeInQuote
+    ? own > 0 ? `Standard price ${fmtMoney(own)} · not on the quote` : "Not on the quote"
+    : onQuote ? `On the quote: ${fmtMoney(cents(quoteLines))}`
+      : own > 0 ? `Standard price ${fmtMoney(own)} · goes on the quote` : "No price yet · set it on the quote";
+  const locked = !!quote && quote.status !== "draft";
+  return <div className="finding-price" data-testid="finding-price">
+    <span style={{ fontWeight: onQuote ? 700 : 500 }}>{text}</span>
+    {onOpenQuote && finding.includeInQuote && <button className="button small" type="button" onClick={onOpenQuote}>{!quote ? "Make the quote" : locked ? "Open the quote" : "Change price on the quote"}</button>}
+  </div>;
 }

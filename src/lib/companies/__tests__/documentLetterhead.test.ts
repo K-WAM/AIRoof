@@ -19,3 +19,10 @@ it("the default company keeps today's fallback to the business's own fields",()=
   const business={billingCompanies:[{id:"rdsf",name:"Roof Pros South",shortName:"RDSF",isDefault:true},{id:"rcu",name:"RCU",shortName:"RCU"}],businessName:"Main",address:"Old",contactPhone:"111",contactEmail:"old@example.test",licenseNumber:"OLD",billingPrefs:{payInstructions:"Main bank",payLink:"https://main.test"}};
   expect(documentLetterhead(business,{id:"rdsf",name:"Roof Pros South",shortName:"RDSF",isDefault:true})).toMatchObject({address:"Old",contactPhone:"111",contactEmail:"old@example.test",licenseNumber:"OLD",billingPrefs:{payInstructions:"Main bank",payLink:"https://main.test"}});
 });
+it("the website follows the same rule: a non-default company prints only its own (2026-11-06)",()=>{
+  const business={billingCompanies:[{id:"rdsf",name:"South",shortName:"RDSF",isDefault:true},{id:"rcu",name:"Concepts",shortName:"RCU"}],businessName:"Main",websiteUrl:"https://main.example.test"};
+  expect(documentLetterhead(business,{id:"rcu",name:"Concepts",shortName:"RCU"}).websiteUrl).toBeUndefined();
+  expect(documentLetterhead(business,{id:"rcu",name:"Concepts",shortName:"RCU",website:"https://concepts.example.test",fax:"555-0102",tagline:"Since 1985"})).toMatchObject({websiteUrl:"https://concepts.example.test",fax:"555-0102",tagline:"Since 1985"});
+  expect(documentLetterhead(business,{id:"rdsf",name:"South",shortName:"RDSF",isDefault:true}).websiteUrl).toBe("https://main.example.test");
+  expect(documentLetterhead(business,{id:"rdsf",name:"South",shortName:"RDSF",isDefault:true,website:"https://south.example.test"}).websiteUrl).toBe("https://south.example.test");
+});
