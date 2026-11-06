@@ -8,6 +8,8 @@ const HISTORY_LIMIT = 200;
 
 export interface CustomerHistoryItem {
   id: string;
+  kind: "inspection" | "work-order";
+  description?: string;
   dueAt?: number;
   property?: string;
   address?: string;
@@ -46,6 +48,8 @@ export async function GET(
     .sort((a, b) => (b.dueAt ?? 0) - (a.dueAt ?? 0))
     .map((record) => ({
       id: record.id,
+      kind: record.kind ?? "inspection",
+      description: record.description,
       dueAt: record.dueAt,
       property: record.property,
       address: record.address,

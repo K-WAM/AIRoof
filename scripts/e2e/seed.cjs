@@ -163,6 +163,17 @@ async function seed({ reset = false } = {}) {
     await pros.collection("jobs").doc(jobId).set({ jobId, businessId: prosBusinessId, companyId, customerId, title: `${clientName} - sample repair`, clientName, clientEmail: "owner@roofpros.e2e.test", address: school.address, propertyType: companyId === "rcu" ? "commercial" : "residential", status: status === "sent" ? "invoiced" : "complete", invoiceId, createdAt: companyNow, updatedAt: companyNow, parsed: { materials: [], labor: [], timeline: [{ description: "Sample repair complete" }], issues: [], invoiceSuggestions: [] } });
     await pros.collection("invoices").doc(invoiceId).set({ invoiceId, businessId: prosBusinessId, jobId, customerId, ...(status === "sent" ? { companyId, sentAt: companyNow - 6 * 86400000, sentTo: "owner@roofpros.e2e.test" } : {}), status, billTo: { name: clientName, address: school.address, email: "owner@roofpros.e2e.test" }, serviceAt: school.address, description: "Sample repair", labor: [], materials: [], other: [{ lineId: "sample-repair", description: "Sample repair", amount: 500 }], taxRate: 0, subtotal: 500, total: 500, issuedAt: companyNow - 6 * 86400000, dueAt: companyNow - 3 * 86400000, hideMaterials: false, createdAt: companyNow, updatedAt: companyNow, createdBy: ACCOUNTS.proOwner.uid });
   }
+  // T-343: invented past work; browser checks never need a client export.
+  for (let i = 0; i < 12; i++) {
+    const id = i < 2 ? `jobba-wo-sample-${i}` : `jobba-sample-${i}`;
+    await pros.collection("jobHistory").doc(id).set({
+      id, source: "jobba", sourceId: `sample-${i}`, customerId: school.customerId,
+      customerName: school.name, ...(i < 2 ? {kind: "work-order"} : {}),
+      description: i === 0 ? "Repair sample flashing.\nCheck the invented drain." : "Sample inspection notes.",
+      property: "Sample School Annex", jobType: "Repair", status: "Complete",
+      dueAt: Date.UTC(2026, 10, 6 - i, 17), importedAt: companyNow,
+    });
+  }
   /* end T-316 */
 
 

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useFormat } from "@/hooks/useFormat";
-import { StatusChip } from "@/components/ui/StatusChip";
+
 
 export interface CustomerHistoryItem {
   id: string;
+  kind?: "inspection" | "work-order";
+  description?: string;
   dueAt?: number;
   property?: string;
   address?: string;
@@ -29,26 +31,23 @@ export function CustomerPastWork({ items }: { items: CustomerHistoryItem[] }) {
       </h3>
       <div style={{ display: "grid", gap: 6 }}>
         {shown.map((item) => (
-          <div
-            key={item.id}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, minWidth: 0 }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {item.property || item.address || "No property"}
-              </div>
-              <div style={{ fontSize: 11.5, color: "#94a3b8" }}>
-                {item.dueAt ? fmt.fmtDay(item.dueAt) : "No date"}
-                {item.jobType ? ` · ${item.jobType}` : ""}
-              </div>
-            </div>
-            <StatusChip status={item.status} />
-          </div>
+          <details key={item.id} style={{ padding: "8px 12px", background: "var(--bg-soft)", borderRadius: 8, minWidth: 0 }}>
+            <summary style={{ minHeight: 44, cursor: "pointer", fontSize: 13, lineHeight: 1.6, overflowWrap: "anywhere" }}>
+              {item.dueAt ? fmt.fmtDay(item.dueAt) : "No date"}
+              {` · ${item.kind === "work-order" ? "Work order" : "Inspection"}`}
+              {item.jobType ? ` · ${item.jobType}` : ""}
+              {item.status ? ` · ${item.status}` : ""}
+              {` · ${item.property || item.address || "No property"}`}
+            </summary>
+            <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 13, lineHeight: 1.6, maxHeight: 240, overflowY: "auto", margin: "8px 0" }}>
+              {item.description || "No description recorded."}
+            </p>
+          </details>
         ))}
       </div>
       {items.length > INITIAL && !expanded && (
         <button type="button" className="button ghost small" style={{ marginTop: 8 }} onClick={() => setExpanded(true)}>
-          Show all {items.length}
+          Show all ({items.length})
         </button>
       )}
     </div>

@@ -57,19 +57,22 @@ describe("GET /api/company/customers/[customerId]/history", () => {
 
   it("returns this customer's history newest first by dueAt", async () => {
     seedHistory(currentDb, "h-old", { dueAt: 1000, property: "12 Palm Court" });
-    seedHistory(currentDb, "h-new", { dueAt: 3000, property: "Northside Plaza" });
+    seedHistory(currentDb, "h-new", { dueAt: 3000, property: "Northside Plaza", kind: "work-order", description: "Seal flashing\nCheck drain" });
     seedHistory(currentDb, "h-mid", { dueAt: 2000 });
 
     const res = await GET(historyRequest(), { params: Promise.resolve({ customerId: "C-1000" }) });
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(body.items[0]).toMatchObject({ kind: "work-order", description: "Seal flashing\nCheck drain" });
+    expect(body.items[2].kind).toBe("inspection");
     expect(res.headers.get("Cache-Control")).toBe("private, no-cache");
     expect(body.items.map((item: { id: string }) => item.id)).toEqual(["h-new", "h-mid", "h-old"]);
   });
 
   it("never returns another customer's history", async () => {
     seedHistory(currentDb, "mine", { customerId: "C-1000", dueAt: 1000 });
+    currentDb.__seed("businesses/biz-2/jobHistory", "other-tenant", { customerId: "C-1000", id: "other-tenant" });
     seedHistory(currentDb, "theirs", { customerId: "C-9999", dueAt: 9000 });
 
     const res = await GET(historyRequest(), { params: Promise.resolve({ customerId: "C-1000" }) });

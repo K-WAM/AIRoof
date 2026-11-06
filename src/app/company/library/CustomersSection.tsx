@@ -372,12 +372,12 @@ function CustomerDetail({
             {jobs.length === 0 ? (
               <p style={{ fontSize: 13, color: "#94a3b8" }}>No jobs linked to this {vocabCustomerNoun.toLowerCase()} yet.</p>
             ) : (
-              <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 6 }}>
                 {jobs.map((j) => (
                   <a
                     key={j.jobId}
                     href={`/company/jobs/${j.jobId}`}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, textDecoration: "none", color: "inherit" }}
+                      style={{ display: "flex", minWidth: 0, alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, textDecoration: "none", color: "inherit" }}
                   >
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

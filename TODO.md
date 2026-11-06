@@ -3276,7 +3276,7 @@ tax default; 0 new customers; evaluation guard still ON (phone allowlist empty).
 
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-343 | unassigned | — | queued, before Nov 11 rehearsal | Jobba `Services.csv` (791 work orders) as read-only "Past work from Jobba" on each customer — the existing customer history, no new screen, nothing editable, real data stays out of git. |
+| T-343 | worker | task/rd-next, D:/Apps/air-wt-rd-next | review | Jobba `Services.csv` (791 work orders) as read-only "Past work from Jobba" on each customer — the existing customer history, no new screen, nothing editable, real data stays out of git. |
 | T-344 | unassigned | separate branch | queued, before Nov 11 rehearsal | Menu merges (owner approved all four): Requests = Pipeline + Calls; Finances = Billing + Finances + Payroll; Team inside Settings + a Help button; Field out of the office menu + job tabs 8→3. Old URLs redirect; add, don't remove — every screen still reachable. |
 | T-345 | unassigned | — | after the Nov 13 review | Safety checklists — a home for Jobba's safety checklist exports. |
 | T-346 | unassigned | — | after the Nov 13 review | Vendors and warranty types — a home for Jobba's vendor (11) and warranty-type exports. |
