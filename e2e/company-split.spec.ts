@@ -30,7 +30,8 @@ test("finances filter and jobs badge split by company", async ({ as }) => {
   expect(finance.companies?.map((c) => c.id).sort()).toEqual(["rcu", "rdsf"]);
   const rcu = finance.companies!.find((c) => c.id === "rcu")!;
   const rdsf = finance.companies!.find((c) => c.isDefault)!;
-  const rcuRow = finance.rows.find((r) => r.companyId === rcu.id);
+  // Other specs add RCU invoices to this tenant, so find the seeded one by its customer, not by position.
+  const rcuRow = finance.rows.find((r) => r.companyId === rcu.id && (r.customer ?? "").includes("Lakeview County Schools"));
   const rdsfRow = finance.rows.find((r) => r.companyId === rdsf.id);
   expect(rcuRow?.customer).toContain("Lakeview County Schools");
   expect(rdsfRow).toBeTruthy();

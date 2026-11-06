@@ -35,15 +35,18 @@ export function OnlinePayments({ canEdit }: { canEdit: boolean }) {
 
   return <section aria-labelledby="online-payments-title" style={{ marginBottom: 24 }}>
     <h3 id="online-payments-title">Online payments</h3>
-    <p role="status">{status ? status.ready ? "Stripe connected - ready for payments" : status.connected ? "Finish setting up Stripe" : "Not connected" : error ? "Status unavailable" : "Loading..."}</p>
+    {/* Until online payments exist for this workspace the controls can't do anything: one status line instead of two
+        disabled controls (no dead ends; also keeps Settings within its phone length budget, T-327). */}
+    <p role="status"><span>{status ? status.ready ? "Stripe connected - ready for payments" : status.connected ? "Finish setting up Stripe" : "Not connected" : error ? "Status unavailable" : "Loading..."}</span>{status && !status.canConnect && " · Online payments are not available for this workspace yet."}</p>
+    {status && !status.canConnect ? null : <>
     {canEdit && status && !status.ready && <button type="button" className="button primary" disabled={busy || !status.canConnect} onClick={() => update("POST")}>{busy ? "Opening..." : status.connected ? "Finish Stripe setup" : "Connect Stripe"}</button>}
     {status && canEdit && <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
       <Toggle checked={status.payNow} disabled={!canEdit || !status.ready || busy} onChange={value => update("PUT", value)} label="Show a Pay now button on invoices" />
       <span>Show a Pay now button on invoices</span>
     </div>}
     {status && !canEdit && <p>Invoice Pay now is {status.payNow ? "on" : "off"}.</p>}
-    {status && !status.canConnect && <p>Online payments are not available for this workspace yet.</p>}
     {!canEdit && <p>Only the account owner can change online payments.</p>}
+    </>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }

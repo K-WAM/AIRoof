@@ -7,8 +7,10 @@ test("owner sees online payment status; an invalid customer link reveals no invo
   await panel.scrollIntoViewIfNeeded();
   await expect(panel.getByRole("heading", { name: "Online payments" })).toBeVisible();
   await expect(panel.getByText("Not connected", { exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Connect Stripe", exact: true })).toBeDisabled();
-  await expect(panel.getByRole("switch", { name: "Show a Pay now button on invoices" })).toBeDisabled();
+  // No Stripe platform in the harness: one plain line, not two controls that can't be used.
+  await expect(panel.getByText("Online payments are not available for this workspace yet.")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Connect Stripe", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("switch", { name: "Show a Pay now button on invoices" })).toHaveCount(0);
   await shot(page, "pay-now-settings");
   await expectHealthy(page);
   await page.goto("/api/pay/invoice?b=e2e-roofing&i=INV-1&t=invalid");

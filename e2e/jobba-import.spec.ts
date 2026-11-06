@@ -3,8 +3,10 @@ import { test, expect, settle, shot, expectHealthy } from "./fixtures";
 import { api, db, must } from "../scripts/e2e/lib.cjs";
 
 // The CSV import is run locally before this spec. No client values are embedded in tests or committed artifacts.
+// Without that import (a fresh harness, or anyone without the git-ignored client files) the spec skips instead of failing.
 test("all imported customers are listed and searchable", async ({ as }) => {
   const imported = await db().collection("businesses/e2e-roofpros/customers").where("source", "==", "jobba").get();
+  test.skip(imported.size === 0, "Run the local Jobba import into e2e-roofpros first (docs/clients/JOBBA-SETUP-MAPPING.md).");
   expect(imported.size).toBe(191);
   const owner = await api("proOwner");
   const listed = must(await owner.get("/api/company/customers?businessId=e2e-roofpros"), "customer list").customers as Array<{ customerId: string }>;
@@ -24,6 +26,7 @@ test("setup crews, labor rates and finding categories appear in their existing s
   const businessId = "e2e-roofpros";
   const crews = must(await owner.get(`/api/company/crews?businessId=${businessId}`), "crews").crews as Array<{ crewId: string; name: string }>;
   const importedCrews = crews.filter(c => c.crewId.startsWith("jobba-crew-"));
+  test.skip(importedCrews.length === 0, "Run the local Jobba setup import into e2e-roofpros first.");
   expect(importedCrews).toHaveLength(5);
   const library = must(await owner.get(`/api/company/library?businessId=${businessId}`), "pricing").library;
   expect(library.laborRates.length).toBeGreaterThanOrEqual(3);

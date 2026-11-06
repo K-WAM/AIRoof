@@ -14,7 +14,8 @@ test("two companies share the shell, drafts follow the job, and sent invoices ke
   await expect(page.getByRole("heading", { name: "Company letterhead review" })).toBeVisible();
   const brand = page.locator(".company-brand:visible");
   await expect(brand.getByRole("img", { name: "Roof Pros South logo", exact: true })).toBeInViewport();
-  await expect(brand.getByRole("img", { name: "Concepts Unlimited logo", exact: true })).toBeInViewport();
+  // T-338: the other company's logo sits at the right end of the top bar, not beside the default one.
+  await expect(page.locator(".company-brand-other:visible").getByRole("img", { name: "Concepts Unlimited logo", exact: true })).toBeInViewport();
   await expect(brand.locator("img").first()).toHaveAttribute("alt", "Roof Pros South logo");
   await expect(page.locator("header.page-header").getByText("Company", { exact: true })).toBeVisible();
   const jobSwitch = page.locator("header.page-header").getByRole("radiogroup", { name: "Company for this job", exact: true });

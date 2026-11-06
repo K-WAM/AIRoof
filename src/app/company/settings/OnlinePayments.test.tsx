@@ -29,6 +29,8 @@ it("owner can switch Pay now on only when ready", async () => {
 it("unconfigured status prevents owner setup and opt-in", async () => {
   fetchMock.mockResolvedValue(respond({ ...ready, connected: false, ready: false, canConnect: false }));
   render(<OnlinePayments canEdit />);
-  expect(await screen.findByRole("button", { name: "Connect Stripe" })).toBeDisabled();
-  expect(screen.getByRole("switch")).toBeDisabled();
+  // Nothing the owner could use: one plain line instead of a disabled button and switch.
+  expect(await screen.findByText(/Online payments are not available for this workspace yet\./)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Connect Stripe" })).toBeNull();
+  expect(screen.queryByRole("switch")).toBeNull();
 });
