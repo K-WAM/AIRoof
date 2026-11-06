@@ -3253,22 +3253,31 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-330 | Codex | task/rd-polish / air-wt-rd-polish | review | Calendar progress colours, focus, completed-card locks; desktop and phone checked. |
-| T-333 | Codex | task/rd-polish / air-wt-rd-polish | review | Provision-login takeover guards, explicit reset dialog, 24 unit cases and both browser sizes checked. |
-| T-332 | Codex | task/rd-polish / air-wt-rd-polish | review | Finding prices follow the saved quote; quote column labels; desktop and phone price-edit round trip checked. |
-| T-331 | Codex | task/rd-polish / air-wt-rd-polish | review | Classic letterhead preview/print/email, owner Branding picker, company isolation; full classic scenario passed at both sizes. |
-| T-334 | Codex | task/rd-polish / air-wt-rd-polish | review | ElevenLabs-first config, folded legacy controls, Branding/View as shortcuts, prefilled editable invoice draft and phone layout; 31 unit tests and both browser sizes passed. |
-| T-342 | Codex | task/rd-polish / air-wt-rd-polish | review | Findings share one category heading and numbered entries in standard/classic app, print and email; fallback Findings, order and notes retained. Unit and both browser sizes passed; final batch evidence in REVIEW-rd-polish. |
-| T-335 | task/rd-money | review | Correct imported invoice totals, collected balances and due-date explanation verified. |
+| T-330 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | Calendar progress colours, focus, completed-card locks; desktop and phone checked. |
+| T-333 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | Provision-login takeover guards, explicit reset dialog, 24 unit cases and both browser sizes checked. |
+| T-332 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | Finding prices follow the saved quote; quote column labels; desktop and phone price-edit round trip checked. |
+| T-331 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | Classic letterhead preview/print/email, owner Branding picker, company isolation; full classic scenario passed at both sizes. |
+| T-334 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | ElevenLabs-first config, folded legacy controls, Branding/View as shortcuts, prefilled editable invoice draft and phone layout; 31 unit tests and both browser sizes passed. |
+| T-342 | Codex | task/rd-polish / air-wt-rd-polish | done — deployed 2026-11-06 (`fd823eb`) | Findings share one category heading and numbered entries in standard/classic app, print and email; fallback Findings, order and notes retained. Unit and both browser sizes passed; final batch evidence in REVIEW-rd-polish. |
+| T-335 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | Correct imported invoice totals, collected balances and due-date explanation verified. |
+| T-336 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | Combined filters, chips, toggles, direct record links and bounded invoice pages verified desktop/phone. |
+| T-337 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | Day-by-day payroll example and labeled person summaries verified on desktop and phone. |
+| T-338 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | SVG and 1000px PNG uploaded via logo-library API; 1280/1440/375 screenshots verified, with readable phone brand row. |
+| T-339 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | View as Feedback stays disabled with a readable note; desktop/phone and existing read-only/Exit checks passed. |
+| T-340 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | Imported customer list/search fields derived and repair verified locally: 191 repaired, then zero changes. |
+| T-341 | Codex | task/rd-money / air-wt-rd-money | done — deployed 2026-11-06 (`fd823eb`) | Metadata-only mapping and additive setup importer proven on emulator; source rows retained, defaults/unsupported workflows remain owner choices. |
 
-| T-336 | task/rd-money | review | Combined filters, chips, toggles, direct record links and bounded invoice pages verified desktop/phone. |
+Production (owner-approved "dry run, then apply", 2026-11-06): T-340 customer backfill on `roofdoctors` — 191 fixed, re-check 0 left,
+all 191 now listed. T-341 setup import — 5 crews, 3 labor rates, 191 materials (0 new), 115 finding categories, 6 payment terms,
+tax default; 0 new customers; evaluation guard still ON (phone allowlist empty). Payment-due default left for the owner to pick
+(several terms, no single default). Local iPhone/WebKit Playwright project cannot open a blank page on this machine — environment, not app.
 
-| T-337 | task/rd-money | review | Day-by-day payroll example and labeled person summaries verified on desktop and phone. |
+## Roof Doctors — next (owner decisions 2026-11-06)
 
-| T-338 | task/rd-money | review | SVG and 1000px PNG uploaded via logo-library API; 1280/1440/375 screenshots verified, with readable phone brand row. |
-
-| T-339 | task/rd-money | review | View as Feedback stays disabled with a readable note; desktop/phone and existing read-only/Exit checks passed. |
-
-| T-340 | task/rd-money | review | Imported customer list/search fields derived and repair verified locally: 191 repaired, then zero changes. |
-
-| T-341 | task/rd-money | review | Metadata-only mapping and additive setup importer proven on emulator; source rows retained, defaults/unsupported workflows remain owner choices. |
+| Task | Role | Branch / checkout | Status | Owned scope |
+|---|---|---|---|---|
+| T-343 | unassigned | — | queued, before Nov 11 rehearsal | Jobba `Services.csv` (791 work orders) as read-only "Past work from Jobba" on each customer — the existing customer history, no new screen, nothing editable, real data stays out of git. |
+| T-344 | unassigned | separate branch | queued, before Nov 11 rehearsal | Menu merges (owner approved all four): Requests = Pipeline + Calls; Finances = Billing + Finances + Payroll; Team inside Settings + a Help button; Field out of the office menu + job tabs 8→3. Old URLs redirect; add, don't remove — every screen still reachable. |
+| T-345 | unassigned | — | after the Nov 13 review | Safety checklists — a home for Jobba's safety checklist exports. |
+| T-346 | unassigned | — | after the Nov 13 review | Vendors and warranty types — a home for Jobba's vendor (11) and warranty-type exports. |
+| T-347 | unassigned | — | after the Nov 13 review | Maintenance plans (not deals) — a home for Jobba's maintenance-plan exports. |
