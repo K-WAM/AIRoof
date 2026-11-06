@@ -581,6 +581,24 @@ export async function verifyOwnBusinessRole(
   return "error" in result ? result : enforceProduct(req, result.user.businessId ?? "", result);
 }
 
+/**
+ * verifyOwnBusinessRole, plus the platform admin. A member always works on their OWN business — a businessId in the
+ * request is ignored for them, so a member can never aim a send at another tenant. The superadmin has no business of
+ * its own and names one (Demo Studio and Preview ↗ tabs), exactly as the other invoice routes allow. View as stays
+ * read-only: its writes still get the read-only refusal. The returned user always carries the businessId to use.
+ */
+export async function verifyOwnBusinessOrSuperadmin(
+  req: NextRequest,
+  businessId: unknown,
+  allowedRoles: AllowedRole[]
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  const own = await verifyOwnBusinessRole(req, allowedRoles);
+  if (!("error" in own) || own.error.status !== 403 || typeof businessId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(businessId)) return own;
+  const platform = await verifyAuthAndRole(req, businessId, ["superadmin"]);
+  if ("error" in platform || platform.user.superadmin !== true) return own;
+  return { user: { ...platform.user, businessId } };
+}
+
 async function verifyOwnBusinessRoleInner(
   req: NextRequest,
   allowedRoles: AllowedRole[]

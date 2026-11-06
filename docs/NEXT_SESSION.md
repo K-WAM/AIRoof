@@ -1,3 +1,17 @@
+## State 2026-11-05 late (Claude K0) - two companies + View as + address suggestions merged locally, awaiting push approval
+
+- Also merged on main, NOT pushed: T-316/T-317 (RDSF + RCU companies, company split for money and usage), T-318 (View as),
+  T-319 (address suggestions), the Feedback overlay fix, and T-321. T-321 restores superadmin invoice send and the
+  deposits panel from Demo Studio / Preview, which T-315 had broken.
+- Browser-test sessions now re-sign-in after 40 min (`freshAuthFile`, e2e/global-setup.ts). The full suite runs past
+  the one-hour token; before this fix, every spec after the hour mark was bounced to /login.
+- Open: T-320 (a second Stripe account for RCU). The owner still has to decide the included AI minutes, seats 16-20 and
+  texting fees, and must create the Stripe Connect platform (NEEDS-HUMAN). A2P texting registration has not started.
+  Codex is back Nov 8, 2:58 PM, if a final security review is wanted.
+- After the push: deploy the Firestore rules (viewAsSessions + stripeConnect stay server-only). Then follow the Roof
+  Doctors setup in `docs/ROOFDOCTORS-DEMO-PLAN.md`: the workspace with approved lists and no Roof Doctors email, the
+  two companies + logos, import dry run -> owner OK -> apply.
+
 ## State 2026-11-05 (Claude K0) - Roof Doctors build merged locally, awaiting owner push approval
 
 - Merged on main, NOT pushed: K1 documents/deposits/letters (T-258, T-304a-f, T-257, T-259, T-255), K2 screens + Finances

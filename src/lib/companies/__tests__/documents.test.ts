@@ -20,7 +20,7 @@ import { resolvedInvoiceCopy, resolvedQuoteNarrative, staleCompanyName } from ".
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 const mocks=vi.hoisted(()=>({send:vi.fn()}));let db:ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin",()=>({getAdminFirestore:()=>db}));
-vi.mock("@/lib/auth/verifyRole",()=>({verifyAuthAndRole:async()=>({user:{uid:"owner",businessId:"biz"}}),verifyOwnBusinessRole:async()=>({user:{uid:"owner",businessId:"biz"}})}));
+vi.mock("@/lib/auth/verifyRole",()=>({verifyAuthAndRole:async()=>({user:{uid:"owner",businessId:"biz"}}),verifyOwnBusinessRole:async()=>({user:{uid:"owner",businessId:"biz"}}),verifyOwnBusinessOrSuperadmin:async()=>({user:{uid:"owner",businessId:"biz"}})}));
 vi.mock("@/lib/comms/send",()=>({isCommsConfigured:()=>true,sendEmail:mocks.send}));
 vi.mock("@/lib/photos/store",()=>({listPhotoMetas:async()=>[],getPhotoBlobs:async()=>({})}));
 vi.mock("@/lib/billing/stripePayments",()=>({isStripeConfigured:()=>false}));

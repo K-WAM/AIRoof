@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { filterAddressSuggestions, type AddressSuggestion } from "@/lib/customers/addressSuggest";
+import { filterAddressSuggestions, indexOfAddress, type AddressSuggestion } from "@/lib/customers/addressSuggest";
 
 const EMPTY_SUGGESTIONS: AddressSuggestion[] = [];
 
@@ -89,7 +89,7 @@ export function AddressSuggest({
         required={required}
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlight(0); }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => { setOpen(true); setHighlight(Math.max(0, indexOfAddress(matches, value))); }}
         onBlur={() => setOpen(false)}
         onKeyDown={(e) => {
           if (!expanded) {

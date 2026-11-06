@@ -13,6 +13,7 @@ const GUARDS = [
   "verifyAuthAndRole", // session + membership of the requested tenant (src/lib/auth/verifyRole.ts)
   "verifySuperadmin", // live superadmin custom claim
   "verifyOwnBusinessRole", // session; tenant taken from the caller's own membership
+  "verifyOwnBusinessOrSuperadmin", // the same, plus the platform admin naming a business
   "verifyFieldAccess", // staff session or a signed, job-scoped field grant
   "peekFieldSessionClaims", // field session cookie (read-only "which job am I on"; no data returned beyond ids)
   "consumeFieldExchangeToken", // one-time signed field QR grant

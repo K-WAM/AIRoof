@@ -1,7 +1,7 @@
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
 import { resolveDocumentCompany } from "@/lib/companies/companies";
 import { NextRequest } from "next/server";
-import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
+import { verifyOwnBusinessOrSuperadmin } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { jsonWithCache } from "@/lib/http/cache";
 import { depositAmount } from "@/lib/billing/jobInvoiceDeposits";
@@ -20,7 +20,7 @@ import type { Job } from "@/types/jobs";
 
 const error = (message: string, status = 400) => jsonWithCache({ error: message }, "noStore", { status });
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  const gate = await verifyOwnBusinessRole(req, ["owner", "staff", "viewer"]);
+  const gate = await verifyOwnBusinessOrSuperadmin(req, req.nextUrl.searchParams.get("businessId"), ["owner", "staff", "viewer"]);
   if ("error" in gate) return gate.error;
   const db = getAdminFirestore(); if (!db) return error("Database unavailable", 503);
   const { jobId } = await params;
@@ -29,9 +29,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  const gate = await verifyOwnBusinessRole(req, ["owner", "staff"]);
-  if ("error" in gate) return gate.error;
   const body = await req.json().catch(() => null);
+  const gate = await verifyOwnBusinessOrSuperadmin(req, body?.businessId, ["owner", "staff"]);
+  if ("error" in gate) return gate.error;
   if (!body || typeof body !== "object" || typeof body.requestId !== "string" || !/^[\w-]{8,100}$/.test(body.requestId)) return error("A deposit request id is required");
   const percent = body.percent ?? 50;
   try { depositAmount(1, percent); } catch { return error("Enter a deposit percent from 1 to 100"); }
@@ -85,9 +85,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  const gate = await verifyOwnBusinessRole(req, ["owner", "staff"]);
-  if ("error" in gate) return gate.error;
   const body = await req.json().catch(() => null);
+  const gate = await verifyOwnBusinessOrSuperadmin(req, body?.businessId, ["owner", "staff"]);
+  if ("error" in gate) return gate.error;
   if (!body || typeof body.invoiceId !== "string" || body.status !== "void") return error("Choose a deposit to void");
   const db = getAdminFirestore(); if (!db) return error("Database unavailable", 503);
   const { jobId } = await params, businessId = gate.user.businessId!;

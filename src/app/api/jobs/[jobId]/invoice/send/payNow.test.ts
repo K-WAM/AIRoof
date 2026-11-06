@@ -10,7 +10,7 @@ import type { JobInvoice } from "@/types/invoice";
 const mocks = vi.hoisted(() => ({ send: vi.fn(), create: vi.fn(), guard: vi.fn(), configured: true }));
 let db: ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
-vi.mock("@/lib/auth/verifyRole", () => ({ verifyOwnBusinessRole: mocks.guard }));
+vi.mock("@/lib/auth/verifyRole", () => ({ verifyOwnBusinessRole: mocks.guard, verifyOwnBusinessOrSuperadmin: mocks.guard }));
 vi.mock("@/lib/comms/send", () => ({ isCommsConfigured: () => true, sendEmail: mocks.send }));
 
 vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mocks.configured, getStripeClient: () => ({ checkout: { sessions: { create: mocks.create } } }) }));

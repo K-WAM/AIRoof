@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, it, expect, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 const mocks = vi.hoisted(() => ({ guard: vi.fn(), db: vi.fn(), send: vi.fn(), photos: vi.fn() }));
-vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.guard, verifyOwnBusinessRole: mocks.guard }));
+vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.guard, verifyOwnBusinessRole: mocks.guard, verifyOwnBusinessOrSuperadmin: mocks.guard }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.db }));
 vi.mock("@/lib/comms/send", () => ({ isCommsConfigured: () => true, sendEmail: mocks.send }));
 vi.mock("@/lib/photos/store", () => ({ listPhotoMetas: mocks.photos, getPhotoBlobs: vi.fn().mockResolvedValue({}) }));

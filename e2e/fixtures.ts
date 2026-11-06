@@ -11,6 +11,7 @@ import { test as base, expect, type Page, type TestInfo } from "@playwright/test
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { ACCOUNTS, APP_URL } from "../scripts/e2e/config.cjs";
+import { freshAuthFile } from "./global-setup";
 
 export type Role = keyof typeof ACCOUNTS;
 export { expect, ACCOUNTS };
@@ -27,7 +28,7 @@ export const test = base.extend<{ as: (role: Role) => Promise<Page> }>({
       const u = testInfo.project.use;
       const context = await browser.newContext({
         baseURL: APP_URL,
-        storageState: join(__dirname, ".auth", `${role}.json`),
+        storageState: await freshAuthFile(role), // re-signs-in when the saved hour-long token is near its end
         viewport: u.viewport ?? { width: 1280, height: 800 },
         isMobile: u.isMobile, hasTouch: u.hasTouch, deviceScaleFactor: u.deviceScaleFactor,
         userAgent: u.userAgent,

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb, type FakeDb } from "@/test-utils/fakeFirestore";
 import { verifyIdToken } from "@/lib/firebase/admin";
 import { resolveViewAs, evictViewAs, VIEW_AS_READ_ONLY, type ViewAsSession } from "@/lib/auth/viewAs";
-import { verifyAuthAndRole, verifyOwnBusinessRole, verifyFieldAccess, verifySuperadmin } from "@/lib/auth/verifyRole";
+import { verifyAuthAndRole, verifyOwnBusinessRole, verifyOwnBusinessOrSuperadmin, verifyFieldAccess, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { invalidateProducts } from "@/lib/products/productCache";
 import { GET as choices, POST, DELETE } from "@/app/api/admin/view-as/route";
 import { GET as profile } from "@/app/api/auth/profile/route";
@@ -122,6 +122,25 @@ describe("real central guards under view-as", () => {
       await denied(await verifySuperadmin(req("POST", path)), VIEW_AS_READ_ONLY);
     }
     expect(await verifySuperadmin(req("GET", "/api/tools/execute"))).toMatchObject({ user: { superadmin: true } });
+  });
+});
+
+describe("own business, or the platform admin naming one (invoice send + deposits)", () => {
+  const send = "/api/jobs/J-1/invoice/send";
+  it("a member always gets their own business, whatever the request names", async () => {
+    expect(await verifyOwnBusinessOrSuperadmin(req("POST", send, "staff", null), "b", ["owner", "staff"])).toMatchObject({ user: { uid: "staff", businessId: "a" } });
+    await denied(await verifyOwnBusinessOrSuperadmin(req("POST", send, "staff", null), "b", ["owner"]));
+  });
+  it("the superadmin sends for the business it names (Demo Studio / Preview)", async () => {
+    expect(await verifyOwnBusinessOrSuperadmin(req("POST", send, "root", null), "b", ["owner", "staff"])).toMatchObject({ user: { uid: "root", superadmin: true, businessId: "b" } });
+    await denied(await verifyOwnBusinessOrSuperadmin(req("POST", send, "root", null), "../b", ["owner", "staff"]));
+    await denied(await verifyOwnBusinessOrSuperadmin(req("POST", send, "root", null), undefined, ["owner", "staff"]));
+    liveClaim = false;
+    await denied(await verifyOwnBusinessOrSuperadmin(req("POST", send, "root", null), "b", ["owner", "staff"]));
+  });
+  it("View as stays read-only for the viewed business", async () => {
+    await denied(await verifyOwnBusinessOrSuperadmin(req("POST", send), "a", ["owner", "staff"]), VIEW_AS_READ_ONLY);
+    expect(await verifyOwnBusinessOrSuperadmin(req("GET", "/api/jobs/J-1/invoice/deposits"), "a", ["owner", "staff", "viewer"])).toMatchObject({ user: { uid: "root", superadmin: false, viewAs: true, businessId: "a" } });
   });
 });
 

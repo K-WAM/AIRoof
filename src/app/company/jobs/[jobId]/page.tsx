@@ -149,7 +149,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const readOnly = user?.role === "viewer";
   const companies = useBootstrap().data?.business.companies;
   const [companySaving, setCompanySaving] = useState(false);
-  const canSendInvoices = !user?.superadmin && (user?.role === "owner" || user?.role === "staff");
+  // Owner/staff send for their own business; the platform admin sends from Demo Studio / Preview (the send route allows both).
+  const canSendInvoices = user?.superadmin === true || user?.role === "owner" || user?.role === "staff";
   const privateDemo = user?.isDemoTrial === true;
   // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
   const { isEnabled: moduleEnabled, ready: modulesReady, quotes: usesQuotes } = useBusinessModules();

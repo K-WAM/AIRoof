@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suggestAddresses, filterAddressSuggestions, ADDRESS_SUGGESTIONS_MAX } from "@/lib/customers/addressSuggest";
+import { suggestAddresses, filterAddressSuggestions, indexOfAddress, ADDRESS_SUGGESTIONS_MAX } from "@/lib/customers/addressSuggest";
 
 const properties = [
   { name: "Northside Plaza", address: "10 Example Way", city: "Miami", state: "FL" },
@@ -86,5 +86,38 @@ describe("filterAddressSuggestions", () => {
     const many = Array.from({ length: 12 }, (_, i) => ({ address: `${i + 1} Test Street` }));
     expect(filterAddressSuggestions(many, "")).toHaveLength(ADDRESS_SUGGESTIONS_MAX);
     expect(filterAddressSuggestions(many, "street 12").map((s) => s.address)).toEqual(["12 Test Street"]);
+  });
+
+  it("offers every address when the field already holds one of them (a filled-in customer address is not a search)", () => {
+    const school = [
+      { address: "316 School Test Road" },
+      { address: "101 Lakeview Drive", city: "Coral Springs", name: "Lakeview Elementary" },
+      { address: "202 Panther Way", city: "Coral Springs" },
+    ];
+    expect(filterAddressSuggestions(school, "316 School Test Road").map((s) => s.address)).toEqual(["316 School Test Road", "101 Lakeview Drive", "202 Panther Way"]);
+    expect(filterAddressSuggestions(school, " 101 lakeview drive ").map((s) => s.address)).toHaveLength(3);
+    expect(filterAddressSuggestions(school, "316 School").map((s) => s.address)).toEqual(["316 School Test Road"]);
+    expect(indexOfAddress(school, "202 PANTHER WAY")).toBe(2);
+    expect(indexOfAddress(school, "")).toBe(-1);
+    const many = Array.from({ length: 12 }, (_, i) => ({ address: `${i + 1} Test Street` }));
+    const shown = filterAddressSuggestions(many, "12 Test Street");
+    expect(shown).toHaveLength(ADDRESS_SUGGESTIONS_MAX);
+    expect(shown.map((s) => s.address)).toContain("12 Test Street");
+  });
+
+  it("a recent job at a saved property keeps its place but shows the property's name and city", () => {
+    const out = suggestAddresses({
+      jobAddresses: ["101 Lakeview Drive"],
+      customerAddress: "316 School Test Road",
+      properties: [
+        { name: "Lakeview Elementary", address: "101 Lakeview Drive", city: "Coral Springs", state: "FL" },
+        { name: "Lakeview Annex", address: "101 Lakeview Drive", city: "Parkland", state: "FL" },
+      ],
+    });
+    expect(out).toEqual([
+      { address: "101 Lakeview Drive", city: "Coral Springs", state: "FL", name: "Lakeview Elementary" },
+      { address: "316 School Test Road" },
+      { address: "101 Lakeview Drive", city: "Parkland", state: "FL", name: "Lakeview Annex" },
+    ]);
   });
 });

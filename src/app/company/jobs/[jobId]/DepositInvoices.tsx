@@ -33,7 +33,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("check");
   async function load() {
-    const r = await fetch(`/api/jobs/${jobId}/invoice/deposits`);
+    const r = await fetch(`/api/jobs/${jobId}/invoice/deposits?businessId=${encodeURIComponent(businessId)}`);
     if (!r.ok) throw new Error("Could not load deposits");
     setDeposits((await r.json()).deposits);
   }
@@ -45,7 +45,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
     if (recipients && "error" in recipients) { setError(recipients.error); return null; }
     setBusy(true); setError("");
     try {
-      const r = await fetch(`/api/jobs/${jobId}/invoice${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...(recipients && "recipients" in recipients ? { to: recipients.recipients } : {}) }) });
+      const r = await fetch(`/api/jobs/${jobId}/invoice${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...body, ...(recipients && "recipients" in recipients ? { to: recipients.recipients } : {}) }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not save deposit");
       if (path === "/send" && selected) { setPayLinks(current => ({ ...current, [selected.invoiceId]: d.payNow ?? null })); setNewPayLink(false); }
       await load(); await onChanged(); return d;

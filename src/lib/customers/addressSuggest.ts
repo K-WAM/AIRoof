@@ -62,7 +62,21 @@ function matches(suggestion: AddressSuggestion, queryTokens: string[]): boolean 
  */
 export function filterAddressSuggestions(suggestions: AddressSuggestion[], query?: string): AddressSuggestion[] {
   const queryTokens = tokenize(query);
+  // The field already holds one of the known addresses (the form filled in the customer's address, or the user
+  // picked one earlier): that is not a search, so offer every address on file instead of only the one shown.
+  const at = indexOfAddress(suggestions, query);
+  if (at >= 0) {
+    const shown = suggestions.slice(0, ADDRESS_SUGGESTIONS_MAX);
+    if (at >= ADDRESS_SUGGESTIONS_MAX) shown[shown.length - 1] = suggestions[at];
+    return shown;
+  }
   return suggestions.filter((s) => matches(s, queryTokens)).slice(0, ADDRESS_SUGGESTIONS_MAX);
+}
+
+/** Where the field's current text sits in the list (same address, ignoring case/punctuation/accents), or -1. */
+export function indexOfAddress(suggestions: AddressSuggestion[], value?: string): number {
+  const key = tokenize(value).join(" ");
+  return key ? suggestions.findIndex((s) => tokenize(s.address).join(" ") === key) : -1;
 }
 
 /**
@@ -95,8 +109,12 @@ export function suggestAddresses(input: AddressSuggestInput): AddressSuggestion[
 
   const seen: AddressSuggestion[] = [];
   for (const candidate of candidates) {
-    if (seen.some((s) => sameAddress(s, candidate))) continue;
-    seen.push(candidate);
+    const at = seen.findIndex((s) => sameAddress(s, candidate));
+    if (at < 0) { seen.push(candidate); continue; }
+    // A recent job at a saved property keeps its place in the list but shows the property's name and city.
+    const kept = seen[at];
+    const city = kept.city ?? candidate.city, state = kept.state ?? candidate.state, name = kept.name ?? candidate.name;
+    seen[at] = { address: kept.address, ...(city ? { city } : {}), ...(state ? { state } : {}), ...(name ? { name } : {}) };
   }
 
   return filterAddressSuggestions(seen, input.query);

@@ -2601,3 +2601,20 @@ exactly the linked jobs (GET /api/jobs?ids=, <=100, scoped), byCompany only for 
 started, hit the ChatGPT usage limit (resets Nov 8 2:58 PM), DeepSeek finished; Claude reviewed the guard changes.
 Feedback fix: the shell owns one Feedback window and closes the phone menu first (e2e/feedback-overlay.spec.ts). UX laws
 added to the standards repo (4 - UX Guidelines). Unit tests: 348 files, 2811 passed + 1 expected fail.
+
+## 2026-11-05 - Final-tree browser run fixes: address list, superadmin send (T-321), test sessions
+Full browser suite on the merged tree: 317 passed, 95 failed, 1 flaky. Triage:
+- 4 real failures, fixed. (1) T-319 address suggestions on desktop and phone: picking a customer fills in its own
+  address, and the list then filtered on that text, so only one address showed. `filterAddressSuggestions` now
+  offers every address when the field already holds one of them, and `indexOfAddress` highlights the current one.
+  (2) demo-live on desktop: T-315 had made invoice send and the deposits panel own-business only, so a superadmin
+  Demo Studio / Preview tab hid "Send to Customer" and showed "Could not load deposits". The new central guard
+  `verifyOwnBusinessOrSuperadmin` (verifyRole.ts) fixes this. A member always gets their own business, and a
+  request-named business is ignored, which keeps T-315's protection. The superadmin names the business, as every
+  other invoice route already allows. View as stays read-only. Guard tests are in `viewAs.test.ts`. The deposits
+  panel now passes businessId.
+- 91 harness failures. Saved test sessions hold a one-hour Firebase ID token, and the suite now runs 1.5 h, so
+  every spec after the hour mark was bounced to /login. `freshAuthFile()` (e2e/global-setup.ts) re-signs-in
+  any account whose saved session is older than 40 minutes; the `as()` fixture calls it.
+- Flaky: roofdoctors-screens "saves corrected details" passed on its retry.
+`npm run test:rules` passed (16/16).

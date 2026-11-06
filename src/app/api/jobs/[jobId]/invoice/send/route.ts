@@ -1,7 +1,7 @@
 import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
+import { verifyOwnBusinessOrSuperadmin } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if ("error" in parsedRecipients) return NextResponse.json({ error: parsedRecipients.error }, { status: 400 });
   const { recipients } = parsedRecipients;
 
-  const gate = await verifyOwnBusinessRole(request, ["owner", "staff"]);
+  const gate = await verifyOwnBusinessOrSuperadmin(request, body.businessId, ["owner", "staff"]);
   if ("error" in gate) return gate.error;
   const businessId = gate.user.businessId!;
 
