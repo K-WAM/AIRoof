@@ -14,6 +14,7 @@ test("payroll dates and example", async ({ as }) => {
   await expect(page.getByRole("heading", { name: /Monday 2000-01-03/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Sunday 2000-01-09/ })).toBeVisible();
   await expect(page.getByText("Regular 40.0 h", { exact: false })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "rd-money-payroll");
 });
 

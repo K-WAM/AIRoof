@@ -3858,3 +3858,19 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 @media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-logo { width: auto; max-width: 110px; height: 38px; object-fit: contain; } .company-brand-other img { max-width: 85px; height: 38px; } }
 
 @media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-powered { display: none; } }
+
+/* Give two brands their own phone row so wide artwork stays readable beside the controls. */
+.company-sidebar .company-brand--multi .company-brand-logo { width: auto; height: auto; max-width: 190px; max-height: 76px; }
+.company-brand-other img { width: auto; height: auto; max-width: 140px; max-height: 48px; }
+@media (max-width: 700px) {
+  .company-topbar:has(.company-brand--multi) { flex-wrap: wrap; }
+  .company-topbar .company-brand--multi { order: 0; flex: 1 1 calc(50% - 8px); margin-right: 0; }
+  .company-topbar:has(.company-brand--multi) .company-brand-other { order: 1; flex: 1 1 calc(50% - 8px); margin-left: 0; justify-content: flex-end; }
+  .company-topbar .company-brand--multi .company-brand-logo,
+  .company-topbar .company-brand-other img { width: auto; height: auto; max-width: 150px; max-height: 48px; }
+  .company-topbar .company-brand--multi .company-brand-powered { display: flex; align-items: center; gap: 4px; font-size: 9px; }
+  .company-topbar .company-brand--multi .company-brand-powered img { width: 12px; height: auto; }
+  .company-topbar:has(.company-brand--multi) > .cmd-header-icon,
+  .company-topbar:has(.company-brand--multi) > .mobile-menu-btn { order: 2; }
+  .company-topbar:has(.company-brand--multi) > .cmd-header-icon { margin-left: auto; }
+}

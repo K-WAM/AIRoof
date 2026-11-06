@@ -3255,7 +3255,7 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 
 | T-337 | task/rd-money | review | Day-by-day payroll example and labeled person summaries verified on desktop and phone. |
 
-| T-338 | task/rd-money | in progress | Header changed; 1440 and SVG verification pending. |
+| T-338 | task/rd-money | review | SVG and 1000px PNG uploaded via logo-library API; 1280/1440/375 screenshots verified, with readable phone brand row. |
 
 | T-339 | task/rd-money | in progress | Feedback role checks pass; View as disabled state needs browser verification. |
 
