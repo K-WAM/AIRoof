@@ -84,10 +84,13 @@ describe("Team page", () => {
     expect(screen.getByText("invited@example.com")).toBeTruthy();
     fireEvent.click(screen.getByText("Resend invite"));
     await waitFor(() => expect(calls.some((call) => call.url === "/api/company/team/u2/resend")).toBe(true));
+    // Member buttons stay disabled while a request is in flight; wait for the resend to settle (slow CI clicked too early).
+    await waitFor(() => expect(screen.getByText("Cancel invite")).toHaveProperty("disabled", false));
     fireEvent.click(screen.getByText("Cancel invite"));
     await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/u2", method: "PATCH", body: { businessId: "biz", active: false } }));
     fireEvent.click(screen.getByRole("button", { name: /Disabled 1/ }));
     expect(screen.getByText("disabled@example.com")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Re-enable")).toHaveProperty("disabled", false));
     fireEvent.click(screen.getByText("Re-enable"));
     await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/u3", method: "PATCH", body: { businessId: "biz", active: true } }));
   });
