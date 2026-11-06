@@ -2667,3 +2667,8 @@ logos.
 - Reviewed the supplied implementation; retained completed work, status words and inspection/crew focus. Fixed completed phone cards opening reschedule; linked inspections open their job on phones too.
 - Evidence: tsc clean; changed-file eslint clean; related baseline 1457 passed with guide bullet failure corrected (21 focused tests passed); calendar state/legacy copy 16 passed. Calendar status desktop and 375px phone passed after fixing overlapping test fixtures. Read calendar-status-week and calendar-status-phone screenshots. Existing calendar-smooth, crews-calendar, hints and guide checks passed in the 58-pass browser batch (3 skips; document-route flake passed retry).
 - No stored data or booking-engine changes. Commit: T-330 in task/rd-polish.
+
+### T-333 - Refuse login account takeover (2026-11-06)
+- Refuse platform claims/records, other-tenant memberships and unlinked Auth accounts with 409. Existing same-tenant users require explicit reset; resets preserve membership and privileges. Auth lookup failures fail closed. New logins use crypto-generated temporary passwords; only the password is returned, with no-store, and provider errors are neither logged nor echoed.
+- Added the separate Reset password modal and a plain, readable warning to use the client's own email. Clear displayed credentials when the email changes.
+- Evidence: tsc clean; changed-file eslint clean; related security tests 24/24; desktop and 375px admin-config security flows passed. Read both screenshots, including a full-size crop of the phone login card. No production calls. Commit: T-333 in task/rd-polish.

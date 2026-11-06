@@ -3254,3 +3254,4 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
 | T-330 | Codex | task/rd-polish / air-wt-rd-polish | review | Calendar progress colours, focus, completed-card locks; desktop and phone checked. |
+| T-333 | Codex | task/rd-polish / air-wt-rd-polish | review | Provision-login takeover guards, explicit reset dialog, 24 unit cases and both browser sizes checked. |

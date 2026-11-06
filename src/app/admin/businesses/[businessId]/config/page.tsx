@@ -5,6 +5,7 @@ import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { Modal } from "@/components/ui/Modal";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
@@ -139,6 +140,7 @@ export default function AdminBusinessConfigPage({
     message: string;
   }>({ type: "idle", message: "" });
 
+  const [resetEmail, setResetEmail] = useState<string | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [provisionStatus, setProvisionStatus] = useState<{
     type: "idle" | "loading" | "success" | "error";
@@ -175,8 +177,8 @@ export default function AdminBusinessConfigPage({
     }
   }
 
-  async function provisionLogin() {
-    if (!EMAIL_PATTERN.test(loginEmail.trim())) {
+  async function provisionLogin(resetPassword = false, email = loginEmail.trim()) {
+    if (!EMAIL_PATTERN.test(email)) {
       setProvisionStatus({ type: "error", message: "Enter a valid owner email." });
       loginEmailRef.current?.focus();
       return;
@@ -186,13 +188,15 @@ export default function AdminBusinessConfigPage({
       const res = await fetch(`/api/admin/businesses/${businessId}/provision-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerEmail: loginEmail.trim() }),
+        body: JSON.stringify({ ownerEmail: email, ...(resetPassword ? { resetPassword: true } : {}) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error("Login provisioning failed");
+      if (!res.ok) throw new Error(data.error || "Login provisioning failed");
+      setResetEmail(null);
       setProvisionStatus({ type: "success", message: "Login provisioned!", tempPassword: data.tempPassword });
-    } catch {
-      setProvisionStatus({ type: "error", message: "The client login could not be provisioned. Try again." });
+    } catch (error) {
+      setResetEmail(null);
+      setProvisionStatus({ type: "error", message: error instanceof Error ? error.message : "The client login could not be provisioned. Try again." });
     }
   }
 
@@ -408,6 +412,13 @@ export default function AdminBusinessConfigPage({
 
   return (
     <>
+      <Modal open={resetEmail !== null} onClose={() => { if (provisionStatus.type !== "loading") setResetEmail(null); }} title="Reset client password">
+        <p>Replace the password for {resetEmail}? Share the new temporary password with this client.</p>
+        <div className="button-row">
+          <button type="button" className="button" disabled={provisionStatus.type === "loading"} onClick={() => setResetEmail(null)}>Cancel</button>
+          <button type="button" className="button primary" disabled={provisionStatus.type === "loading"} onClick={() => { if (resetEmail) void provisionLogin(true, resetEmail); }}>Reset password</button>
+        </div>
+      </Modal>
       <header className="page-header">
         <div>
           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -752,8 +763,8 @@ export default function AdminBusinessConfigPage({
               </h2>
             </div>
             <div className="panel-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
-                Provision or reset login access for this company&apos;s owner. Generates a temp password they use to log in at{" "}
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
+                Creates a login for the client&apos;s own email. Don&apos;t use your own address. They log in at{" "}
                 <strong>{getAppUrl().replace(/^https?:\/\//, "")}/login</strong>.
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -762,21 +773,24 @@ export default function AdminBusinessConfigPage({
                   name="loginEmail"
                   ref={loginEmailRef}
                   type="email"
+                  aria-label="Client login email"
                   value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
+                  onChange={(e) => { setLoginEmail(e.target.value); setProvisionStatus({ type: "idle", message: "" }); }}
+                  disabled={provisionStatus.type === "loading"}
                   placeholder="owner@company.com"
                   style={{ flex: 1, minWidth: 180, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}
                 />
                 <button
                   type="button"
                   className="button primary"
-                  onClick={provisionLogin}
+                  onClick={() => void provisionLogin()}
                   disabled={provisionStatus.type === "loading" || !loginEmail.trim()}
                   style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5 }}
                 >
                   <UserPlus size={14} strokeWidth={1.75} />
                   {provisionStatus.type === "loading" ? "Creating…" : "Provision Login"}
                 </button>
+                <button type="button" className="button" disabled={provisionStatus.type === "loading" || !EMAIL_PATTERN.test(loginEmail.trim())} onClick={() => { setProvisionStatus({ type: "idle", message: "" }); setResetEmail(loginEmail.trim()); }}>Reset password</button>
               </div>
               {provisionStatus.type === "success" && provisionStatus.tempPassword && (
                 <div style={{ marginTop: 12, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8 }}>
