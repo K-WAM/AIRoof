@@ -2672,3 +2672,7 @@ logos.
 - Refuse platform claims/records, other-tenant memberships and unlinked Auth accounts with 409. Existing same-tenant users require explicit reset; resets preserve membership and privileges. Auth lookup failures fail closed. New logins use crypto-generated temporary passwords; only the password is returned, with no-store, and provider errors are neither logged nor echoed.
 - Added the separate Reset password modal and a plain, readable warning to use the client's own email. Clear displayed credentials when the email changes.
 - Evidence: tsc clean; changed-file eslint clean; related security tests 24/24; desktop and 375px admin-config security flows passed. Read both screenshots, including a full-size crop of the phone login card. No production calls. Commit: T-333 in task/rd-polish.
+
+### T-332 - Findings and quote prices (2026-11-06)
+- Each editable finding shows its quote amount by findingId, or its standard price, with one link to the Quote price editor. Quote inputs have desktop column labels. Refresh the quote after finding inclusion changes.
+- Evidence: tsc and changed-file eslint clean; related baseline 1457 passed; findings-price desktop and 375px phone passed, including changing 100 to 125 in Quote and checking the saved finding price. Read both findings-quote-price screenshots. No stored data removed. Commit: T-332 in task/rd-polish.

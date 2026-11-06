@@ -1434,7 +1434,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
-      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} quote={pageQuote} onOpenQuote={() => setActiveTab("quote")} onSaved={(findings) => {
+        // A save that adds or removes a finding from the quote changes the draft quote's lines on the server (same
+        // transaction): re-read it so each finding's "On the quote" price stays true. Wording-only saves skip the read.
+        const before = new Set((job.findings ?? []).filter((finding) => finding.includeInQuote).map((finding) => finding.findingId));
+        const after = findings.filter((finding) => finding.includeInQuote).map((finding) => finding.findingId);
+        const quoteChanged = after.length !== before.size || after.some((id) => !before.has(id));
+        setJob((current) => current ? { ...current, findings } : current);
+        if (quoteChanged && job.quoteId && businessId) {
+          fetch(`/api/jobs/${encodeURIComponent(job.jobId)}/quote?businessId=${encodeURIComponent(businessId)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d: { quote?: JobQuote | null } | null) => { if (d?.quote) setPageQuote(d.quote); })
+            .catch(() => {});
+        }
+      }} />}
 
       {activeTab === "quote" && !privateDemo && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         photos={photos} readOnly={readOnly}

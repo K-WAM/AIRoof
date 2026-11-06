@@ -3255,3 +3255,4 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 |---|---|---|---|---|
 | T-330 | Codex | task/rd-polish / air-wt-rd-polish | review | Calendar progress colours, focus, completed-card locks; desktop and phone checked. |
 | T-333 | Codex | task/rd-polish / air-wt-rd-polish | review | Provision-login takeover guards, explicit reset dialog, 24 unit cases and both browser sizes checked. |
+| T-332 | Codex | task/rd-polish / air-wt-rd-polish | review | Finding prices follow the saved quote; quote column labels; desktop and phone price-edit round trip checked. |
