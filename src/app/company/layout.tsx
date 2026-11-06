@@ -215,9 +215,10 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       <aside className="company-sidebar">
         <BusinessBrand />
         <div className="company-sidebar-nav">
-          <CompanyNav onOpenFeedback={openFeedback} />
+          <CompanyNav onOpenFeedback={openFeedback} feedbackPlacement="exclude" />
         </div>
         <div className="company-sidebar-footer">
+          <CompanyNav onOpenFeedback={openFeedback} feedbackPlacement="only" />
           {!crewOnly && <QuickAddButton />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>

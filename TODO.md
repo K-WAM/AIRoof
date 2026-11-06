@@ -3256,3 +3256,5 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | T-337 | task/rd-money | in progress | Payroll detail and sample require verification and completion. |
 
 | T-338 | task/rd-money | in progress | Header changed; 1440 and SVG verification pending. |
+
+| T-339 | task/rd-money | in progress | Feedback role checks pass; View as disabled state needs browser verification. |

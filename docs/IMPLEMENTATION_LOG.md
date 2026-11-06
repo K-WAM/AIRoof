@@ -2670,3 +2670,5 @@ T-336 WIP: Finance filters and navigation; 4 focused desktop/phone checks passed
 T-337 WIP: Payroll period inputs and preliminary timesheet/sample. Dedicated browser checks stalled; sample and detail need review.
 
 T-338 WIP: Separate company brands in shell and add Luxor mark; inspected desktop 1280 and phone finance screenshots. 1440 and SVG checks pending.
+
+T-339 WIP: Feedback stays visible in desktop footer and is disabled in View as. Owner, staff, crew and superadmin Preview opened it on desktop and phone; View as needs browser verification.
