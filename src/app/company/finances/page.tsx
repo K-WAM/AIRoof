@@ -35,7 +35,7 @@ export default function FinancesPage() {
     return () => controller.abort();
   }, [user, businessId, from, to, customer, jobType, status, companyFilter]);
   const rows = useMemo(() => [...(data?.rows ?? [])].sort((a, b) => sort === "customer" ? a.customer.localeCompare(b.customer) : sort === "balance" ? b.balance - a.balance : b.issuedAt - a.issuedAt), [data, sort]);
-  const age = data?.aging; const groups = age ? [["Current", age.current], ["1–30 days", age.d1_30], ["31–60 days", age.d31_60], ["61–90 days", age.d61_90], ["Over 90 days", age.d90plus]] as const : [];
+  const age = data?.aging; const groups = age ? [["Not due yet", age.current], ["1–30 days", age.d1_30], ["31–60 days", age.d31_60], ["61–90 days", age.d61_90], ["Over 90 days", age.d90plus]] as const : [];
   const max = Math.max(1, ...groups.map((g) => g[1]));
   return <div className={s.page}>
     <header className={s.header}><div><h1>Finances</h1><p className={s.subtitle}>See who owes you and how much is late.</p></div><button className="button secondary" onClick={() => setHelpOpen(true)}>How these numbers are worked out</button></header>
@@ -45,7 +45,7 @@ export default function FinancesPage() {
     </div></div>
     {filtersOpen && <div className={s.filters}><label className={s.field}>From<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label className={s.field}>To<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label><label className={s.field}>Customer<input value={customer} onChange={(e) => setCustomer(e.target.value)} /></label><label className={s.field}>Work type<input value={jobType} onChange={(e) => setJobType(e.target.value)} /></label><label className={s.field}>Status<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All</option><option value="unpaid">Unpaid</option><option value="partly_paid">Partly paid</option><option value="paid">Paid</option></select></label></div>}
     {error ? <p role="alert">{error}</p> : !data ? <p>Loading finances...</p> : <>
-      <div className={`${s.kpis} k2-finance-kpis`}>{[["Invoiced", data.totals.invoiced], ["Outstanding", data.totals.outstanding], ["Past due", data.totals.pastDue]].map(([label, value]) => <section className={`${s.card} ${s.kpi}`} key={label}><div className={s.kpiLabel}>{label}</div><strong className={s.value}>{money(Number(value))}</strong></section>)}</div>
+      <div className={`${s.kpis} k2-finance-kpis`}>{[["Invoiced", data.totals.invoiced], ["Collected", data.totals.collected], ["Outstanding", data.totals.outstanding], ["Past due", data.totals.pastDue]].map(([label, value]) => <section className={`${s.card} ${s.kpi}`} key={label}><div className={s.kpiLabel}>{label}</div><strong className={s.value}>{money(Number(value))}</strong></section>)}</div>
       {data.rows.length === 0 ? <section className={`${s.card} ${s.empty}`}><h2>No invoices in this period</h2><p>Change the filters to see other invoices.</p></section> : <>
       <section className={s.card}><h2>How late are unpaid invoices?</h2>{groups.map(([label, value]) => <div key={label} className={s.row}><span>{label}</span><div className={s.bar} style={{ flex: 1 }}><span style={{ width: `${value / max * 100}%` }} /></div><strong>{money(value)}</strong></div>)}</section>
       <section className={s.card}><h2>Who owes the most?</h2>{data.topOwing.length ? data.topOwing.map((row) => <button key={row.customer} className={s.row} style={{ width: "100%", background: "none", borderLeft: 0, borderRight: 0, borderTop: 0, cursor: "pointer" }} onClick={() => setCustomer(row.customer)}><span>{row.customer}</span><strong>{money(row.amount)}</strong></button>) : <p>Nothing is outstanding.</p>}</section>
@@ -53,6 +53,6 @@ export default function FinancesPage() {
       {data.capped && <p>Showing up to 2,000 records from each source.</p>}
     </>}
     <p className={s.note}>From your Jobba export and invoices sent from this app</p>
-    <Sheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How these numbers are worked out"><div style={{ padding: 20 }}><p>Invoiced is the total for the selected period. Outstanding is the unpaid balance; past due is the part past its due date. Deposit invoices are included as invoices.</p></div></Sheet>
+    <Sheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How these numbers are worked out"><div style={{ padding: 20 }}><p>Invoiced is the total for the selected period. Outstanding is the unpaid balance; past due is the part past its due date. Collected is the invoiced total less the balance owed. Imported Jobba invoices are due 30 days after their issue date; app invoices use their own due date when available, otherwise 30 days after issue. Deposit invoices are included as invoices.</p></div></Sheet>
   </div>;
 }

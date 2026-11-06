@@ -9,7 +9,7 @@ const status = (total: number, balance: number): FinanceRow["status"] => balance
 
 export function rowsFromHistory(records: InvoiceHistoryRecord[]): FinanceRow[] {
   return records.filter(r => !r.voided).map(r => {
-    const total = Math.max(0, cents(r.amount) + cents(r.tax) - cents(r.credits));
+    const total = Math.max(0, cents(r.amount) + cents(r.tax));
     const balance = Math.max(0, Math.min(total, cents(r.amountDue)));
     return { invoiceNo: r.sourceInvoiceId, ...(r.customerId ? { customerId: r.customerId } : {}), customer: r.billTo, jobType: r.workName, issuedAt: r.issuedAt, total: total / 100, balance: balance / 100, status: status(total, balance), source: "jobba" };
   });

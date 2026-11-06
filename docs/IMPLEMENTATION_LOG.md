@@ -2662,3 +2662,5 @@ logos.
   findings through the document suite), `lib/pipeline/jobPrefill.ts` (+ test). Kept on purpose: `DemoHero` (self-led demo plan)
   and `useQuery` (planned cache layer). Unimported files never reach a page bundle, so this tidies the repo; load time is unchanged.
 - **Docs:** Roof Doctors data-gaps doc (Claude Docs, private) https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw.
+
+T-335: Correct imported invoice totals; 27 finance unit tests passed. Browser and final gates pending in review handoff. No removals.
