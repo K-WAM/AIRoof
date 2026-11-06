@@ -1,4 +1,4 @@
-import { test, expect, settle, shot, expectHealthy } from "./fixtures";
+import { test, expect, settle, shot, expectHealthy, openHelp } from "./fixtures";
 import sharp from "sharp";
 import { api, must } from "../scripts/e2e/lib.cjs";
 
@@ -42,14 +42,14 @@ test("SVG and large PNG fit the two-company header", async ({ as }, testInfo) =>
   }
 });
 
-test("View as keeps Feedback visible, disabled and explained", async ({ as }, testInfo) => {
+test("View as keeps Feedback visible, disabled and explained", async ({ as }) => {
   const page = await as("superadmin");
   const response = await page.request.post("/api/admin/view-as", { data: { businessId: "e2e-roofpros", userType: "office" } });
   expect(response.ok()).toBe(true);
   await page.goto("/company/dashboard"); await settle(page);
   await expect(page.getByTestId("view-as-banner")).toBeVisible();
-  if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
-  const feedback = page.getByRole("button", { name: /Feedback.*Not available/ }).filter({ visible: true });
+  await openHelp(page);
+  const feedback = page.getByRole("button", { name: /Send feedback.*Not available/ }).filter({ visible: true });
   await feedback.scrollIntoViewIfNeeded();
   await expect(feedback).toBeDisabled();
   await expect(feedback).toBeInViewport();

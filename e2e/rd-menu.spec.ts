@@ -1,4 +1,3 @@
-import { mkdirSync } from "node:fs";
 import { test, expect, expectHealthy, openJobPanel, openHelp, shot } from "./fixtures";
 
 for (const account of ["proOwner", "fieldCrew", "dentalOwner"] as const) {
@@ -13,8 +12,7 @@ for (const account of ["proOwner", "fieldCrew", "dentalOwner"] as const) {
       : ["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings", "Help"];
     await expect(nav).toHaveText(expected);
     await expectHealthy(page);
-    mkdirSync("docs/evidence/T-344", { recursive: true });
-    await page.screenshot({ path: `docs/evidence/T-344/after-${account}-${info.project.name === "phone" ? 375 : 1280}.png` });
+    await shot(page, `menu-after-${account}`);
     await openHelp(page);
     await page.getByRole("button", { name: "Send feedback", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Send feedback to Luxor" })).toBeVisible();

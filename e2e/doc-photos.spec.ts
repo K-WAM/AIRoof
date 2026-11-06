@@ -1,6 +1,6 @@
 // E6b: quote, invoice and report all use the same Before | After photo selection and email layout.
 import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
-import { expect, expectHealthy, settle, shot, test } from "./fixtures";
+import { expect, expectHealthy, openJobPanel, settle, shot, test } from "./fixtures";
 
 const B = "e2e-roofing";
 const BIZ_NAME = "E2E Roofing Co";
@@ -67,7 +67,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await page.goto(`/company/jobs/${jobId}`);
   await settle(page);
 
-  await page.locator(".job-tab").filter({ hasText: "Quote" }).click();
+  await openJobPanel(page, "quote");
   await settle(page);
   await page.getByText("Photos and document details", { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByText("Include photos", { exact: true }).first()).toBeVisible();
@@ -91,7 +91,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   expect(String(quoteMail.html)).toContain(afterLabel);
   expect(String(quoteMail.html)).toMatch(/Before[\s\S]*After[\s\S]*Damage at section 12[\s\S]*Section 12 repaired/);
 
-  await page.locator(".job-tab").filter({ hasText: "Invoice" }).click();
+  await openJobPanel(page, "invoice");
   await settle(page);
   await page.getByText("Photos and document details", { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByText("Include photos", { exact: true }).first()).toBeVisible();
@@ -113,7 +113,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   expect(String(invoiceMail.html)).toContain(afterLabel);
   expect(String(invoiceMail.html)).toMatch(/Before[\s\S]*After[\s\S]*Damage at section 12[\s\S]*Section 12 repaired/);
 
-  await page.locator(".job-tab").filter({ hasText: "Report" }).click();
+  await openJobPanel(page, "report");
   await settle(page);
   const generate = page.getByRole("button", { name: "Generate Report" });
   if (await generate.isVisible().catch(() => false)) await generate.click();

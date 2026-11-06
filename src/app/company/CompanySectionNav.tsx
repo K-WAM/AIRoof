@@ -33,7 +33,7 @@ export function CompanySectionNav({ onOpenFeedback }: { onOpenFeedback: () => vo
     links = [{path: "/company/guide", label: "Guide"}];
   }
   if (!links.length) return null;
-  return <nav aria-label={label} className="company-section-nav no-print" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+  return <nav aria-label={label} className="company-section-nav no-print" style={{ display: "flex", flexWrap: "nowrap", gap: 6, marginBottom: 10 }}>
     {links.map(link => <Link key={link.path} href={`${link.path}${preview ? `?preview=${encodeURIComponent(preview)}` : ""}`}
       className={`button ${pathname === link.path ? "secondary" : "ghost"}`} aria-current={pathname === link.path ? "page" : undefined} style={{ minHeight: 44 }}>{link.label}</Link>)}
     {pathname === "/company/guide" && user && (!user.superadmin || preview) && <button type="button" className="button ghost" disabled={!!user.viewAs}
