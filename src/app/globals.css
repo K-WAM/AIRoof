@@ -3879,3 +3879,13 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .company-topbar:has(.company-brand--multi) > .mobile-menu-btn { order: 2; }
   .company-topbar:has(.company-brand--multi) > .cmd-header-icon { margin-left: auto; }
 }
+
+/* Owner feedback 2026-11-06 (two-company header): a readable Luxor mark, "Powered by Luxor" centred under the main
+   logo in the sidebar, and the second company's logo large enough to read at the right of the top bar on desktop. */
+.company-brand-powered img { width: 28px; }
+.company-brand-powered { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.company-sidebar .company-brand--multi .company-brand-lockup { align-items: center; text-align: center; }
+.company-sidebar .company-brand--multi .company-brand-logo { object-position: center; margin: 0 auto; }
+@media (min-width: 701px) {
+  .company-brand-other img { max-width: 230px; max-height: 64px; }
+}

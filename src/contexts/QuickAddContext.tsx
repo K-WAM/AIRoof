@@ -170,12 +170,15 @@ function JobQuickAddForm({
           notes: fd.get("notes"),
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.job) throw new Error("Job creation failed");
+      const data = await res.json().catch(() => ({}));
+      // Show the server's own reason (a missing field, View as is read-only, ...) instead of a generic "review the form".
+      if (!res.ok || !data.job) throw new Error(typeof data?.error === "string" && data.error ? data.error : "");
       emitQuickAddCreated({ kind: "job", id: data.job.jobId });
       setCreated({ jobId: data.job.jobId });
-    } catch {
-      setError(`The ${vocab.jobNoun.toLowerCase()} could not be created. Review the form and try again.`);
+    } catch (err) {
+      setError(err instanceof Error && err.message
+        ? `The ${vocab.jobNoun.toLowerCase()} was not created: ${err.message}`
+        : `The ${vocab.jobNoun.toLowerCase()} could not be created. Review the form and try again.`);
     } finally {
       setCreating(false);
     }

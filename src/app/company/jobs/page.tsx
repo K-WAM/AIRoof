@@ -149,8 +149,9 @@ export default function JobsPage() {
           appointmentId: fd.get("appointmentId") || undefined,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.job) throw new Error("Job creation failed");
+      const data = await res.json().catch(() => ({}));
+      // Show the server's own reason (a missing field, View as is read-only, ...) instead of a generic "review the form".
+      if (!res.ok || !data.job) throw new Error(typeof data?.error === "string" && data.error ? data.error : "");
       if (data.created === false) {
         // This booking already has a job — open it rather than listing a second copy.
         window.location.href = `/company/jobs/${data.job.jobId}${previewSuffix}`;
@@ -166,8 +167,10 @@ export default function JobsPage() {
 
       setClientName(""); setClientPhone(""); setAddress(""); setSelectedCustomerId(null);
       setTimeout(() => setJustCreatedId(null), 4000);
-    } catch {
-      setActionError("The job could not be created. Review the form and try again.");
+    } catch (err) {
+      setActionError(err instanceof Error && err.message
+        ? `The job was not created: ${err.message}`
+        : "The job could not be created. Review the form and try again.");
     } finally {
       setCreating(false);
     }
