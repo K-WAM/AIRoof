@@ -2,6 +2,9 @@
 // Invoices and reports pull pricing from here; the Calendar Powerboard uses crews.
 
 export interface LibraryMaterial {
+  category?: string;
+  /** Preserves the source unit when an existing reviewed unit is retained. */
+  importedUnit?: string;
   name: string;
   unit: string;
   unitPrice: number;
@@ -54,6 +57,8 @@ export interface LibraryLogo {
 }
 
 export interface Crew {
+  /** Source crew-type labels, separate from membership. */
+  types?: string[];
   crewId: string;
   name: string;
   email?: string;

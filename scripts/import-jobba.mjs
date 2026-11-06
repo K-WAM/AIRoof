@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import admin from "firebase-admin";
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decodeCsvBuffer, parseCsv, matchKey, mapCustomers, mapProperties, mapMaterials, mapInvoiceHistory, mapInspections } from "./lib/jobba-import.mjs";
 
+import { importSetup, mapSetup } from "./lib/jobba-setup.mjs";
 import { missingCustomerListFields, historyForCustomer } from "./lib/customer-list-fields.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -35,7 +36,8 @@ async function main() {
   const tz = snap.data().timezone || "America/New_York";
   let replacement = 0;
   const files = filenames.map(name => { const text = decodeCsvBuffer(readFileSync(join(dir,name))); replacement += (text.match(/\uFFFD/g) || []).length; return parseCsv(text); });
-  const customers = mapCustomers(files[0]), mappedProperties = mapProperties(files[1]), materials = mapMaterials(files[2]), invoices = mapInvoiceHistory(files[3],tz), inspections = mapInspections(files[4],tz);
+  const setupFiles = args.setup ? Object.fromEntries(readdirSync(dir).filter(n => n.endsWith(".csv")).map(n => [n, parseCsv(decodeCsvBuffer(readFileSync(join(dir,n))))])) : null;
+  const customers = mapCustomers(files[0]), mappedProperties = mapProperties(files[1]), materials = setupFiles ? mapSetup(setupFiles).materials : mapMaterials(files[2]), invoices = mapInvoiceHistory(files[3],tz), inspections = mapInspections(files[4],tz);
   const existing = await biz.collection("customers").get(), customerMap = new Map();
   for (const doc of existing.docs) if (doc.data().matchKey && !customerMap.has(doc.data().matchKey)) customerMap.set(doc.data().matchKey,{id:doc.id,data:doc.data(),ref:doc.ref});
   const pricingRef = biz.collection("library").doc("pricing"), pricing = await pricingRef.get(), oldMaterials = pricing.data()?.materials ?? [];
@@ -49,6 +51,7 @@ async function main() {
   const lines = ["# Jobba import report", "", ...filenames.map((n,i) => `${n}: ${files[i].length} rows`), `Customers to create: ${createCount}`, `Customers already present: ${customers.length-createCount}`, `Properties attached: ${attached}`, `Properties cut: ${mappedProperties.cut}`, `Materials to add: ${additions.length}`, `Materials skipped as duplicates: ${files[2].filter(r => r.Enabled === "Yes" && r.Name?.trim()).length-additions.length}`, `Invoices matched: ${invoiceMatches}; unmatched: ${invoices.length-invoiceMatches}`, `Inspections matched: ${inspectionMatches}; unmatched: ${inspections.length-inspectionMatches}`, `Replacement characters remaining: ${replacement}`];
   console.log(lines.slice(2).join("\n"));
   const reportDir = typeof args["report-dir"] === "string" ? resolve(root,args["report-dir"]) : resolve(dir,"..","05-crm-import"); mkdirSync(reportDir,{recursive:true}); const stamp = new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-"); writeFileSync(join(reportDir,`import-run-${stamp}.md`),lines.join("\n")+"\n");
+  if (setupFiles) await importSetup(db, biz, setupFiles, apply, Date.now());
   if (!apply) { await admin.app().delete(); return; }
   const now = Date.now();
   for (const c of customers) {

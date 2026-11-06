@@ -15,6 +15,7 @@ interface PickerProps {
   onClose: () => void;
   title?: string;
   items: PickerItem[];
+  categories?: string[];
   loading?: boolean;
   error?: string;
   /** Catalog items already on the job/quote: shown as "Added" and not pickable twice. */
@@ -33,24 +34,26 @@ interface PickerProps {
  * Search-and-tap picker over the Library's work catalog (the Issue -> Work list). Presentational: the office quote
  * and the two field screens each feed it their own items and decide what "pick" does. Shares the Sheet shell.
  */
-export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, loading, error, addedItemIds, onPick, onPickMany, confirm }: PickerProps) {
+export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, categories = [], loading, error, addedItemIds, onPick, onPickMany, confirm }: PickerProps) {
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pickError, setPickError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (open) { setQuery(""); setPickError(""); setSelected([]); } }, [open]);
+  useEffect(() => { if (open) { setCategoryFilter(""); setQuery(""); setPickError(""); setSelected([]); } }, [open]);
 
   const groups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
+    const categoryItems = categoryFilter ? items.filter(i => i.category === categoryFilter) : items;
     const matches = needle
-      ? items.filter((item) => `${item.category} ${item.problem} ${item.solution ?? ""}`.toLocaleLowerCase().includes(needle))
-      : items;
+      ? categoryItems.filter((item) => `${item.category} ${item.problem} ${item.solution ?? ""}`.toLocaleLowerCase().includes(needle))
+      : categoryItems;
     const byCategory = new Map<string, PickerItem[]>();
     for (const item of matches) byCategory.set(item.category, [...(byCategory.get(item.category) ?? []), item]);
     return [...byCategory.entries()];
-  }, [items, query]);
+  }, [items, query, categoryFilter]);
 
   async function saveSelected() {
     if (saving || selected.length === 0) return;
@@ -92,6 +95,8 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
 
   return (
     <Sheet open={open} onClose={onClose} title={title}>
+      {categories.length > 0 && <label>Finding category<select aria-label="Finding category" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set([...categories, ...items.map(i => i.category)])].sort().map(c => <option key={c}>{c}</option>)}</select></label>}
+      {categoryFilter && !items.some(i => i.category === categoryFilter) && <p>No standard fixes saved for this category yet.</p>}
       <input
         aria-label="Search the Library"
         value={query}
@@ -101,7 +106,7 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
       />
       {(error || pickError) && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: "0 0 10px" }}>{error || pickError}</p>}
       {loading && <p style={{ color: "var(--text-muted)" }}>Loading the Library…</p>}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && items.length === 0 && !categoryFilter && (
         <p style={{ color: "var(--text-muted)" }}>The Library has no items yet. Add some under Library → Common fixes.</p>
       )}
       {!loading && items.length > 0 && groups.length === 0 && <p style={{ color: "var(--text-muted)" }}>Nothing matches &ldquo;{query}&rdquo;.</p>}
@@ -163,6 +168,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded, show
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PickerItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [onJob, setOnJob] = useState<OnJobFinding[]>([]);
   const [loading, setLoading] = useState(false);
@@ -176,9 +182,10 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded, show
     setError("");
     fetch(`/api/jobs/${encodeURIComponent(jobId)}/findings?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Could not load the Library"))))
-      .then((d: { items: PickerItem[]; findings: Array<{ findingId?: string; itemId?: string; problem?: string; note?: string }> }) => {
+      .then((d: { items: PickerItem[]; categories?: string[]; findings: Array<{ findingId?: string; itemId?: string; problem?: string; note?: string }> }) => {
         if (!live) return;
         setItems(d.items ?? []);
+        setCategories(d.categories ?? []);
         setAdded(new Set((d.findings ?? []).flatMap((f) => (f.itemId ? [f.itemId] : []))));
         setOnJob((d.findings ?? []).flatMap((f) => (f.problem ? [{ findingId: f.findingId, problem: f.problem, note: f.note }] : [])));
       })
@@ -230,7 +237,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded, show
         </div>
       )}
       <FindingPickerSheet open={open} onClose={() => setOpen(false)} title="Add findings to this job"
-        items={items} loading={loading} error={error} addedItemIds={added} onPick={pick}
+        items={items} categories={categories} loading={loading} error={error} addedItemIds={added} onPick={pick}
         confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }} />
     </>
   );

@@ -125,6 +125,7 @@ export interface BusinessConfig {
   /** One business, several legal companies (src/types/company.ts). Missing or one entry = unchanged behaviour. */
   billingCompanies?: import("./company").BillingCompany[];
   billingPrefs?: {
+    importedTerms?: Array<{ name: string; dueDays: number | null; discountRate?: number; discountDays?: string }>;
     payNow?: boolean;
     payInstructions?: string;   // "Zelle to pay@acme.com · Checks to Acme Roofing, 1 Main St"
     payLink?: string;           // their own https pay page (Square, PayPal, QuickBooks…) — never ours

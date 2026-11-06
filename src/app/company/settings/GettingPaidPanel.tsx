@@ -83,9 +83,10 @@ export function GettingPaidPanel({ businessId, initialPrefs }: { businessId: str
             <div className="field">
               <label htmlFor="dueDays">Payment due</label>
               <select id="dueDays" disabled={!canEdit} value={prefs.dueDays} onChange={(e) => change({ dueDays: Number(e.target.value) })}>
-                {[0, 7, 15, 30, 45, 60].map((d) => <option key={d} value={d}>{d === 0 ? "On receipt" : `${d} days after the invoice`}</option>)}
+                {[...new Set([0, 7, 15, 30, 45, 60, prefs.dueDays, ...(prefs.importedTerms ?? []).map(t => t.dueDays)])].sort((a, b) => a - b).map((d) => <option key={d} value={d}>{d === 0 ? "On receipt" : `${d} days after the invoice`}</option>)}
               </select>
             </div>
+            {prefs.importedTerms?.length ? <details><summary>Imported payment terms ({prefs.importedTerms.length})</summary><ul>{prefs.importedTerms.map((term, i) => <li key={i}>{term.name} / {term.dueDays} days</li>)}</ul><p>Choose due days above. Deposits and discounts are not applied automatically.</p></details> : null}
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 12px" }}>
               <Toggle checked={prefs.remindersOn} disabled={!canEdit} onChange={(next) => change({ remindersOn: next })} label="Email overdue reminders" />
               <span>Email the customer a reminder 1, 7 and 14 days after the due date</span>

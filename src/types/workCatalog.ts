@@ -42,6 +42,8 @@ export interface WorkCatalogItem {
 
 export interface WorkCatalog {
   items: WorkCatalogItem[];
+  /** Imported taxonomy labels, including categories without a standard fix yet. */
+  categories?: string[];
   /** Starter itemIds ever imported — so a deleted starter item is never silently re-added. */
   starterKitImported?: string[];
   updatedAt?: number;

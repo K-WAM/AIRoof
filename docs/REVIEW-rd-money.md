@@ -1,15 +1,69 @@
 # Roof Doctors money worktree review
 
-Status: WIP. Do not merge as finished.
+Status: all assigned implementation is ready for review. Final task commits use normal T-xxx titles; the earlier WIP commits were kept and nothing was amended in this continuation. No push, merge, deployment or production access occurred.
 
-- T-335: Imported invoice totals now retain amount plus tax, with balances clamped to the invoice total; paid, partial, unpaid and void cases covered. The finance page explains imported invoices use issue date plus 30 days.
-- T-336: Cards, aging, customer filters, chips and row navigation are implemented. The API now retains matched customer IDs. Focused finance and company split tests passed desktop and phone before the final cosmetic fix; link and filter combinations need further coverage.
-- T-337: Always-visible dates, a preliminary accordion, and an example are implemented. Screenshot review found the phone row lacks labels, the example is only a single summary instead of day-by-day punches, and overtime detail needs review. Not ready.
-- T-338: Default and other company branding is separated in the shell, with the Luxor mark. Screenshots use seeded placeholder logos; real SVG and PNG rendering and the final phone layout need verification.
-- T-339: Feedback is pinned in the desktop footer and disabled for View as. Owner, staff, field crew and superadmin Preview opened feedback on desktop and phone; View as still needs a browser check.
+## Per task
 
-Validation: finance unit tests 27 passed; related Vitest 43 passed across 5 files (before the final shell placement); TypeScript passed before the final shell placement; changed-file ESLint had no errors and one existing unused Link warning in layout. Focused finance/company split: 4 passed across desktop and phone. Preview pages, Roof Doctors screens and finance: 27 passed in the larger run. Desktop screen audit passed all 16 screens. Phone screen audit failed Settings height (5620px against 5500px); its retry was interrupted after reproducing the height. Payroll example interaction: 2 passed after correcting a test selector. Feedback checks: 8 passed across desktop/phone, plus the 1440 header check passed; one phone 1440 check skipped.
+| Task | Final result | Commit |
+|---|---|---|
+| T-335 | Imported totals remain amount plus tax; payments affect collected/balance. Voids stay excluded. Imported due dates are explained as issue date plus 30 days because the invoice export has no per-invoice term. | 48730b2 |
+| T-336 | Card + aging + customer filters combine independently. Toggle-off, chips, owing-row toggle and Clear all are covered. Customer, imported invoice and app job links reach loaded records; whole-row Space works. The missing customer record route now reuses the existing customer screen and focuses that record, with an All customers return link. Preview context is retained. Five invoices per page keeps the phone list bounded. | 1ef3f5b |
+| T-337 | The local-only example has two invented people and Mon-Sun rows, in/out punches, jobs and hours. The existing weekly calculation gives 40 regular + 2 overtime for one person and 38 regular + 0 overtime for the other. Person summaries label every value. Dates remain visible and changing one selects Custom. | dc1d278 |
+| T-338 | Invented SVG and detailed 1000px PNG artwork were uploaded through the logo-library API and assigned through the company API. Natural sizing avoids pixel upscaling. Two phone brands get their own row; the Luxor mark is smaller. Desktop 1280/1440 and phone 375 screenshots were read. | 32b90c9 |
+| T-339 | View as retains Feedback disabled with a readable note; the desktop note wraps instead of clipping. Owner/staff/crew/Preview feedback opening, View as write refusal, Exit and field landing were checked on desktop and phone. Guards were not weakened. | 41ffe22 |
+| T-340 | Importer supplies missing list/search/identity fields. The new backfill is dry-run by default, rejects demo/unknown targets, requires matching apply confirmation, rechecks missing fields in transactions of at most 400 writes and never overwrites existing fields. Local repair changed 191 records, then zero. All 191 imported customer IDs are returned by the real list API and searchable in the UI. | 9962ef4 |
+| T-341 | Metadata-only mapping covers all 44 CSV files. Optional --setup adds clear-home data to existing crews, pricing, invoice preferences and finding categories. All 3,560 source rows, including repeats, are retained with file/row number. Repeat import left projected setup content unchanged and Auth users at 16. No accounts, invites, messages, live jobs or new setup screens are created. | This commit |
 
-Screenshots inspected: finance at 1280 and 375, header at 1440, payroll example at 1280 and 375. The phone payroll layout needs work as described above. Screenshots use seeded data, not real client logos or 30 invoices.
+## Validation and evidence
 
-The local call-to-cash scenario failed at the post-call webhook with HTTP 404 (0/1 steps), so the audit lacked its usual complete call-generated data. The harness was stopped. It does not cover real phone audio, real inbox delivery, or next build. No production writes, push, merge, or dependency installation were performed.
+- TypeScript: npx tsc --noEmit passed. Changed-file ESLint (including scripts with --no-ignore) passed with no errors or new warnings.
+- Related Vitest: 395 tests across 38 files were covered. One existing send-lock test timed out during the concurrent browser run; its isolated file retry passed all 10 tests without a code or timeout change. The two new imported-term tests also passed: 397 distinct related tests covered in total. The final setup derivation tests passed again after the source-row preservation change.
+- Focused screen run: 25 passed, 1 skipped across desktop/phone. The skip is the duplicate phone instance of a desktop-only 1440 screenshot.
+- Additional final run: 14 passed across desktop/phone (company-split, import screens, header/View as, and existing View as flows).
+- Screen audit now includes customer record, Finances and Payroll. Desktop passed all 19 screens. Phone passed 18/19 screens; the only failure is the already-recorded Settings height, 5,620px versus 5,500px. No threshold was weakened. No first-content, API-count or overflow failures were reported.
+
+| New audit screen | Phone first content | API calls | Phone height |
+|---|---:|---:|---:|
+| Customer record | 1,034ms | 4 | 1,054px |
+| Finances | 904ms | 2 | 2,042px |
+| Payroll | 1,113ms | 2 | 994px |
+
+The verification story is Customers/Library -> tenant-guarded APIs -> emulator Firestore -> rendered imported records. The API test checks every imported customer ID, not merely an empty/error screen. Setup UI checks cover crews, all three hourly labor rates, six preserved term choices and the finding-category selector. Source categories without standard fixes do not fabricate repair instructions.
+
+## Earlier post-call 404
+
+A throwaway detached worktree of main at 1b7aed9 was created with a node_modules junction. Its local call-to-cash run passed 12/12; this branch's fresh harness also passed 12/12. The post-call route is unchanged from that base. The earlier 404 was not reproduced after a fresh local harness start; the exact historical dev-server state cannot be proven from the retained evidence, so no webhook/booking change was made. The throwaway harness was stopped, its junction unlinked and the worktree removed. Local receipts are .e2e/main-call-verification.log and .e2e/call-verification.log.
+
+## Screenshots read
+
+Read desktop 1280/1440 and phone 375 brand artwork, phone/desktop payroll example, finance list, disabled View as feedback, imported Customers, Library crews/labor rates, payment terms and finding-category screenshots. Phone labor evidence includes a continued viewport capture so all three rates can be read. Also read the new phone customer-record/finance/payroll audit screenshots.
+
+Evidence is retained locally in .e2e/review-screens/{desktop,phone}/ and test-results/screens/{desktop,phone}/. These screenshots may show imported client data and are intentionally not committed. The mapping document and tests contain no client values.
+
+## What was shortened
+
+- Finance cards and aging bars filter directly; chips and Clear all avoid reopening the filter form.
+- Customer names and invoice rows go straight to the relevant record. Customer record links show the record first instead of making a phone user scroll through the list.
+- Payroll person names open one inline timesheet. Date changes fill the Custom period state automatically.
+- Existing Library sections and the existing Payment due control are reused. Known source due-day choices are available without a duplicate setup screen. Finding categories use the existing picker.
+- Imported customer activity/search fields are filled automatically; the owner does not have to recreate the spreadsheet's customers manually.
+
+## Owner decisions / findings
+
+1. Choose the default due days for new invoices from the six source terms. The existing default is retained; source deposit/discount rules are preserved but are not applied automatically. Historic imported invoice due dates remain the documented 30-day fallback, not a claim that each old invoice had that term.
+2. Review material unit conflicts: existing units/prices are preserved, and importedUnit retains the source unit. The two material exports share 194 rows / 191 names and identical prices; differing category/type/description metadata is preserved in the source archive.
+3. One invoice has no matched customer and needs owner matching. No identity was guessed.
+4. Supply standard repair solutions if the 115 taxonomy labels should become selectable standard fixes. Only category definitions were provided; solutions were not invented.
+5. Decide mappings/homes for contacts without a customer key, deals, service orders, safety checklists, workflow statuses, maintenance and warranties. See docs/clients/JOBBA-SETUP-MAPPING.md. Crew membership is linked only with an exported person row and a unique existing account; no login or invite is created.
+6. The broad phone Settings height finding remains for the integrator; it is unchanged from the previous report.
+
+## Main files
+
+- Finance/customer navigation: src/app/company/finances/page.tsx, src/lib/finance/summary.ts, src/app/company/customers/CustomersScreen.tsx, customers.module.css and [customerId]/page.tsx.
+- Payroll: src/app/company/payroll/page.tsx, src/lib/payroll/timesheet.ts and preview.module.css.
+- Shell: CompanyBrand/layout from the earlier implementation, plus globals.css and company-nav.tsx.
+- Import/repair: scripts/import-jobba.mjs, scripts/backfill-customer-list-fields.mjs, scripts/lib/customer-list-fields.mjs, scripts/lib/jobba-setup.mjs. The duplicate inline token builder was replaced by the shared field helper; no feature was removed.
+- Setup rendering/contracts: GettingPaidPanel, customerPayments, FindingPickerSheet, the guarded findings GET response, and optional library/work-catalog/billing preference fields.
+- Tests: finance/payroll/import helper tests; imported-term tests; rd-money, header, payroll/feedback, jobba-import, view-as and screen-audit specs.
+
+The local harness cannot verify real phone audio, actual inbox delivery or next build. No production verification is claimed. The harness is stopped at handoff.
