@@ -2666,3 +2666,5 @@ logos.
 T-335: Correct imported invoice totals; 27 finance unit tests passed. Browser and final gates pending in review handoff. No removals.
 
 T-336 WIP: Finance filters and navigation; 4 focused desktop/phone checks passed before final styling. Final verification pending.
+
+T-337 WIP: Payroll period inputs and preliminary timesheet/sample. Dedicated browser checks stalled; sample and detail need review.
