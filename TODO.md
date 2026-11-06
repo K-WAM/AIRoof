@@ -7,7 +7,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot
 
-**2026-10-10 (latest) — release deployed:** `ccr-8c0916c7-3r7kkm` merged to `main` and live, plus `d7da5ba` (findings added
+**2026-11-06 (latest) — Roof Doctors release live (`6fcdfdb`):** T-329..T-344, T-349, T-353 shipped; their account holds the Jobba customers, setup lists and 791 work orders; rules deployed. Next: owner rehearsal Nov 11, then T-351/T-352 branded emails. Start at `docs/NEXT_SESSION.md`; data gaps in the private Claude Doc linked there.
+
+**2026-10-10 — release deployed:** `ccr-8c0916c7-3r7kkm` merged to `main` and live, plus `d7da5ba` (findings added
 after a quote started now reach the draft quote). Open: owner's "can't click job details/documents" (not reproduced — need
 device/screenshot), real-phone Spanish call T-196. Zelle for Luxor invoices is now set in-app (Admin → Invoices → "How clients pay you"). See `docs/NEXT_SESSION.md` "START HERE (2026-10-10, end)".
 

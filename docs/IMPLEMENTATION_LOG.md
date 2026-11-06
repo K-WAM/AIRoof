@@ -2735,3 +2735,22 @@ T-341: Map all 44 Jobba CSV files without client values; optional --setup projec
 - Audit: desktop's original 19 screens passed; phone's 18 passed and Settings height was 5534 > 5500. After relocating the duplicate Team entry, Settings is 5349 and passes; Billing was added to the inventory and passes both viewports. Twenty screens covered across the cited runs. Optional named-screen rechecks reject unknown names and keep every budget intact.
 - Evidence and before/after roofing-owner, Crew and dental menus (1280/375), job panels, View as, audit screens and guidebook screenshots: docs/evidence/T-344/README.md. Phone screenshots read. T-343 also passed a local CLI dry/apply/repeat check with invented rows; temporary data/guard changes restored.
 - iPhone/WebKit skipped per owner; harness cannot cover real audio, inbox placement or next build. No production writes, push, merge, booking/phone-agent changes, new dependencies or client-data commits.
+
+## 2026-11-06 - Claude (integrator) - Roof Doctors release, follow-ups, production data
+
+- Release `712344a` = main + task/rd-next (T-343 Jobba work orders on customers, T-344 menu 14->9 + job Work/Money/Report
+  groups; Codex GPT-6.1 Sol) + task/ds-archive (T-349 Archive client button; DeepSeek) + task/rd-brand (job create shows the
+  server's reason, e.g. "View as is read-only"; Luxor mark 20->28 px, "Powered by Luxor" centred; second-company logo slot
+  140x48 -> 230x64 desktop). Test follow-ups: photo drag starts mid-screen; old specs follow the new menu (DeepSeek);
+  rd-menu screenshots go to test-results, not docs/; Finances explainer moved beside the data-source note (phone C4).
+- Merged-tree gates: tsc 0; eslint 0 errors (265 existing warnings); vitest 361 files / 2,938 passed; next build; e2e:call
+  12/12; Playwright desktop+phone 413 passed, 0 failed, 2 flaky (passed on retry), 17 skipped. iPhone/WebKit not run: WebKit
+  cannot open a blank page on this machine (environment).
+- Follow-up `6fcdfdb`: T-353 "Customer emails" fields on onboarding + client Edit (data only; generic yourcompany.com
+  examples), customer history reads up to 1,000 rows (a 206-work-order customer exceeded the old 200 cap). Admin/onboarding
+  specs 109 passed; unit suite green (3 load-related timeouts passed alone).
+- CI fix `07df5c9`: Team page test waits for member buttons to re-enable between actions.
+- Production (owner-approved, dry run first): roofdoctors customer list-field backfill (191, re-check 0), setup import
+  (5 crews, 3 labor rates, 6 payment terms, tax default, 115 finding categories), 791 work orders (787 linked to 98 customers,
+  4 unmatched). Firestore rules deployed with the owner's OK (16/16 rules tests; live ruleset verified identical).
+- Not done: RCU_Transparent.svg not used (pink, different artwork from the brand); T-348 phone line parked by the owner.

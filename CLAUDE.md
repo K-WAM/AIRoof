@@ -470,6 +470,21 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
   apps) on /login and /demo; `POST /api/auth/terms` writes `legalAcceptances/{uid}_{version}` (write-once). Invite/welcome
   emails say "By accepting this invite…". The privacy policy's provider list must match the outside services the code calls.
 
+## Roof Doctors review prep (2026-11-06) Key Files
+
+- Menu (T-344): `src/app/company/navModel.ts` (`moneyNavLinks`, `navIsActive`) + `src/app/company/CompanySectionNav.tsx` — 9 menu
+  items; merged screens (Requests = Pipeline + Calls, Finances = Invoices + Finances + Payroll, Settings + Team, Help = Guide +
+  Send feedback) keep their own URLs and guards and show a top switch. Job page: Work / Money / Report groups; `?tab=<old>` still works.
+- Archive (T-349): `POST /api/admin/businesses/[businessId]/archive` + `config/ArchiveClientPanel.tsx` — writes only
+  `accountPurpose`/`previousAccountPurpose`; demo tenants refused; never a delete.
+- Customer emails (T-353): `src/lib/email/sendingSetup.ts` validates `BusinessConfig.emailSending` (data only; sending changes in T-352).
+- Calendar colours: `src/lib/calendar/itemState.ts`. Classic letterhead: `src/lib/documents/documentStyle.ts` + `ClassicDocument.tsx`.
+- Jobba import: `scripts/import-jobba.mjs` (dry run by default; `--setup` adds crews/rates/terms/categories; reads Services.csv as
+  work orders into `jobHistory` with `jobba-wo-` ids) and `scripts/backfill-customer-list-fields.mjs`. Allowlisted to `roofdoctors`
+  or emulator `e2e-*`; writes need `--apply --confirm=<id>` and the evaluation guard ON.
+- Roof Doctors data-gaps doc (private Claude Doc): https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw — keep adding gaps found in
+  their data; the named working copy lives in git-ignored `client-resources/roofdoctors/07-review/`.
+
 ## Screen Clarity Rule (read before touching any company screen)
 
 **Owner's standard (2026-10-04): `docs/ZERO-TRAINING-UX-STANDARD.md`** — a first-time user of any role (admin, office

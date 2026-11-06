@@ -1,5 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — 2026-11-06 (Claude) — Roof Doctors release live, production data loaded, session closed
+
+- **Live:** `main` = `6fcdfdb` on crm.luxordev.com, CI green, health OK. Two pushes today: `712344a` (full release; merged-tree
+  gates: tsc 0, eslint 0 errors, vitest 2,938, build, e2e:call 12/12, Playwright desktop+phone 413 passed / 0 failed / 2 flaky)
+  and `6fcdfdb` (T-353 + customer-history limit; admin/onboarding specs 109 passed, unit suite green).
+- **Production writes (owner-approved, dry run first each time) on `roofdoctors`:** customer list-field backfill (191; re-check 0
+  left), Jobba setup import, 791 work orders (Services.csv) as read-only history. Firestore rules deployed (owner OK).
+- **Found and fixed:** CI Team-page test raced a disabled button; photo drag test started at the viewport edge after T-344;
+  finances explainer pushed the phone first screen over C4; job create hid the server's reason; the RCU slot was 140x48; the
+  customer history cap (200) hid rows for a 206-work-order customer.
+- **Not done / decisions:** RCU SVG not used (pink, different artwork); T-348 phone line parked by the owner; T-351/T-352
+  (branded emails, client sending subdomain) and T-350 (sales docs in the Playbook) are next. The owner archives fake clients by hand.
+- **Data-gaps doc** (private Claude Doc) updated: https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw. Private working copy with
+  names: `client-resources/roofdoctors/07-review/` (git-ignored).
+- **Workers:** Codex (GPT-6.1 Sol, medium) did T-343/T-344; DeepSeek via Kilo headless did T-349, T-353 and the e2e follow-up.
+  Local WebKit (iPhone project) cannot open a page on this machine — environment, not the app; desktop + phone (Chromium) cover it.
+- **Next action:** owner rehearsal Nov 11 on the live account; then T-351/T-352. Checklist: top of `docs/NEXT_SESSION.md`.
+
 ## Resume here — 2026-11-05 night (Claude) — Roof Doctors account live, role manuals shipped, session closed
 
 - **Live:** the latest push of `main` (T-326 role manuals + importer fixes + dead-code cleanup); `crm.luxordev.com` health OK.

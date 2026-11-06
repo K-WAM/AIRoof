@@ -1,3 +1,42 @@
+## Start here — state 2026-11-06 night (Claude) — Roof Doctors release + follow-up live, session closed
+
+**Live:** `main` = `6fcdfdb` on crm.luxordev.com (CI green). Single checkout folder, no worktrees, no extra branches.
+Firestore rules deployed (16/16 rules tests; live ruleset identical to the file).
+
+Shipped today (details: TODO.md sections "Roof Doctors polish", "Roof Doctors — next"; IMPLEMENTATION_LOG 2026-11-06):
+- T-329..T-342 (classic letterheads following RDSF/RCU, calendar status colours, findings→quote prices, config cleanup,
+  provision-login guards, Finances numbers + filters, payroll, header logos, feedback in View as, customer list fields,
+  Jobba setup import), T-343 Jobba work orders on customers, T-344 menu 14→9 + job Work/Money/Report groups,
+  T-349 Archive client button, T-353 "Customer emails" fields (onboarding + client Edit), job-create shows the server's
+  reason (View as is read-only), bigger header logos, customer history reads up to 1,000 rows.
+- **Roof Doctors production data:** customer list fields backfilled (all 191 listed); setup import (5 crews, 3 labor rates,
+  6 payment terms, tax default, 115 finding categories); 791 Jobba work orders as read-only history (787 linked, 98
+  customers). Guard still ON (email only to the owner's 2 addresses, no texts/calls).
+- **Data-gaps doc updated** (private Claude Doc): https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw — now includes the
+  337 work orders Approved/Ready but never invoiced, 185 still at Created, 187 without a due date, 4 unmatched work orders,
+  the invoice with no Bill To, payment terms with no default. Working copy with customer names (git-ignored):
+  `client-resources/roofdoctors/07-review/jobba-data-findings.md`; regenerate with
+  `node client-resources/roofdoctors/07-review/analyze-jobba-findings.mjs "D:/Apps/6 - AI Receptionist"`.
+- **Workers:** DeepSeek works headless now — `kilo.exe run -m deepseek/deepseek-flash --variant high --dir <worktree>`
+  (never `--auto`; the `kilo/~deepseek` gateway route has $0). Prompts must say: read with built-in tools only, shell only
+  for tsc/eslint/vitest/playwright/git — any other shell command ends a headless run. See memory reference_deepseek_kilo.
+
+Owner, before the Nov 11 rehearsal:
+- [ ] Settings → Getting paid: pick the default payment term (Jobba has 6, none default).
+- [ ] Archive whichever fake clients you choose (Admin → Clients → Edit → Archive client). Candidates: demo-dental, demo-general-contractors,
+      demo-hvac, demo-landscaping, demo-property-management, coastal-landscaping, premier-hvac, carlita-elevenlabs-test.
+- [ ] Fill Roof Doctors' "Customer emails" panel (sender name, reply-to; DNS contact if they want their own domain).
+- [ ] RCU logo: the new `RCU_Transparent.svg` is pink and a different design — keep the current red PNG or get an official
+      vector from RCU's designer.
+- [ ] Top up DeepSeek credits (one account, shared with live call sorting; $4.84 left on 2026-11-06).
+- [ ] Optional: say yes to removing `pwsh *` / `cmd *` from the global Kilo allow list (they bypass the deny rules).
+- [ ] Rehearse Nov 11 on the live account (exit View as or use Preview), freeze Thu Nov 12 6 p.m.
+
+Next build (pick up in order): T-351 + T-352 branded inbox-safe emails from a client sending subdomain
+(`rdsf@roofdoctors.luxordev.com`; Gmail hides today's base64 logos), T-350 sales docs in the Playbook (the pricing doc is the
+Claude Doc https://claude.ai/artifact/1XdUt5pYmPVJQzXB4A21ek), then after the review T-345..T-347 (safety checklists, vendors +
+warranty types, maintenance plans). Parked by the owner: T-348 (a Roof Doctors phone line — "no new line yet").
+
 ## Roof Doctors — checklist to Fri Nov 13, 10 a.m. (updated 2026-11-05 night)
 
 Done: account in production with their Jobba data and logos (T-291), preview pages on, role manuals in the Guide (T-326),
@@ -5,7 +44,7 @@ data-gaps doc, everything pushed and deployed.
 
 Owner:
 - [x] Deploy the security rules: `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` — done 2026-11-06 by Claude with the owner's OK (16/16 rules tests; live ruleset verified identical to firestore.rules)
-- [ ] Decide when the (689) 204-2643 line becomes Roof Doctors' own Alice: now, or Tue Nov 10 (other demos use the Canada
+- [x] (parked 2026-11-06, owner: no new line yet — T-348) Decide when the (689) 204-2643 line becomes Roof Doctors' own Alice: now, or Tue Nov 10 (other demos use the Canada
       (778) 907-9769 line meanwhile)
 - [ ] Click through Admin → Clients → Roof Doctors → Preview, then View as → Admin / Office staff / Supervisor / Inspector
 - [ ] Send Claude their crew names and their RCU customers (municipal + school), or enter them (Library → Crews; Customers →
