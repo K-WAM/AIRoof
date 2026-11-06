@@ -24,10 +24,10 @@ export interface RoleExpectation {
   }>;
 }
 
-const OFFICE = ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Billing", "Customers", "Library", "Settings", "Guide", "Feedback"];
-const OFFICE_PLUS_TEAM = ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Billing", "Customers", "Library", "Team", "Settings", "Guide", "Feedback"];
-const FIELD_ONLY_MUST = ["Field", "Guide", "Feedback"];
-const FIELD_ONLY_MUST_NOT = ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Billing", "Customers", "Library", "Team", "Settings"];
+const OFFICE = ["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings", "Help"];
+const OFFICE_PLUS_TEAM = OFFICE; // Team is reached through the owner-only Settings switch.
+const FIELD_ONLY_MUST = ["Field", "Help"];
+const FIELD_ONLY_MUST_NOT = ["Dashboard", "Requests", "Calls", "Pipeline", "Calendar", "Jobs", "Finances", "Billing", "Customers", "Library", "Team", "Settings"];
 
 export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
   superadmin: {
@@ -130,8 +130,8 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
   dentalOwner: {
     tenant: "dental",
     landing: "/company/dashboard",
-    navMustShow: ["Dashboard", "Calls", "Pipeline", "Calendar", "Settings", "Guide"],
-    navMustNotShow: ["Jobs", "Field", "Billing"],
+    navMustShow: ["Dashboard", "Requests", "Calendar", "Settings", "Help"],
+    navMustNotShow: ["Jobs", "Field", "Finances", "Billing"],
     canWrite: true,
     fieldVoiceNote: true,
     seesPrices: true,
@@ -166,7 +166,7 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
     landing: "/company/dashboard",
     navMustShow: OFFICE_PLUS_TEAM,
     navMustNotShow: [],
-    showcaseNav: ["Finances", "Payroll"],
+    showcaseNav: ["Finances"],
     canWrite: true,
     fieldVoiceNote: true,
     seesPrices: true,
@@ -183,7 +183,7 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
     landing: "/company/dashboard",
     navMustShow: OFFICE_PLUS_TEAM,
     navMustNotShow: [],
-    showcaseNav: ["Finances", "Payroll"],
+    showcaseNav: ["Finances"],
     canWrite: true,
     fieldVoiceNote: true,
     seesPrices: true,
@@ -198,7 +198,7 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
     tenant: "pros",
     landing: "/company/jobs",
     navMustShow: OFFICE,
-    navMustNotShow: ["Team", "Finances", "Payroll"],
+    navMustNotShow: ["Team", "Payroll"],
     canWrite: true,
     fieldVoiceNote: true,
     seesPrices: true,
@@ -213,7 +213,7 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
     tenant: "pros",
     landing: "/company/dashboard",
     navMustShow: OFFICE,
-    navMustNotShow: ["Team", "Finances", "Payroll"],
+    navMustNotShow: ["Team", "Payroll"],
     canWrite: true,
     fieldVoiceNote: true,
     seesPrices: true,
@@ -228,7 +228,7 @@ export const ROLE_EXPECTATIONS: Record<string, RoleExpectation> = {
     tenant: "pros",
     landing: "/company/pipeline",
     navMustShow: OFFICE,
-    navMustNotShow: ["Team", "Finances", "Payroll"],
+    navMustNotShow: ["Team", "Payroll"],
     canWrite: true,
     fieldVoiceNote: true,
     // owner may want false; not built (plan section 6)

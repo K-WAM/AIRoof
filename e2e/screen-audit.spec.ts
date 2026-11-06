@@ -15,6 +15,7 @@ const SCREENS: Array<{ role: Role; path: string; name: string }> = [
   { role: "owner", path: "/company/field", name: "field" },
   { role: "owner", path: "/company/customers", name: "customers" },
   { role: "owner", path: "/company/customers/C-1000", name: "customer-record" },
+  { role: "owner", path: "/company/billing", name: "billing" },
   { role: "owner", path: "/company/finances", name: "finances" },
   { role: "owner", path: "/company/payroll", name: "payroll" },
   { role: "owner", path: "/company/library", name: "library" },
@@ -58,7 +59,11 @@ test("every screen renders fast, without overflow or errors", async ({ as }, inf
   test.setTimeout(15 * 60_000);
   const rows: string[] = [];
   const failures: string[] = [];
-  for (const s of SCREENS) {
+  // Recheck only changed screens after an isolated fix; the default remains the entire inventory.
+  const requested = process.env.E2E_AUDIT_SCREENS?.split(",").filter(Boolean) ?? [];
+  for (const name of requested) expect(SCREENS.some(screen => screen.name === name), `Unknown audit screen: ${name}`).toBe(true);
+  const screens = requested.length ? SCREENS.filter(screen => requested.includes(screen.name)) : SCREENS;
+  for (const s of screens) {
     const page = await as(s.role);
     await page.goto(s.path); await settle(page, 300); // warm-up compile
     const api: Array<{ url: string; bytes: number }> = [];

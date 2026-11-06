@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, BarChart3, Clock, Lock, type LucideIcon } from "lucide-react";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
-import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
-import { upgradeHref, visibleNavLinks, type NavGroup } from "./navModel";
+import { navIsActive, upgradeHref, visibleNavLinks, type NavGroup } from "./navModel";
 
 const icons: Record<string, LucideIcon> = {
   "/company/dashboard": LayoutDashboard,
@@ -33,10 +31,8 @@ const MODULE_OF: Record<string, CompanyModule> = {
 };
 const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 
-// onOpenFeedback: the shell owns the Feedback window so the phone menu can close first (a window opened from inside
-// the menu sheet left the menu showing underneath it — "floating text", owner 2026-11-05). Without it, the nav keeps
-// its own window (unchanged behaviour for any other caller).
-export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOpenFeedback?: () => void; feedbackPlacement?: "all" | "exclude" | "only" } = {}) {
+// The Help destination shares the desktop footer and phone menu model.
+export function CompanyNav({ helpPlacement = "all" }: { helpPlacement?: "all" | "exclude" | "only" } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
@@ -45,7 +41,6 @@ export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOp
   const { isEnabled, isLocked, vocab } = useBusinessModules();
   const { user, loading } = useAuth();
   const showcase = useBootstrap().data?.business.showcase;
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const links = visibleNavLinks({
     role: loading ? undefined : user?.role,
     superadmin: user?.superadmin,
@@ -54,7 +49,7 @@ export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOp
     isLocked,
     vocab,
     showcase,
-  }).filter((link) => (link.path !== "feedback" || (!loading && !!user)) && (feedbackPlacement === "all" || (feedbackPlacement === "only" ? link.path === "feedback" : link.path !== "feedback")));
+  }).filter((link) => helpPlacement === "all" || (helpPlacement === "only" ? link.path === "/company/guide" : link.path !== "/company/guide"));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
@@ -76,13 +71,8 @@ export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOp
                   </Link>
                 );
               }
-              return path === "feedback" ? (
-                <button key={path} type="button" className="company-nav-trigger" style={{ whiteSpace: "normal", textAlign: "left", width: "100%" }} data-state={feedbackOpen ? "open" : undefined}
-                  disabled={!!user?.viewAs} title={user?.viewAs ? "Not available while viewing as someone else" : undefined} onClick={() => (onOpenFeedback ? onOpenFeedback() : setFeedbackOpen(true))} aria-haspopup="dialog" aria-label={user?.viewAs ? "Feedback — Not available while viewing as someone else" : "Send feedback"}>
-                  <Icon size={16} strokeWidth={1.75} style={{ flexShrink: 0 }} /><span style={{ minWidth: 0 }}>{label}{user?.viewAs && <small style={{ display: "block" }}>Not available while viewing as someone else</small>}</span>
-                </button>
-              ) : (
-                <Link href={`${path}${suffix}`} key={path} aria-current={pathname === path ? "page" : undefined}>
+              return (
+                <Link href={`${path}${suffix}`} key={path} aria-current={navIsActive(path, pathname) ? "page" : undefined}>
                   <Icon size={16} strokeWidth={1.75} />{label}
                 </Link>
               );
@@ -90,7 +80,7 @@ export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOp
           </div>
         );
       })}
-      {!onOpenFeedback && links.some((link) => link.path === "feedback") && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
+
     </nav>
   );
 }

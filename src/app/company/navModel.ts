@@ -14,14 +14,14 @@ export function upgradeHref(module: CompanyModule): string {
   return `/company/upgrade?module=${module}`;
 }
 
-interface NavContext {
+export interface NavContext {
   role?: string;
   superadmin?: boolean;
   preview?: boolean;
   isEnabled: (module: CompanyModule) => boolean;
   /** Modules the client could buy. Omitted = nothing shown locked. */
   isLocked?: (module: CompanyModule) => boolean;
-  vocab?: { customerNounPlural?: string };
+  vocab?: { customerNounPlural?: string; jobNounPlural?: string };
   /** Per-business preview pages (BusinessConfig.showcase). Missing = off, so the list stays as it was. */
   showcase?: { finances?: boolean; payroll?: boolean };
 }
@@ -29,10 +29,8 @@ interface NavContext {
 /** The route list shared by the desktop sidebar and phone menu. */
 export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked = () => false, vocab, showcase }: NavContext): NavLink[] {
   if (role === "crew" && !superadmin) {
-    // A Crew login works only on the Field screen, but keeps the Guide (its Foreman page) and Feedback (T-156: every
-    // signed-in user can send it).
     const field: NavLink[] = isEnabled("jobs") ? [{ path: "/company/field", label: "Field", group: "Primary" }] : [];
-    return [...field, { path: "/company/guide", label: "Guide", group: "Help" }, { path: "feedback", label: "Feedback", group: "Help" }];
+    return [...field, { path: "/company/guide", label: "Help", group: "Help" }];
   }
   const links: NavLink[] = [{ path: "/company/dashboard", label: "Dashboard", group: "Primary" }];
   // What the client bought decides the rest (products → isEnabled): calls, jobs/field, billing. A product they could
@@ -41,23 +39,36 @@ export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked
     if (isEnabled(module)) links.push(...items.map((item) => ({ ...item, group: "Primary" as const })));
     else if (isLocked(module)) links.push(...items.map((item) => ({ ...item, group: "Primary" as const, locked: true })));
   };
-  show("calls", [{ path: "/company/calls", label: "Calls" }, { path: "/company/pipeline", label: "Pipeline" }]);
+  show("calls", [{ path: "/company/pipeline", label: "Requests" }]);
   if (isEnabled("calls") || isEnabled("jobs")) links.push({ path: "/company/calendar", label: "Calendar", group: "Primary" });
-  show("jobs", [{ path: "/company/jobs", label: "Jobs" }, { path: "/company/field", label: "Field" }]);
-  show("billing", [{ path: "/company/billing", label: "Billing" }]);
-  if (role === "owner" || (superadmin && preview)) {
-    if (showcase?.finances) links.push({ path: "/company/finances", label: "Finances", group: "Primary" });
-    if (showcase?.payroll) links.push({ path: "/company/payroll", label: "Payroll", group: "Primary" });
-  }
+  show("jobs", [{ path: "/company/jobs", label: vocab?.jobNounPlural || "Jobs" }]);
+  const money = moneyNavLinks({ role, superadmin, preview, isEnabled, showcase });
+  if (money.length) links.push({ ...money[0], label: "Finances", group: "Primary" });
+  else show("billing", [{ path: "/company/billing", label: "Finances" }]);
   if (isEnabled("library")) links.push(
     { path: "/company/customers", label: vocab?.customerNounPlural || "Customers", group: "Manage" },
     { path: "/company/library", label: "Library", group: "Manage" },
   );
-  if (role === "owner" || superadmin) links.push({ path: "/company/team", label: "Team", group: "Account" });
   links.push(
     { path: "/company/settings", label: "Settings", group: "Account" },
-    { path: "/company/guide", label: "Guide", group: "Help" },
+    { path: "/company/guide", label: "Help", group: "Help" },
   );
-  if (!superadmin || preview) links.push({ path: "feedback", label: "Feedback", group: "Help" });
   return links;
+}
+
+/** Children use the original product and showcase rules, independently of the combined menu label. */
+export function moneyNavLinks({ role, superadmin, preview, isEnabled, showcase }: NavContext): Array<{path: string; label: string}> {
+  const links = isEnabled("billing") ? [{path: "/company/billing", label: "Invoices"}] : [];
+  if (role === "owner" || (superadmin && preview)) {
+    if (showcase?.finances) links.push({path: "/company/finances", label: "Finances"});
+    if (showcase?.payroll) links.push({path: "/company/payroll", label: "Payroll"});
+  }
+  return links;
+}
+
+export function navIsActive(path: string, pathname: string | null): boolean {
+  if (path === "/company/pipeline") return pathname === path || pathname === "/company/calls";
+  if (["/company/billing", "/company/finances", "/company/payroll"].includes(path)) return ["/company/billing", "/company/finances", "/company/payroll"].includes(pathname ?? "");
+  if (path === "/company/settings") return pathname === path || pathname === "/company/team";
+  return pathname === path;
 }

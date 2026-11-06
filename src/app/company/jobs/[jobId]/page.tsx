@@ -178,6 +178,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const tabStripRef = useRef<HTMLDivElement>(null);
   const selectedTab = searchParams?.get("tab");
   useEffect(() => {
+    if (selectedTab === "issues") { setActiveTab("findings"); return; }
     if (selectedTab && ["timeline", "photos", "materials", "labor", "findings", "quote", "report", "invoice"].includes(selectedTab)) {
       setActiveTab(selectedTab as typeof activeTab);
     }
@@ -938,6 +939,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Order follows the work: what happened (Timeline, Photos, Issues), what we found and quote (Findings, Quote), the detail
   // behind the numbers (Materials, Labor), then the customer documents (Report, Invoice).
+  const activeGroup = activeTab === "report" ? "report" : ["quote", "invoice"].includes(activeTab) ? "money" : "work";
   const TABS = [
     { id: "timeline", label: `Activity (${updates.length})` },
     { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
@@ -1149,25 +1151,35 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* Tab bar */}
+      <div className="no-print" style={{ marginBottom: 12 }}>
+        <a className="button secondary" style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }} href={`/company/field?jobId=${jobId}${preview ? `&preview=${encodeURIComponent(preview)}` : ""}`}>Open field screen</a>
+      </div>
+      <div className="segmented-control segmented-control--row no-print" role="tablist" aria-label="Job groups" style={{ display: "flex", width: "100%", marginBottom: 8 }}>
+        {([
+          { id: "work", label: "Work", panel: "timeline" },
+          ...(usesQuotes || hasBilling ? [{ id: "money", label: "Money", panel: usesQuotes ? "quote" : "invoice" }] : []),
+          { id: "report", label: "Report", panel: "report" },
+        ]).map(group => <button key={group.id} type="button" role="tab" className="segment" aria-selected={activeGroup === group.id}
+          data-testid={`job-group-${group.id}`} onClick={() => setActiveTab(group.panel as typeof activeTab)}
+          style={{ flex: 1, minHeight: 44, background: activeGroup === group.id ? "var(--accent)" : undefined, color: activeGroup === group.id ? "#fff" : undefined }}>{group.label}</button>)}
+      </div>
       <div className="job-tabs-with-help no-print">
-      <div className="job-tabs no-print job-tabs-grouped" ref={tabStripRef} role="tablist" aria-label="Job sections">
-        <span className="job-tab-group-label">Job details</span>
-        {TABS.map((tab) => (
+      <div className="job-tabs no-print job-tabs-grouped" ref={tabStripRef} role={activeGroup === "report" ? undefined : "tablist"} aria-label={`${activeGroup === "work" ? "Work" : activeGroup === "money" ? "Money" : "Report"} panels`}>
+        {(activeGroup === "work" ? TABS : []).map((tab) => (
           <button role="tab" aria-selected={activeTab === tab.id} className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
             {tab.label}
           </button>
         ))}
-        <span className="job-tab-group-label">Documents</span>
-        {workflowTabs.map((tab) => {
+        {workflowTabs.filter(tab => activeGroup === "work" ? tab.id === "findings" : activeGroup === "money" ? tab.id === "quote" || tab.id === "invoice" : false).map((tab) => {
           const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft"
             ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
             : null;
           return <button role="tab" aria-selected={activeTab === tab.id} className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
-            <span>{tab.number} {tab.label}</span>{!privateDemo && tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
+            <span>{tab.label}</span>{!privateDemo && tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
       </div>
-      <Hint label="Job documents">{"Findings: what needs work.\nQuote: agree the work and price.\nReport: show what was done.\nInvoice: ask for payment."}</Hint>
+      <Hint label="Job documents">{"Work includes activity, materials, labor, photos and findings with crew issues. Money includes quote and invoice. Report shows the work done.\nFindings: what needs work.\nQuote: agree the work and price.\nReport: show what was done.\nInvoice: ask for payment."}</Hint>
       </div>
 
       {privateDemo && (activeTab === "quote" || activeTab === "report" || activeTab === "invoice") && <PrivateDemoDocuments job={job} business={businessConfig} logos={logos} kind={activeTab} />}

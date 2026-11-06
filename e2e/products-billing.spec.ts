@@ -46,11 +46,11 @@ test("superadmin switches a client to field input + billing only, and the client
   await settle(page, 1200);
   await expectHealthy(page);
   if (test.info().project.name === "phone") await page.getByRole("button", { name: /menu/i }).first().click().catch(() => {});
-  await expect(page.getByRole("link", { name: "Billing", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Finances", exact: true }).first()).toBeVisible();
   // Not bought = still there, greyed with a lock (owner: "so that we can target conversion").
-  const lockedCalls = page.getByRole("link", { name: "Calls — not in your plan" }).first();
+  const lockedCalls = page.getByRole("link", { name: "Requests — not in your plan" }).first();
   await expect(lockedCalls).toBeVisible();
-  await expect(page.getByRole("link", { name: "Pipeline — not in your plan" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Calls — not in your plan" })).toHaveCount(0);
   await expect(page.getByText("Dashboard data could not be loaded")).toHaveCount(0);
   await shot(page, "dashboard-field-billing-only");
   expect(callRequests, "the dashboard asked for calls data this client doesn't have").toEqual([]);

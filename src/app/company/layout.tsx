@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Menu, Plus, X } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { CompanySectionNav } from "./CompanySectionNav";
 import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
@@ -215,10 +216,10 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       <aside className="company-sidebar">
         <BusinessBrand />
         <div className="company-sidebar-nav">
-          <CompanyNav onOpenFeedback={openFeedback} feedbackPlacement="exclude" />
+          <CompanyNav helpPlacement="exclude" />
         </div>
         <div className="company-sidebar-footer">
-          <CompanyNav onOpenFeedback={openFeedback} feedbackPlacement="only" />
+          <CompanyNav helpPlacement="only" />
           {!crewOnly && <QuickAddButton />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
@@ -250,7 +251,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
         <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
           <div className="mobile-nav-sheet" id="company-mobile-nav">
-            <CompanyNav onOpenFeedback={openFeedback} />
+            <CompanyNav />
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
@@ -265,6 +266,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <main className="company-main">
           {user.isSandboxVisitor && <DemoTourBanner previewSuffix={previewSuffix} />}
           {user.isDemoTrial && <PrivateDemoNav />}
+          <CompanySectionNav onOpenFeedback={openFeedback} />
           {children}
         </main>
       </div>

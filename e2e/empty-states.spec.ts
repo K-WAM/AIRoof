@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 // T-144 (docs/NO-TRAINING-UX-PLAN.md §3.3–3.4): a brand-new account never lands on a blank screen. Every empty list,
 // panel and tab says what goes there and offers ONE next step; that step lands on the right place; a viewer is never
 // offered a button that would 403; and the Dashboard checklist counts up as the owner fixes things.
@@ -141,7 +142,7 @@ test("a new job's tabs each explain themselves", async ({ as }) => {
     ["invoice", "job-invoice-empty", /No invoice yet/],
   ];
   for (const [tab, testId, title] of tabs) {
-    await page.getByTestId(`job-tab-${tab}`).click();
+    await openJobPanel(page, tab);
     await expectEmpty(page, testId, title);
     await check(page, `job-${tab}`);
   }
@@ -192,7 +193,7 @@ test("a viewer is never offered a write action by an empty state", async ({ as }
 
   await visit(page, `/company/jobs/${job.jobId}`);
   for (const tab of ["timeline", "photos", "materials", "labor", "findings", "quote", "report", "invoice"]) {
-    await page.getByTestId(`job-tab-${tab}`).click();
+    await openJobPanel(page, tab);
     await expect(page.locator(".empty-state").first()).toBeVisible();
     await noButtonsInEmptyStates(`job tab ${tab}`);
   }

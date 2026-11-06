@@ -224,6 +224,7 @@ export default function JobsPage() {
           )}
           {/* "Field view" (the no-login QR screen) was removed 2026-10-03: for a signed-in user it only ever showed
               "This link isn't active". The crew screen is the Field tab; a crew member's link is the job's Field QR. */}
+          <a className="button secondary" href={`/company/field${previewSuffix}`}>Open field screen</a>
           {businessId && <details className="c1-more-menu"><summary className="button secondary">More</summary><div className="c1-more-actions"><a className="button" href={`/api/jobs/export?businessId=${encodeURIComponent(businessId)}`}>Export CSV</a></div></details>}
         </div>
       </header>

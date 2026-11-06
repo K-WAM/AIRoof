@@ -13,11 +13,11 @@ import { DEMO_LINE_PHONE } from "@/lib/verticals/templates";
 
 const STEP: Record<FlowStep, { path: string; module?: CompanyModule; label: (jobs: string) => string; tip: (jobs: string) => string }> = {
   call: { path: "/company/calls", label: () => "Calls", tip: () => "Sample calls. Open one to read the conversation." },
-  pipeline: { path: "/company/pipeline", label: () => "Pipeline", tip: () => "What the AI captured from each caller — bookings to confirm, people to call back." },
+  pipeline: { path: "/company/pipeline", label: () => "Requests", tip: () => "What the AI captured from each caller — bookings to confirm, people to call back." },
   calendar: { path: "/company/calendar", label: () => "Calendar", tip: () => "View the schedule. The office assigns inspectors and crews here." },
   field: { path: "/company/field", module: "jobs", label: () => "Field", tip: () => "Choose a sample job to see its work scope and crew notes." },
   invoice: { path: "/company/jobs", module: "jobs", label: (jobs) => jobs, tip: (jobs) => `Open a finished one of your ${jobs.toLowerCase()} to see its invoice.` },
-  paid: { path: "/company/billing", module: "billing", label: () => "Billing", tip: () => "What's owed and what's been paid." },
+  paid: { path: "/company/billing", module: "billing", label: () => "Invoices", tip: () => "What's owed and what's been paid." },
 };
 
 const linkStyle = { color: "#92400e", fontWeight: 700, textDecoration: "underline" } as const;

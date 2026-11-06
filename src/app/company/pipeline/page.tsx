@@ -686,7 +686,7 @@ export default function PipelinePage() {
         <div>
           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Workflow size={20} strokeWidth={1.75} />
-            Pipeline
+            Requests
           </h1>
           <p className="page-subtitle">Booked customers first. Call back anyone who did not book. <Hint label="Pipeline confirmation options">{`${glossaryMeaning("confirmed")} The button names the available email or text channels. Confirm without a channel saves your decision; contact the customer yourself.`}</Hint></p>
         </div>

@@ -114,3 +114,12 @@ care homes, daycares) swap the job/quote/invoice scenes for Request → Calendar
 - [ ] Caps are set and the over-limit path still works.
 - [ ] Contact request reaches the team inbox.
 - [ ] Browser tests for the watch path, the live path and the limit path (here: `e2e/self-led-demo.spec.ts`).
+
+
+## Company menu (T-344, 2026-11-06)
+
+- Requests opens the existing request review screen; the top Calls switch opens transcripts and recordings.
+- Finances is one menu item. Its top switch shows Invoices, Finances and Payroll only when this account has each part.
+- Settings includes an owner-only Team switch. Help opens the Guide and Send feedback (disabled in View as).
+- Office users open Field from Jobs or Open field screen on a job. Crew logins still land on Field.
+- Each job has Work (activity, materials, labor, photos, findings and crew issues), Money (quote/invoice), and Report. Existing links and panels remain available.

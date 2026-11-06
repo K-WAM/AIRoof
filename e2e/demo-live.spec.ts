@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 // Two contexts: superadmin preview stays open while a 375px anonymous phone logs work.
 // Voice transcription is a TEST-ONLY browser adapter to the real updates API (the keyless harness has no Whisper).
 // Auth, polling and persistence use the real app. Real microphone/Whisper still needs an owner check.
@@ -81,7 +82,7 @@ test("live prospect: call → job → phone work → documents → reset ends ph
     }
     let officeLoads = 0;
     office.on("request", (request) => { if (request.isNavigationRequest() && request.frame() === office.mainFrame()) officeLoads++; });
-    const tab = async (name: string) => { await office.getByTestId(`job-tab-${name}`).click(); };
+    const tab = async (name: string) => { await openJobPanel(office, name); };
     const seen = async (text: string | RegExp) => { await expect(office.getByText(text).first()).toBeVisible({ timeout: 10_000 }); };
 
     await tab("timeline");

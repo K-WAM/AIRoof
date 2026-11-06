@@ -106,7 +106,7 @@ test("search opens as a labelled dialog from the keyboard and Escape returns foc
   await page.keyboard.press("Control+k");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  const box = page.getByRole("combobox", { name: /Search calls, requests, jobs and customers/i });
+  const box = page.getByRole("combobox", { name: /Search requests, calls, jobs and customers/i });
   await expect(box).toBeFocused();
   await box.fill("zzzz-no-such-thing");
   await expect(page.getByRole("status").filter({ hasText: /No matches/i }).first()).toBeVisible({ timeout: 15_000 });

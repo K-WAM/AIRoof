@@ -20,7 +20,7 @@ test("owner opens their own page, switches roles, and can ask a question", async
 
   // The role manuals (2026-11-05): How to… cards and Your screens, built from the same list as that role's menu.
   await expect(page.getByRole("heading", { name: "How to…" })).toBeVisible();
-  await expect(page.getByTestId("guide-screens").getByText("Team", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("guide-screens")).toContainText("Team at the top");
   await page.getByRole("tab", { name: "Office staff" }).click();
   await expect(page.getByText("Confirm + email crew", { exact: false }).first()).toBeVisible();
   await expect(page.getByTestId("guide-screens").getByText("Team", { exact: true })).toHaveCount(0);

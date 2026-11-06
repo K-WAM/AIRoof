@@ -1,3 +1,4 @@
+import { openHelp } from "./fixtures";
 import { api, db, must, readDoc } from "../scripts/e2e/lib.cjs";
 import { test, expect, settle, shot } from "./fixtures";
 
@@ -7,7 +8,8 @@ test("feedback stays above the calendar", async ({ as }, testInfo) => {
   await settle(page);
   await expect(page.getByText("Casey Sample").filter({ visible: true }).first()).toBeVisible();
   if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("button", { name: "Send feedback" }).filter({ visible: true }).click();
+  await openHelp(page);
+    await page.getByRole("button", { name: "Send feedback" }).filter({ visible: true }).click();
   const dialog = page.getByRole("dialog", { name: "Send feedback to Luxor" });
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate((el) => {

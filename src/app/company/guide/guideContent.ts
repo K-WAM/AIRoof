@@ -108,9 +108,9 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
         steps: [
           { action: "Dashboard", detail: "Start here each morning: new calls, bookings waiting for the office, and anything that needs you.", path: "/company/dashboard" },
           ...only(calls, { action: "Calls", detail: "Every call the phone AI answered, with a short summary. Play it or read it.", path: "/company/calls" }),
-          ...only(calls, { action: "Pipeline", detail: `New bookings land here. Confirm sends the ${customer} their confirmation; Decline lets them know politely.`, path: "/company/pipeline" }),
-          ...only(isEnabled("billing"), { action: "Billing", detail: "Who has paid and who is late. Payment reminders go out on their own.", path: "/company/billing" }),
-          { action: "Settings", detail: "Your hours, contact details and how you get paid.", path: "/company/settings" },
+          ...only(calls, { action: "Requests", detail: `New bookings land here. Confirm sends the ${customer} their confirmation; Decline lets them know politely.`, path: "/company/pipeline" }),
+          ...only(isEnabled("billing"), { action: "Finances", detail: "Who has paid and who is late. Payment reminders go out on their own.", path: "/company/billing" }),
+          { action: "Settings", detail: "Your hours, contact details, Team access and how you get paid.", path: "/company/settings" },
         ],
         tips: [
           ...only(calls, "The phone AI answers day and night, in English or Spanish, and only books inside your hours."),
@@ -121,7 +121,7 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
           ...only(isEnabled("billing") && hasJobs, {
             title: "Record a payment",
             path: "/company/billing",
-            steps: ["Open Billing and tap the invoice.", "Tap Record payment.", "Enter Amount received ($), Paid by and Date received.", "Tap Save payment. The balance updates by itself."],
+            steps: ["Open Finances, choose Invoices and tap the invoice.", "Tap Record payment.", "Enter Amount received ($), Paid by and Date received.", "Tap Save payment. The balance updates by itself."],
           }),
           ...(multiCompany && hasJobs
             ? [{
@@ -140,14 +140,14 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
       return {
         title: "Set it up once, keep it current",
         steps: [
-          { action: "Team", detail: "Invite each person and pick their type: Admin, Office staff, Inspector, Technician or View only.", path: "/company/team" },
+          { action: "Settings → Team", detail: "Invite each person and pick their type: Admin, Office staff, Inspector, Technician or View only.", path: "/company/team" },
           ...only(hasJobs, { action: `Library → ${vocab.resourceNounPlural}`, detail: `Add each ${crew} and who is on it. ${vocab.resourceNounPlural} are the rows on the Calendar.`, path: "/company/library?section=crews" }),
           ...only(isEnabled("pricing"), { action: "Library → Prices & rates", detail: "Your prices fill in quotes and invoices, so nobody types them twice.", path: "/company/library?section=pricing" }),
           { action: "Library → Logo", detail: "Upload your logo once. It goes on every quote, report, invoice and email.", path: "/company/library?section=branding" },
           { action: "Settings", detail: "Business hours (the phone AI books only inside them), contact details and Getting paid.", path: "/company/settings" },
         ],
         tips: [
-          "Only Admins see Team and can change who has access.",
+          "Only Admins see Settings → Team and can change who has access.",
           ...only(hasJobs, `A ${crew} member's type decides what they see: a Technician gets the Field screen only, no prices.`),
           "Changes save right away. The next phone call already uses new hours.",
         ],
@@ -155,7 +155,7 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
           {
             title: "Invite a person",
             path: "/company/team",
-            steps: ["Open Team and tap Invite person.", "Enter their name and email, and pick their type.", "Tap Send invite. They set their own password from the email."],
+            steps: ["Open Settings, choose Team and tap Invite person.", "Enter their name and email, and pick their type.", "Tap Send invite. They set their own password from the email."],
           },
           {
             title: "Change your hours",
@@ -168,7 +168,7 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
       return {
         title: hasJobs ? `Turn calls into scheduled ${jobs}` : "Turn calls into confirmed bookings",
         steps: [
-          ...only(calls, { action: "Pipeline", detail: `Open each new request and read what the caller needs. Confirm (it emails the ${customer}) or Decline.`, path: "/company/pipeline" }),
+          ...only(calls, { action: "Requests", detail: `Open each new request and read what the caller needs. Confirm (it emails the ${customer}) or Decline.`, path: "/company/pipeline" }),
           ...only(hasJobs, { action: `Create ${vocab.jobNoun}`, detail: `One tap from the request. The ${customer}'s name, phone and address come with it.` }),
           {
             action: "Calendar",
@@ -190,7 +190,7 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
             title: "Confirm a new request",
             path: "/company/pipeline",
             steps: [
-              "Open Pipeline and tap the request.",
+              "Open Requests and tap the request.",
               `Check the address, time, service and how to reach the ${customer}.`,
               "Tap Confirm & email. Something missing? Tap Call Back first.",
               ...only(hasJobs, `Tap Create ${vocab.jobNoun} to start the ${job}.`),
@@ -295,11 +295,11 @@ type Notes = { see: string[]; act?: string[] };
 const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
   "/company/dashboard": () => ({ see: ["Start here each day: what is new and what needs attention.", "Tap any item to open it. A total is only a summary, so open the item before you decide."] }),
   "/company/calls": () => ({
-    see: ["Every call the phone AI answered: a short summary, the transcript and the recording.", "A call is not a booking. The request it made waits in Pipeline."],
+    see: ["Every call the phone AI answered: a short summary, the transcript and the recording.", "A call is not a booking. The request it made waits in Requests."],
     act: ["Check what the caller really said before you confirm anything."],
   }),
   "/company/pipeline": (w) => ({
-    see: ["New requests and bookings from calls. Urgent and Escalated ones come first."],
+    see: ["New requests and bookings from calls. Urgent and Escalated ones come first. Choose Calls at the top for transcripts and recordings."],
     act: [
       "Review details, then Confirm & email, Call Back, or Decline & notify.",
       ...(w.isEnabled("jobs") ? [`Create ${w.vocab.jobNoun} turns a request into a ${w.job}, with the ${w.customer}'s details filled in.`] : []),
@@ -317,7 +317,7 @@ const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
   "/company/jobs": (w) => ({
     see: [`Every ${w.job}, with status filters and search.`, `Inside a ${w.job}: notes, materials, labor, photos${w.quotes ? ", Findings, Quote" : ""}, Report and Invoice.`],
     act: [
-      `Send to a worker sends the field link for that ${w.job}. No account needed.`,
+      `Work holds activity, materials, labor, photos, findings and crew issues. Money holds quotes and invoices; Report shows completed work. Send to a worker sends the field link for that ${w.job}. No account needed.`,
       ...(w.multiCompany ? ["Each document says which company it is Sent as. Tap Change to switch."] : []),
     ],
   }),
@@ -329,8 +329,8 @@ const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
       act: [`Pick the ${w.job}, Clock in, then talk or type what you did. + Photo adds pictures.`, `Check the ${w.job} name at the top before you talk.`, "No signal? Keep working. Everything sends by itself later."],
     },
   "/company/billing": () => ({
-    see: ["Owed to you, Past due and Paid this month: who has paid and who is late.", "Reminders go out on their own when Getting paid has them switched on."],
-    act: ["When money arrives, open the invoice and tap Record payment."],
+    see: ["Invoices shows who has paid and who is late. Finances and Payroll appear in the top switch when enabled.", "Reminders go out on their own when Getting paid has them switched on."],
+    act: ["Choose Invoices at the top. When money arrives, open the invoice and tap Record payment."],
   }),
   "/company/finances": (w) => ({
     see: [
@@ -356,12 +356,12 @@ const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
     ],
   }),
   "/company/team": () => ({
-    see: ["Everyone who can sign in, and their type."],
+    see: ["Settings → Team lists everyone who can sign in, and their type."],
     act: ["Invite person: their name, email and type, then Send invite.", "Everyone gets their own login. Never share one.", "When someone leaves, tap Disable access."],
   }),
   "/company/settings": (w) => ({
     see: [
-      "Company details, Hours & timezone, Phone & notifications, Getting paid and Documents.",
+      "Company details, Hours & timezone, Phone & notifications, Getting paid and Documents. Admins choose Team at the top to manage access.",
       ...(w.isEnabled("calls") ? ["The phone AI books only inside your hours."] : []),
     ],
     act: [

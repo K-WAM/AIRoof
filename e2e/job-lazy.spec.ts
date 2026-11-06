@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 import { api, must } from "../scripts/e2e/lib.cjs";
 import { test, expect, settle, shot, expectHealthy } from "./fixtures";
 
@@ -15,7 +16,7 @@ test("job activity defers inactive panels and shows a panel skeleton while Findi
     if (route.request().resourceType() === "script") await new Promise(resolve => setTimeout(resolve, 1200));
     await route.continue();
   });
-  await page.getByTestId("job-tab-findings").click();
+  await openJobPanel(page, "findings");
   await expect(page.getByRole("status", { name: "Loading findings", exact: true })).toBeVisible();
   await shot(page, "job-lazy-findings-loading");
   await expect(page.getByRole("heading", { name: "Findings", exact: true })).toBeVisible();
