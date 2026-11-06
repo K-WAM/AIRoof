@@ -12,6 +12,7 @@ import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isVoiceConfig } from "@/lib/vapi/voices";
 import { validateBusinessHours } from "@/lib/scheduling/hours";
+import { validateEmailSending } from "@/lib/email/sendingSetup";
 import { LINE_CONFLICT_MESSAGE, findLineConflicts } from "@/lib/phoneLines/registry";
 
 interface UpdateBusinessConfigRequest {
@@ -56,6 +57,8 @@ interface UpdateBusinessConfigRequest {
   contactPhone?: string;
   contactEmail?: string;
   websiteUrl?: string;
+  /** T-353: only written when present in the body; omitting it must never wipe a stored setup. */
+  emailSending?: BusinessConfig["emailSending"];
   // Client-account / CRM fields (subscriptionStatus/pausedAt/pausedReason are
   // deliberately not editable here — they go through the dedicated
   // /subscription route so every pause/resume is audited)
@@ -116,6 +119,10 @@ export async function PUT(
     const hoursValidation = body.businessHours === undefined ? null : validateBusinessHours(body.businessHours);
     if (hoursValidation && (!hoursValidation.valid || !hoursValidation.hours)) {
       return NextResponse.json({ error: "Fix the business hours before saving.", fieldErrors: hoursValidation.errors }, { status: 400 });
+    }
+    const emailSendingValidation = body.emailSending === undefined ? null : validateEmailSending(body.emailSending);
+    if (emailSendingValidation && !emailSendingValidation.valid) {
+      return NextResponse.json({ error: "Fix the customer email details before saving.", fieldErrors: emailSendingValidation.errors }, { status: 400 });
     }
 
     if (body.voice !== undefined && !isVoiceConfig(body.voice)) {
@@ -245,6 +252,7 @@ export async function PUT(
         contactPhone: body.contactPhone,
         contactEmail: body.contactEmail,
         websiteUrl: body.websiteUrl,
+        ...(emailSendingValidation ? { emailSending: emailSendingValidation.value } : {}),
         // Client-account / CRM fields
         address: body.address,
         employeeCount: body.employeeCount,

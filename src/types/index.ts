@@ -7,6 +7,19 @@ export interface VoiceRef {
   model?: string;
 }
 
+/** How this client's customer email should be sent from (T-353). Collection only — nothing sends from it yet. */
+export interface EmailSendingSetup {
+  senderName?: string;
+  replyTo?: string;
+  mode?: "luxor" | "own-domain";
+  ownDomain?: string;
+  dnsHost?: "godaddy" | "cloudflare" | "google" | "wix" | "squarespace" | "namecheap" | "other";
+  dnsHostOther?: string;
+  dnsContactName?: string;
+  dnsContactEmail?: string;
+  notes?: string;
+}
+
 // Business Configuration — source of truth for what agent can say
 export interface BusinessConfig {
   businessId: string;
@@ -98,6 +111,8 @@ export interface BusinessConfig {
    */
   outboundPhoneAllowlist?: string[];
   invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
+  /** T-353: details needed to send customer email from the client's own branding. Collected only; sending is unchanged. */
+  emailSending?: EmailSendingSetup;
   /**
    * How quotes, reports and invoices look (2026-11-06). "classic" = a traditional contractor letterhead: logo with
    * address and license under it, the title in the brand colour, a boxed item table, Subtotal / Sales Tax / Total Due

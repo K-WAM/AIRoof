@@ -18,7 +18,7 @@ import { PhoneLinesPanel } from "./PhoneLinesPanel";
 import { ArchiveClientPanel } from "./ArchiveClientPanel";
 import { isDemoTenant } from "@/lib/accounts/purpose";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
-import type { AccountPurpose, VoiceRef } from "@/types";
+import type { AccountPurpose, EmailSendingSetup, VoiceRef } from "@/types";
 import {
   ArrowLeft,
   Bot,
@@ -28,6 +28,7 @@ import {
   FileText,
   KeyRound,
   ListChecks,
+  Mail,
   Pause,
   Palette,
   PhoneCall,
@@ -73,6 +74,7 @@ interface BizData {
   contactPhone?: string;
   contactEmail?: string;
   websiteUrl?: string;
+  emailSending?: EmailSendingSetup;
   laborRate?: { defaultHourlyRate?: number };
   defaultTaxRate?: number;
   // Client-account / CRM fields
@@ -128,6 +130,7 @@ const CONFIG_SECTIONS: Array<[string, string]> = [
   ["subscription", "Plan"],
   ["archive", "Archive"],
   ["routing", "Routing"],
+  ["customer-emails", "Customer emails"],
   ["branding", "Branding"],
   ["pricing", "Pricing"],
   ["readiness", "Readiness"],
@@ -141,6 +144,8 @@ export default function AdminBusinessConfigPage({
   const { businessId } = use(params);
   const [biz, setBiz] = useState<BizData | null>(null);
   const [phoneProvider, setPhoneProvider] = useState<"" | "vapi" | "elevenlabs">("");
+  const [emailSendingMode, setEmailSendingMode] = useState<"luxor" | "own-domain">("luxor");
+  const [emailDnsHost, setEmailDnsHost] = useState("");
   const [logos, setLogos] = useState<LibraryLogo[]>([]);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const invoiceInFlight = useRef(false);
@@ -246,6 +251,8 @@ export default function AdminBusinessConfigPage({
       .then((data) => {
         setBiz(data.business ?? null);
         setPhoneProvider(data.business?.voiceProvider ?? "");
+        setEmailSendingMode(data.business?.emailSending?.mode === "own-domain" ? "own-domain" : "luxor");
+        setEmailDnsHost(data.business?.emailSending?.dnsHost ?? "");
         setOnboarding(data.onboarding ?? null);
       })
       .catch(() => setLoadError(true))
@@ -293,6 +300,8 @@ export default function AdminBusinessConfigPage({
       { name: "escalationPhone", valid: !String(formData.get("escalationPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("escalationPhone") || "").trim()), message: "Enter a valid escalation phone number." },
       { name: "contactPhone", valid: !String(formData.get("contactPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("contactPhone") || "").trim()), message: "Enter a valid public contact phone." },
       { name: "contactEmail", valid: !String(formData.get("contactEmail") || "").trim() || EMAIL_PATTERN.test(String(formData.get("contactEmail") || "").trim()), message: "Enter a valid public contact email." },
+      { name: "emailReplyTo", valid: !String(formData.get("emailReplyTo") || "").trim() || EMAIL_PATTERN.test(String(formData.get("emailReplyTo") || "").trim()), message: "Enter a valid customer reply-to email." },
+      { name: "emailDnsContactEmail", valid: emailSendingMode !== "own-domain" || !String(formData.get("emailDnsContactEmail") || "").trim() || EMAIL_PATTERN.test(String(formData.get("emailDnsContactEmail") || "").trim()), message: "Enter a valid DNS contact email." },
     ];
     const invalid = validationChecks.find((check) => !check.valid);
     if (invalid) {
@@ -374,6 +383,19 @@ export default function AdminBusinessConfigPage({
       contactPhone: String(formData.get("contactPhone") || "").trim(),
       contactEmail: String(formData.get("contactEmail") || "").trim(),
       websiteUrl: String(formData.get("websiteUrl") || "").trim(),
+      emailSending: {
+        senderName: String(formData.get("emailSenderName") || "").trim() || undefined,
+        replyTo: String(formData.get("emailReplyTo") || "").trim() || undefined,
+        mode: emailSendingMode,
+        ...(emailSendingMode === "own-domain" ? {
+          ownDomain: String(formData.get("emailOwnDomain") || "").trim() || undefined,
+          dnsHost: (String(formData.get("emailDnsHost") || "").trim() || undefined) as EmailSendingSetup["dnsHost"],
+          dnsHostOther: String(formData.get("emailDnsHostOther") || "").trim() || undefined,
+          dnsContactName: String(formData.get("emailDnsContactName") || "").trim() || undefined,
+          dnsContactEmail: String(formData.get("emailDnsContactEmail") || "").trim() || undefined,
+        } : {}),
+        notes: String(formData.get("emailNotes") || "").trim() || undefined,
+      } satisfies EmailSendingSetup,
       // Pricing
       laborRate: formData.get("defaultHourlyLaborRate") !== ""
         ? { defaultHourlyRate: Number(formData.get("defaultHourlyLaborRate")) }
@@ -970,6 +992,94 @@ export default function AdminBusinessConfigPage({
                   <label htmlFor="notificationEmail">Notification email</label>
                   <input id="notificationEmail" name="notificationEmail" type="email" required defaultValue={biz.notificationEmail ?? ""} />
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Customer emails (T-353): sender name, reply-to, and DNS details for own domains ─── */}
+          <section className="panel" id="customer-emails" aria-labelledby="customer-emails-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="customer-emails-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Mail size={16} strokeWidth={1.75} />
+                Customer emails
+              </h2>
+            </div>
+            <div className="panel-body">
+              <p className="helper-text" style={{ margin: "0 0 14px" }}>
+                Nothing is sent from a new address until Luxor verifies it.
+              </p>
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="emailSenderName">Sender name customers see</label>
+                  <input id="emailSenderName" name="emailSenderName" maxLength={80} defaultValue={biz.emailSending?.senderName ?? ""} placeholder={biz.businessName} />
+                </div>
+                <div className="field">
+                  <label htmlFor="emailReplyTo">Reply-to email</label>
+                  <input id="emailReplyTo" name="emailReplyTo" type="email" maxLength={254} defaultValue={biz.emailSending?.replyTo ?? ""} placeholder={biz.notificationEmail || "dispatch@example.com"} />
+                  <span className="helper-text">Where customer replies go.</span>
+                </div>
+                <div className="field full">
+                  <span>Send from</span>
+                  <label className="check-row">
+                    <input
+                      type="radio"
+                      name="emailSendingMode"
+                      value="luxor"
+                      checked={emailSendingMode === "luxor"}
+                      onChange={() => setEmailSendingMode("luxor")}
+                    />
+                    <span>A Luxor address for this client (we set it up)</span>
+                  </label>
+                  <label className="check-row">
+                    <input
+                      type="radio"
+                      name="emailSendingMode"
+                      value="own-domain"
+                      checked={emailSendingMode === "own-domain"}
+                      onChange={() => setEmailSendingMode("own-domain")}
+                    />
+                    <span>Their own domain (needs their DNS)</span>
+                  </label>
+                </div>
+                {emailSendingMode === "own-domain" && (
+                  <>
+                    <div className="field">
+                      <label htmlFor="emailOwnDomain">Domain</label>
+                      <input id="emailOwnDomain" name="emailOwnDomain" defaultValue={biz.emailSending?.ownDomain ?? ""} placeholder="roofdoctorsfl.com" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="emailDnsHost">Who manages their DNS</label>
+                      <select id="emailDnsHost" name="emailDnsHost" value={emailDnsHost} onChange={(event) => setEmailDnsHost(event.target.value)}>
+                        <option value="">Not sure yet</option>
+                        <option value="godaddy">GoDaddy</option>
+                        <option value="cloudflare">Cloudflare</option>
+                        <option value="google">Google</option>
+                        <option value="wix">Wix</option>
+                        <option value="squarespace">Squarespace</option>
+                        <option value="namecheap">Namecheap</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    {emailDnsHost === "other" && (
+                      <div className="field">
+                        <label htmlFor="emailDnsHostOther">DNS provider name</label>
+                        <input id="emailDnsHostOther" name="emailDnsHostOther" maxLength={80} defaultValue={biz.emailSending?.dnsHostOther ?? ""} placeholder="Who hosts their DNS?" />
+                      </div>
+                    )}
+                    <div className="field">
+                      <label htmlFor="emailDnsContactName">DNS contact name</label>
+                      <input id="emailDnsContactName" name="emailDnsContactName" maxLength={80} defaultValue={biz.emailSending?.dnsContactName ?? ""} placeholder="Maria" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="emailDnsContactEmail">DNS contact email</label>
+                      <input id="emailDnsContactEmail" name="emailDnsContactEmail" type="email" maxLength={254} defaultValue={biz.emailSending?.dnsContactEmail ?? ""} placeholder="maria@roofdoctorsfl.com" />
+                    </div>
+                    <div className="field full">
+                      <label htmlFor="emailNotes">Notes</label>
+                      <textarea id="emailNotes" name="emailNotes" maxLength={500} rows={3} defaultValue={biz.emailSending?.notes ?? ""} placeholder="Anything Luxor should know before adding the sending records." />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </section>

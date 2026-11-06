@@ -12,6 +12,7 @@ import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { sendBusinessWelcomeEmail } from "@/lib/notify";
 import { validateBusinessHours } from "@/lib/scheduling/hours";
+import { validateEmailSending } from "@/lib/email/sendingSetup";
 import { effectiveAccountPurpose, type EffectiveAccountPurpose } from "@/lib/accounts/purpose";
 import { LINE_CONFLICT_MESSAGE, countryOf, findLineConflicts, toE164 } from "@/lib/phoneLines/registry";
 import type { LineAcquisition } from "@/types/phoneLine";
@@ -49,6 +50,8 @@ interface CreateBusinessRequest {
   contactEmail?: string;
   websiteUrl?: string;
   timezone?: string;
+  /** T-353: collected for the future branded sending address; validated and stored, never used to send yet. */
+  emailSending?: BusinessConfig["emailSending"];
   // Client-account / CRM fields
   address?: string;
   employeeCount?: number;
@@ -133,6 +136,13 @@ export async function POST(
     const hoursValidation = validateBusinessHours(body.businessHours);
     if (!hoursValidation.valid || !hoursValidation.hours) {
       return NextResponse.json({ error: "Fix the business hours before creating the client.", fieldErrors: hoursValidation.errors }, { status: 400 });
+    }
+    const emailSendingValidation = body.emailSending === undefined ? null : validateEmailSending(body.emailSending);
+    if (emailSendingValidation && !emailSendingValidation.valid) {
+      return NextResponse.json(
+        { error: "Fix the customer email details before creating the client.", fieldErrors: emailSendingValidation.errors },
+        { status: 400 },
+      );
     }
 
     const db = getAdminFirestore();
@@ -246,6 +256,8 @@ export async function POST(
       ...(body.contactPhone ? { contactPhone: body.contactPhone } : {}),
       ...(body.contactEmail ? { contactEmail: body.contactEmail } : {}),
       ...(body.websiteUrl ? { websiteUrl: body.websiteUrl } : {}),
+      // T-353: stored only when collected, always through the validator.
+      ...(emailSendingValidation ? { emailSending: emailSendingValidation.value } : {}),
       // Client-account / CRM fields
       ...(body.address ? { address: body.address } : {}),
       ...(body.employeeCount !== undefined ? { employeeCount: body.employeeCount } : {}),
