@@ -37,6 +37,8 @@ test.describe("Photos tab", () => {
     await shot(page, "photos-before-drag");
     const handle = (name: string) => page.getByRole("button", { name: `Reorder ${name}` });
     await expect(handle("Alpha")).toBeVisible();
+    // T-344 moved the photos lower; a drag that starts near the viewport edge auto-scrolls the page mid-drag. Start mid-screen.
+    await handle("Alpha").evaluate((el) => el.scrollIntoView({ block: "center" }));
 
     const from = await handle("Alpha").boundingBox();
     const to = await handle("Charlie").boundingBox();
