@@ -2674,3 +2674,5 @@ T-338 WIP: Separate company brands in shell and add Luxor mark; inspected deskto
 T-339 WIP: Feedback stays visible in desktop footer and is disabled in View as. Owner, staff, crew and superadmin Preview opened it on desktop and phone; View as needs browser verification.
 
 T-337 final: Complete Mon-Sun sample timesheets, labeled person summaries and inline punches/jobs/hours. Weekly overtime uses summarizePayroll (40-hour threshold). Unit sample test passed; desktop and 375px example checks passed; both screenshots read. No removals.
+
+T-340: Fill imported customer identity/list/search fields and add a guarded missing-fields-only backfill. Latest invoice/inspection activity, else import time; no overwrites. Emulator import: 191 customers; repair dry/apply: 191 changes, next dry run: 0. Six derivation/CLI safety tests passed; API/browser verifies all 191 list IDs on desktop and phone. No production run or removals.

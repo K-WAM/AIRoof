@@ -3258,3 +3258,5 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | T-338 | task/rd-money | in progress | Header changed; 1440 and SVG verification pending. |
 
 | T-339 | task/rd-money | in progress | Feedback role checks pass; View as disabled state needs browser verification. |
+
+| T-340 | task/rd-money | review | Imported customer list/search fields derived and repair verified locally: 191 repaired, then zero changes. |
