@@ -54,6 +54,7 @@ import { ClientDetailsEditor } from "./ClientDetailsEditor";
 import { NextStepButton } from "./NextStepButton";
 import { RecordPayment } from "./RecordPayment";
 import { InvoicePayPrint, type SentPayLink } from "./InvoicePayPrint";
+import { PayNowPreview } from "./PayNowPreview";
 import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -1946,6 +1947,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </p>
                 )}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
+                  afterHowToPay={businessId && invoiceId && invoiceStatus !== "paid" && invoiceStatus !== "void" ? <PayNowPreview businessId={businessId} jobId={jobId} invoiceId={invoiceId} /> : null}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Reference", "Work order " + jobId], ...(invoiceCustomerDetails.description ? [["Description", invoiceCustomerDetails.description] as [string, string]] : []), ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
                   depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
                   billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceDisplayCopy.closing} thankYou={invoiceDisplayCopy.thankYou}

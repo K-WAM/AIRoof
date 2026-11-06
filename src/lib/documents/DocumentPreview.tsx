@@ -10,10 +10,12 @@ import { fmtMoney } from "@/lib/format/money";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, children, serviceAt, customerCode, depositsApplied }:  {
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }:  {
   findingSections?: boolean;
   serviceAt?: string; customerCode?: string; depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   children?: ReactNode;
+  /** Screen-only content placed where the emailed invoice puts its Pay now button (after the total and How to pay). */
+  afterHowToPay?: ReactNode;
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ category?: string; problem: string; solution: string; note?: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
@@ -66,6 +68,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       {howToPay.instructions && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{howToPay.instructions}</div>}
       {howToPay.link && <div style={{ fontSize: 13, marginTop: 4 }}>Pay online: <a href={howToPay.link} style={{ color: accent }}>{howToPay.link}</a></div>}
     </section>}
+    {afterHowToPay}
     {closing && <p style={{ whiteSpace: "pre-wrap", marginTop: 24 }}>{closing}</p>}
     {thankYou && <p style={{ whiteSpace: "pre-wrap", marginTop: 16 }}>{thankYou}</p>}
     {notices.length > 0 && <section aria-label="Terms and notices" style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", breakInside: "avoid-page" }}>

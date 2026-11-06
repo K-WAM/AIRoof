@@ -2618,3 +2618,17 @@ Full browser suite on the merged tree: 317 passed, 95 failed, 1 flaky. Triage:
   any account whose saved session is older than 40 minutes; the `as()` fixture calls it.
 - Flaky: roofdoctors-screens "saves corrected details" passed on its retry.
 `npm run test:rules` passed (16/16).
+
+## 2026-11-05 - T-323: read-only Pay now preview for either company; T-324 found
+Owner: "Pay now, just as a read-only view, for both companies." `GET /api/jobs/[jobId]/invoice/pay-preview` renders the
+customer's pay page under the invoice's own company letterhead with the buttons switched off. It has no form, token or
+Stripe call, writes nothing, is private/no-store, and is guarded by verifyAuthAndRole (owner/staff/viewer/superadmin;
+billing product path). The invoice screen shows a screen-only "Pay now" sample. It sits in DocumentPreview's new
+`afterHowToPay` slot, where the emailed invoice puts the button, with the link next to it. Tests: pay-preview/route.test.ts
+(4) and e2e/pay-now-preview.spec.ts on desktop and phone, with the phone screenshots read. Full vitest: 2844 passed +
+1 expected fail.
+Also pushed 11406fb (T-321 etc.). The Firestore rules deploy was refused by the session's permission check and is left to
+the owner. e2e/demo-live after hours found T-324: confirming a phone booking that overlaps a Demo Studio sample booking
+fails (unit-less legacy rows block confirm, while the phone booking counts them as one unit). It is pre-existing, falls
+under the booking-change gate, and is logged rather than rushed.
+

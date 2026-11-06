@@ -469,3 +469,15 @@ are with RCU. Same owner, staff, crews and phone agent; payments go to two separ
 - Single-company businesses see none of it (`isMultiCompany`, src/lib/companies/companies.ts). Tasks T-316 (Codex Sol) and
   T-317 (DeepSeek). Open question for them: on an RCU job, should quotes, work authorizations and completion notices carry
   RCU too, or only the two invoice types? Default built: the whole job follows its company; any document can be switched.
+
+### Owner clarification and demo script for the two companies (2026-11-05)
+One owner runs two companies with the same staff, crews and phone agent. RCU is certified for municipal and school
+work; RDSF takes regular clients. What to show:
+- **Money per company and combined.** Finances and Billing have an All / RDSF / RCU filter. "All" is the owner's
+  combined overview. The superadmin Overview and Usage split activity by company.
+- **Invoices company by company.** The Company switch at the top of a job (RDSF | RCU) sets the job's company. Each
+  document shows "Issued as X · Change", and sending under a company uses that company's letterhead, address, license
+  and bank details. A sent document never moves to the other company.
+- **Pay now, read-only (T-323).** On any unpaid invoice, scroll past How to pay and tap "Open the pay page preview".
+  It shows the customer's pay page under that invoice's company, with the buttons switched off. Show one RCU and one
+  RDSF invoice. Real Pay now needs the Stripe Connect platform, and RCU needs its own Stripe account (T-320).

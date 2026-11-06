@@ -182,3 +182,11 @@ the office handles it by hand.
 Card surcharges, including Roof Doctors' proposed 3%, need legal review and are
 not implemented. Real Stripe onboarding, settlement and inbox delivery were not
 exercised in this code-only fix round. No external service or website was called.
+
+## Read-only preview (2026-11-05)
+
+Every unpaid invoice shows a screen-only "Pay now" sample after Total Due / How to pay, plus an "Open the pay page
+preview" link: `GET /api/jobs/[jobId]/invoice/pay-preview?businessId=&invoiceId=` (owner/staff/viewer/superadmin). It
+renders the customer's pay page under the invoice's own company letterhead (RDSF or RCU), with the buttons switched off.
+There is no form, no pay token and no Stripe call, and nothing is written. Use it to show Pay now before Stripe Connect is set up, or for
+a company (RCU) that has no Stripe account yet (T-320).
