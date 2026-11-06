@@ -384,6 +384,21 @@ function AdminInvoicesPageInner() {
            duplicating every line item on screen next to its input. See the job invoice page's
            own copy of this same rule for the full twin-render explanation. */
         .print-only { display: none; }
+        .admin-invoices-layout > div { min-width: 0; }
+        @media (max-width: 640px) {
+          .admin-invoices-layout, .admin-invoice-form { grid-template-columns: minmax(0, 1fr) !important; }
+          .admin-invoice-document > div:first-child { flex-direction: column; gap: 16px; }
+          .admin-invoice-document > div:first-child > div:last-child { text-align: left !important; }
+          .admin-invoice-document .luxor-invoice-lines { table-layout: fixed; }
+          .admin-invoice-document .luxor-invoice-lines th, .admin-invoice-document .luxor-invoice-lines td { padding: 8px 2px !important; overflow-wrap: anywhere; }
+          .admin-invoice-document .luxor-invoice-lines input { width: 100% !important; max-width: 100%; min-width: 0; min-height: 36px; }
+          .admin-invoice-document .luxor-invoice-lines th { font-size: 11px; }
+          .admin-invoice-document .luxor-invoice-lines textarea { min-width: 0; max-width: 100%; }
+          .admin-invoice-document .luxor-invoice-totals { width: 100%; min-width: 0 !important; table-layout: auto; }
+          .admin-invoice-document .luxor-invoice-totals td:last-child { white-space: nowrap; }
+          .admin-invoice-document .luxor-invoice-totals input { width: 36px !important; min-height: 36px; }
+          .admin-invoice-document { overflow-wrap: anywhere; }
+        }
         @media print {
           .no-print { display: none !important; }
           /* revert (not a fixed "block"/"inline") because .print-only tags both <span>s (line
@@ -513,7 +528,8 @@ function AdminInvoicesPageInner() {
             </div>
 
             {/* Line items */}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 8 }}>
+            <table className="luxor-invoice-lines" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 8 }}>
+              <colgroup>{[38, 12, 20, 22, 8].map((width, i) => <col key={i} style={{ width: `${width}%` }} />)}</colgroup>
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                   <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Description</th>
@@ -527,7 +543,7 @@ function AdminInvoicesPageInner() {
                 {lineItems.map((item, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "8px 12px" }}>
-                      <input value={item.description} onChange={e => updateItem(i, "description", e.target.value)} placeholder="AI receptionist — monthly subscription" style={inlineInput} className="no-print" />
+                      <textarea aria-label="Line description" rows={2} value={item.description} onChange={e => updateItem(i, "description", e.target.value)} placeholder="AI receptionist — monthly subscription" style={{ ...inlineInput, resize: "vertical" }} className="no-print" />
                       <span className="print-only" style={{ fontSize: 13 }}>{item.description}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
@@ -535,7 +551,7 @@ function AdminInvoicesPageInner() {
                       <span className="print-only">{item.quantity}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      $<NumberField label="Unit price" value={item.unitPrice} onCommit={(n) => updateItem(i, "unitPrice", String(n))} style={{ ...inlineInput, width: 72, textAlign: "right" }} className="no-print" />
+                      <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 3 }}>$<NumberField label="Unit price" value={item.unitPrice} onCommit={(n) => updateItem(i, "unitPrice", String(n))} style={{ ...inlineInput, width: 72, minWidth: 0, textAlign: "right" }} className="no-print" /></div>
                       <span className="print-only">{fmtMoney(item.unitPrice)}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>{fmtMoney(item.total)}</td>
@@ -556,7 +572,7 @@ function AdminInvoicesPageInner() {
             {/* Totals */}
             <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 16 }}>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <table style={{ fontSize: 13, minWidth: 260 }}>
+                <table className="luxor-invoice-totals" style={{ fontSize: 13, minWidth: 260 }}>
                   <tbody>
                     <tr>
                       <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>Subtotal</td>

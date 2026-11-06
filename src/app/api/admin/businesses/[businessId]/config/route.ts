@@ -1,3 +1,4 @@
+import { jsonWithCache } from "@/lib/http/cache";
 import { NextRequest, NextResponse } from "next/server";
 import type {
   AdminAuditEvent,
@@ -49,6 +50,7 @@ interface UpdateBusinessConfigRequest {
   laborRate?: { defaultHourlyRate: number };
   defaultTaxRate?: number;
   // Branding
+  documentStyle?: BusinessConfig["documentStyle"];
   brandColor?: string;
   logoUrl?: string;
   contactPhone?: string;
@@ -88,10 +90,10 @@ export async function GET(
 
     if (!bizDoc.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
 
-    return NextResponse.json({
+    return jsonWithCache({
       business: bizDoc.data(),
       onboarding: onboardingDoc.exists ? onboardingDoc.data() : null,
-    });
+    }, "volatile");
   } catch (error) {
     console.error("GET /api/admin/businesses/[businessId]/config error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -101,13 +103,16 @@ export async function GET(
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
-): Promise<NextResponse<{ success: true; businessId: string } | { error: string; fieldErrors?: Record<string, string> }>> {
+): Promise<NextResponse> {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
   try {
     const { businessId } = await params;
     const body: UpdateBusinessConfigRequest = await request.json();
+    if (body.documentStyle !== undefined && body.documentStyle !== "standard" && body.documentStyle !== "classic") {
+      return jsonWithCache({ error: "Choose Standard or Classic letterhead." }, "noStore", { status: 400 });
+    }
     const hoursValidation = body.businessHours === undefined ? null : validateBusinessHours(body.businessHours);
     if (hoursValidation && (!hoursValidation.valid || !hoursValidation.hours)) {
       return NextResponse.json({ error: "Fix the business hours before saving.", fieldErrors: hoursValidation.errors }, { status: 400 });
@@ -234,6 +239,7 @@ export async function PUT(
         ...(body.laborRate !== undefined ? { laborRate: body.laborRate } : {}),
         ...(body.defaultTaxRate !== undefined ? { defaultTaxRate: body.defaultTaxRate } : {}),
         // Branding
+        documentStyle: body.documentStyle,
         brandColor: body.brandColor,
         logoUrl: body.logoUrl,
         contactPhone: body.contactPhone,
@@ -347,7 +353,7 @@ export async function PUT(
       transaction.set(auditRef, auditEvent);
     });
 
-    return NextResponse.json({ success: true, businessId });
+    return jsonWithCache({ success: true, businessId }, "noStore");
   } catch (error) {
     console.error("PUT /api/admin/businesses/[businessId]/config error:", error);
     const message = error instanceof Error ? error.message : "Internal server error";

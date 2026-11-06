@@ -3257,3 +3257,4 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | T-333 | Codex | task/rd-polish / air-wt-rd-polish | review | Provision-login takeover guards, explicit reset dialog, 24 unit cases and both browser sizes checked. |
 | T-332 | Codex | task/rd-polish / air-wt-rd-polish | review | Finding prices follow the saved quote; quote column labels; desktop and phone price-edit round trip checked. |
 | T-331 | Codex | task/rd-polish / air-wt-rd-polish | review | Classic letterhead preview/print/email, owner Branding picker, company isolation; full classic scenario passed at both sizes. |
+| T-334 | Codex | task/rd-polish / air-wt-rd-polish | review | ElevenLabs-first config, folded legacy controls, Branding/View as shortcuts, prefilled editable invoice draft and phone layout; 31 unit tests and both browser sizes passed. |

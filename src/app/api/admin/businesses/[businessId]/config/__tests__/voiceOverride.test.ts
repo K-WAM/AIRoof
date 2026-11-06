@@ -154,4 +154,23 @@ describe("admin voice config route", () => {
     expect(refused.status).toBe(400);
     expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
   });
+  it.each(["fancy", null, {}, true])("rejects an invalid document look %j", async documentStyle => {
+    const { PUT } = await import("../route");
+    expect((await PUT(providerRequest({ documentStyle }), params)).status).toBe(400);
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+  });
+
+  it("saves both document looks without overwriting hidden provider, logo or calendar values", async () => {
+    const { makeFakeDb } = await import("@/test-utils/fakeFirestore");
+    const db = makeFakeDb();
+    const stored = { businessName: "Example", industry: "roofing", calendarProvider: "mock", logoUrl: "https://example.test/logo.png", vapiAssistantId: "legacy", voice: { es: { provider: "11labs", voiceId: "kept" } } };
+    db.__seed("businesses", "biz-1", stored); mocks.getAdminFirestore.mockReturnValue(db);
+    const { PUT } = await import("../route");
+    for (const documentStyle of ["classic", "standard"]) {
+      expect((await PUT(providerRequest({ documentStyle }), params)).status).toBe(200);
+      expect(db.__peek("businesses", "biz-1")).toMatchObject({ ...stored, documentStyle });
+      expect(db.__peek("businesses", "biz-1")).not.toHaveProperty("voiceProvider");
+    }
+  });
+
 });

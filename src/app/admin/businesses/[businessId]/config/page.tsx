@@ -5,6 +5,9 @@ import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { ViewAsMenu } from "@/components/admin/ViewAsMenu";
+import { resolveLetterhead } from "@/lib/documents/letterhead";
+import type { LibraryLogo } from "@/types/library";
 import { Modal } from "@/components/ui/Modal";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -62,6 +65,7 @@ interface BizData {
   maxCallAttempts?: number;
   callbackWindowStart?: number;
   callbackWindowEnd?: number;
+  documentStyle?: "standard" | "classic";
   brandColor?: string;
   logoUrl?: string;
   contactPhone?: string;
@@ -130,7 +134,10 @@ export default function AdminBusinessConfigPage({
 }) {
   const { businessId } = use(params);
   const [biz, setBiz] = useState<BizData | null>(null);
-  const [phoneProvider, setPhoneProvider] = useState<"vapi" | "elevenlabs">("vapi");
+  const [phoneProvider, setPhoneProvider] = useState<"" | "vapi" | "elevenlabs">("");
+  const [logos, setLogos] = useState<LibraryLogo[]>([]);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const invoiceInFlight = useRef(false);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -152,6 +159,28 @@ export default function AdminBusinessConfigPage({
   const [subscriptionBusy, setSubscriptionBusy] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [hoursValid, setHoursValid] = useState(true);
+
+  const showLegacy = phoneProvider === "vapi" || !!biz?.vapiAssistantId || !!biz?.vapiPhoneNumberId || !!biz?.voice?.en || !!biz?.voice?.es || [biz?.callbackDelayMinutes, biz?.maxCallAttempts, biz?.callbackWindowStart, biz?.callbackWindowEnd].some(value => value !== undefined);
+  const letterhead = resolveLetterhead(biz ?? {}, logos);
+
+  async function generateInvoice() {
+    if (!biz || invoiceInFlight.current) return;
+    if (dirty) { setSubscriptionError("Save changes before generating an invoice."); return; }
+    invoiceInFlight.current = true; setGeneratingInvoice(true); setSubscriptionError(null);
+    try {
+      const amount = biz.billing?.monthlyAmount ?? 0;
+      const due = new Date(); due.setDate(due.getDate() + 30);
+      const response = await fetch("/api/admin/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        businessId, clientName: biz.businessName, clientEmail: biz.notificationEmail || biz.contactEmail || "", clientAddress: biz.address || "",
+        dueDate: due.toISOString().slice(0, 10), status: "draft", taxRate: 0, taxAmount: 0, subtotal: amount, total: amount,
+        lineItems: [{ description: biz.billing?.planName || "Monthly service", quantity: 1, unitPrice: amount, total: amount }], notes: "Net 30. Review before sending.",
+      }) });
+      const data = await response.json();
+      if (!response.ok || !data.invoice?.invoiceId) throw new Error("Could not create the invoice draft.");
+      window.location.assign(`/admin/invoices?invoice=${encodeURIComponent(data.invoice.invoiceId)}`);
+    } catch (error) { setSubscriptionError(error instanceof Error ? error.message : "Could not create the invoice draft."); }
+    finally { invoiceInFlight.current = false; setGeneratingInvoice(false); }
+  }
 
   async function toggleSubscription(action: "pause" | "resume") {
     if (action === "pause" && !confirm(
@@ -201,6 +230,8 @@ export default function AdminBusinessConfigPage({
   }
 
   useEffect(() => {
+    fetch(`/api/company/library/logos?businessId=${encodeURIComponent(businessId)}`)
+      .then(r => r.ok ? r.json() : null).then(data => setLogos(data?.logos ?? [])).catch(() => {});
     fetch(`/api/admin/businesses/${businessId}/config`)
       .then((r) => {
         if (!r.ok) throw new Error("Config request failed");
@@ -208,7 +239,7 @@ export default function AdminBusinessConfigPage({
       })
       .then((data) => {
         setBiz(data.business ?? null);
-        setPhoneProvider(data.business?.voiceProvider === "elevenlabs" ? "elevenlabs" : "vapi");
+        setPhoneProvider(data.business?.voiceProvider ?? "");
         setOnboarding(data.onboarding ?? null);
       })
       .catch(() => setLoadError(true))
@@ -285,6 +316,16 @@ export default function AdminBusinessConfigPage({
       };
     }
 
+    const elevenlabs = {
+      agentId: String(formData.get("elevenlabsAgentId") || "").trim(),
+      phoneNumberId: String(formData.get("elevenlabsPhoneNumberId") || "").trim(),
+      phoneNumber: String(formData.get("elevenlabsPhoneNumber") || "").trim(),
+      extraPhoneNumbers: String(formData.get("elevenlabsExtraPhoneNumbers") || "").split("\n").map(n => n.trim()).filter(Boolean),
+    };
+    const phoneChanged = phoneProvider !== (biz?.voiceProvider ?? "") || (phoneProvider === "elevenlabs" && (
+      elevenlabs.agentId !== (biz?.elevenlabs?.agentId ?? "") || elevenlabs.phoneNumberId !== (biz?.elevenlabs?.phoneNumberId ?? "") ||
+      elevenlabs.phoneNumber !== (biz?.elevenlabs?.phoneNumber ?? "") || elevenlabs.extraPhoneNumbers.join("\n") !== (biz?.elevenlabs?.extraPhoneNumbers ?? []).join("\n")
+    ));
     const payload = {
       businessName: String(formData.get("businessName") || "").trim(),
       industry: String(formData.get("industry") || "roofing"),
@@ -294,7 +335,7 @@ export default function AdminBusinessConfigPage({
         .map((area) => area.trim())
         .filter(Boolean),
       phoneNumber: String(formData.get("phoneNumber") || "").trim(),
-      calendarProvider: String(formData.get("calendarProvider") || "mock"),
+      ...(formData.has("calendarProvider") ? { calendarProvider: String(formData.get("calendarProvider")) } : {}),
       escalationPhone: String(formData.get("escalationPhone") || "").trim(),
       notificationEmail: String(formData.get("notificationEmail") || "").trim(),
       planTier: String(formData.get("planTier") || "standard"),
@@ -312,30 +353,18 @@ export default function AdminBusinessConfigPage({
         .filter(Boolean),
       timezone: String(formData.get("timezone") || "America/New_York"),
       businessHours: biz?.businessHours ?? DEFAULT_BUSINESS_HOURS,
-      // Vapi
-      voiceProvider: phoneProvider,
-      ...(phoneProvider === "vapi" ? {
-        vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
-        vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
-      } : {
-        elevenlabs: {
-          agentId: String(formData.get("elevenlabsAgentId") || "").trim(),
-          phoneNumberId: String(formData.get("elevenlabsPhoneNumberId") || "").trim(),
-          phoneNumber: String(formData.get("elevenlabsPhoneNumber") || "").trim(),
-          extraPhoneNumbers: String(formData.get("elevenlabsExtraPhoneNumbers") || "")
-            .split("\n")
-            .map((phoneNumber) => phoneNumber.trim())
-            .filter(Boolean),
-        },
-      }),
-      voice,
-      callbackDelayMinutes: formData.get("callbackDelayMinutes") !== "" ? Number(formData.get("callbackDelayMinutes")) : undefined,
-      maxCallAttempts: formData.get("maxCallAttempts") !== "" ? Number(formData.get("maxCallAttempts")) : undefined,
-      callbackWindowStart: formData.get("callbackWindowStart") !== "" ? Number(formData.get("callbackWindowStart")) : undefined,
-      callbackWindowEnd: formData.get("callbackWindowEnd") !== "" ? Number(formData.get("callbackWindowEnd")) : undefined,
+      // Omit untouched phone settings, including a missing provider and partial legacy records.
+      ...(phoneChanged && phoneProvider ? { voiceProvider: phoneProvider, ...(phoneProvider === "elevenlabs" ? { elevenlabs } : {}) } : {}),
+      ...(showLegacy && String(formData.get("vapiAssistantId") || "").trim() !== (biz?.vapiAssistantId ?? "") ? { vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim() } : {}),
+      ...(showLegacy && String(formData.get("vapiPhoneNumberId") || "").trim() !== (biz?.vapiPhoneNumberId ?? "") ? { vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim() } : {}),
+      ...(showLegacy && JSON.stringify(voice) !== JSON.stringify(biz?.voice ?? {}) ? { voice } : {}),
+      callbackDelayMinutes: formData.has("callbackDelayMinutes") && formData.get("callbackDelayMinutes") !== "" ? Number(formData.get("callbackDelayMinutes")) : undefined,
+      maxCallAttempts: formData.has("maxCallAttempts") && formData.get("maxCallAttempts") !== "" ? Number(formData.get("maxCallAttempts")) : undefined,
+      callbackWindowStart: formData.has("callbackWindowStart") && formData.get("callbackWindowStart") !== "" ? Number(formData.get("callbackWindowStart")) : undefined,
+      callbackWindowEnd: formData.has("callbackWindowEnd") && formData.get("callbackWindowEnd") !== "" ? Number(formData.get("callbackWindowEnd")) : undefined,
       // Branding
       brandColor: String(formData.get("brandColor") || "").trim(),
-      logoUrl: String(formData.get("logoUrl") || "").trim() || null,
+      documentStyle: String(formData.get("documentStyle") || "standard") as "standard" | "classic",
       contactPhone: String(formData.get("contactPhone") || "").trim(),
       contactEmail: String(formData.get("contactEmail") || "").trim(),
       websiteUrl: String(formData.get("websiteUrl") || "").trim(),
@@ -377,6 +406,7 @@ export default function AdminBusinessConfigPage({
 
       setSubmitStatus({ type: "success", message: `Saved config for ${businessId}.` });
       setDirty(false);
+      setBiz(current => current ? { ...current, ...payload } : current);
     } catch (error) {
       // Surface the server's reason (validation message, etc.) instead of hiding it — a generic
       // "review the form" sent us hunting through a form that was fine when the real cause was server-side.
@@ -426,14 +456,17 @@ export default function AdminBusinessConfigPage({
             Company Config
           </h1>
           <p className="page-subtitle">
-            Edit agent settings, voice, routing, and Vapi IDs for{" "}
+            Edit the phone, documents, routing and account for{" "}
             <strong>{biz.businessName}</strong> ({businessId}).
           </p>
         </div>
+        <div className="button-row" style={{ marginTop: 0 }}>
+          <ViewAsMenu businessId={businessId} businessName={biz.businessName} />
         <a className="button" href="/admin/businesses" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <ArrowLeft size={15} strokeWidth={1.75} />
           All companies
         </a>
+        </div>
       </header>
 
       {/* T-185: one long page edits a whole client; a sticky chip row jumps to each section (same pattern as Settings). */}
@@ -537,12 +570,42 @@ export default function AdminBusinessConfigPage({
             <div className="panel-body">
               <div className="field full" style={{ marginBottom: 16 }}>
                 <label htmlFor="voiceProvider">Phone provider</label>
-                <select id="voiceProvider" name="voiceProvider" value={phoneProvider} onChange={(event) => setPhoneProvider(event.target.value as "vapi" | "elevenlabs")}>
-                  <option value="vapi">Vapi (default)</option>
+                <select id="voiceProvider" name="voiceProvider" value={phoneProvider} onChange={(event) => setPhoneProvider(event.target.value as "" | "vapi" | "elevenlabs")}>
+                  <option value="">Not set — choose ElevenLabs</option>
+                  <option value="vapi">Vapi (legacy)</option>
                   <option value="elevenlabs">ElevenLabs</option>
                 </select>
               </div>
-              {phoneProvider === "vapi" ? (
+              {phoneProvider !== "vapi" && (
+                <div className="form-grid">
+                  <div className="field full">
+                    <label htmlFor="elevenlabsAgentId">ElevenLabs agent ID</label>
+                    <input id="elevenlabsAgentId" name="elevenlabsAgentId" required={phoneProvider === "elevenlabs" && biz.voiceProvider !== "elevenlabs"} defaultValue={biz.elevenlabs?.agentId ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsPhoneNumberId">ElevenLabs phone number ID</label>
+                    <input id="elevenlabsPhoneNumberId" name="elevenlabsPhoneNumberId" required={phoneProvider === "elevenlabs" && biz.voiceProvider !== "elevenlabs"} defaultValue={biz.elevenlabs?.phoneNumberId ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsPhoneNumber">ElevenLabs phone number (E.164)</label>
+                    <input id="elevenlabsPhoneNumber" name="elevenlabsPhoneNumber" type="tel" required={phoneProvider === "elevenlabs" && biz.voiceProvider !== "elevenlabs"} placeholder="+15551234567" defaultValue={biz.elevenlabs?.phoneNumber ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsExtraPhoneNumbers">Additional phone numbers</label>
+                    <textarea
+                      id="elevenlabsExtraPhoneNumbers"
+                      name="elevenlabsExtraPhoneNumbers"
+                      rows={3}
+                      placeholder={"+16045550123\n+14165550123"}
+                      defaultValue={biz.elevenlabs?.extraPhoneNumbers?.join("\n") ?? ""}
+                    />
+                    <span className="helper-text">One E.164 number per line, up to 5.</span>
+                  </div>
+                </div>
+              )}
+              {phoneProvider !== "vapi" && <p className="helper-text">Find these IDs in ElevenLabs. Choose ElevenLabs before saving phone details.</p>}
+              {showLegacy && <details style={{ marginTop: 16 }} data-testid="legacy-vapi-settings">
+                <summary>Legacy Vapi settings</summary>
               <div className="form-grid">
                 <div className="field full">
                   <label htmlFor="vapiAssistantId">Vapi assistant ID</label>
@@ -565,38 +628,6 @@ export default function AdminBusinessConfigPage({
                   />
                 </div>
               </div>
-              ) : (
-                <div className="form-grid">
-                  <div className="field full">
-                    <label htmlFor="elevenlabsAgentId">ElevenLabs agent ID</label>
-                    <input id="elevenlabsAgentId" name="elevenlabsAgentId" required defaultValue={biz.elevenlabs?.agentId ?? ""} />
-                  </div>
-                  <div className="field full">
-                    <label htmlFor="elevenlabsPhoneNumberId">ElevenLabs phone number ID</label>
-                    <input id="elevenlabsPhoneNumberId" name="elevenlabsPhoneNumberId" required defaultValue={biz.elevenlabs?.phoneNumberId ?? ""} />
-                  </div>
-                  <div className="field full">
-                    <label htmlFor="elevenlabsPhoneNumber">ElevenLabs phone number (E.164)</label>
-                    <input id="elevenlabsPhoneNumber" name="elevenlabsPhoneNumber" type="tel" required placeholder="+15551234567" defaultValue={biz.elevenlabs?.phoneNumber ?? ""} />
-                  </div>
-                  <div className="field full">
-                    <label htmlFor="elevenlabsExtraPhoneNumbers">Additional phone numbers</label>
-                    <textarea
-                      id="elevenlabsExtraPhoneNumbers"
-                      name="elevenlabsExtraPhoneNumbers"
-                      rows={3}
-                      placeholder={"+16045550123\n+14165550123"}
-                      defaultValue={biz.elevenlabs?.extraPhoneNumbers?.join("\n") ?? ""}
-                    />
-                    <span className="helper-text">One E.164 number per line, up to 5.</span>
-                  </div>
-                </div>
-              )}
-              <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
-                Find these IDs in your {phoneProvider === "vapi" ? "Vapi" : "ElevenLabs"} dashboard.
-                Set them here so calls route to the correct agent.
-              </p>
-
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 14 }}>Language voice overrides</p>
                 <p className="helper-text" style={{ margin: "0 0 14px" }}>
@@ -662,10 +693,11 @@ export default function AdminBusinessConfigPage({
                     </select>
                   </div>
                 </div>
-                <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
                   When a new lead is captured, Alice will automatically call back after the configured delay — only within the calling window and only if Vapi IDs are set above.
                 </p>
               </div>
+              </details>}
             </div>
           </section>
 
@@ -859,9 +891,8 @@ export default function AdminBusinessConfigPage({
                   <span>Auto-draft a monthly invoice (never auto-sent — you still review and send it)</span>
                 </label>
               </div>
-              <p style={{ fontSize: 12, color: "#94a3b8", margin: "12px 0 14px" }}>
-                Seat limit and billing fields save with the rest of this form. Pause/Resume below take effect
-                immediately.
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "12px 0 14px" }}>
+                Generate invoice opens an editable draft in Invoices. Review and send it yourself.
               </p>
               {subscriptionError && (
                 <p role="alert" style={{ margin: "0 0 12px", fontSize: 13, color: "#b91c1c" }}>{subscriptionError}</p>
@@ -878,10 +909,10 @@ export default function AdminBusinessConfigPage({
                     {subscriptionBusy ? "…" : "Pause access"}
                   </button>
                 )}
-                <a href={`/admin/invoices?businessId=${businessId}`} className="button" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <button type="button" disabled={generatingInvoice} onClick={() => void generateInvoice()} className="button" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Receipt size={14} strokeWidth={1.75} />
-                  Generate invoice
-                </a>
+                  {generatingInvoice ? "Creating draft…" : "Generate invoice"}
+                </button>
               </div>
             </div>
           </section>
@@ -900,17 +931,18 @@ export default function AdminBusinessConfigPage({
             <div className="panel-body">
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="phoneNumber">Main phone</label>
+                  <label htmlFor="phoneNumber">Business phone (setup)</label>
+                  <span className="helper-text">Shown in setup until an AI line is connected.</span>
                   <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.phoneNumber ?? ""} />
                 </div>
-                <div className="field">
+                {biz.calendarProvider && biz.calendarProvider !== "mock" && <div className="field">
                   <label htmlFor="calendarProvider">Calendar provider</label>
                   <select id="calendarProvider" name="calendarProvider" defaultValue={biz.calendarProvider ?? "mock"}>
                     <option value="mock">Mock scheduling</option>
                     <option value="google">Google Calendar</option>
                     <option value="calendly">Calendly</option>
                   </select>
-                </div>
+                </div>}
                 <div className="field">
                   <label htmlFor="escalationPhone">Escalation phone</label>
                   <input id="escalationPhone" name="escalationPhone" type="tel" pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.escalationPhone ?? ""} />
@@ -938,12 +970,19 @@ export default function AdminBusinessConfigPage({
                   <input id="brandColor" name="brandColor" placeholder="#1e3a5f" defaultValue={biz.brandColor ?? ""} />
                 </div>
                 <div className="field">
-                  <label htmlFor="contactPhone">Contact phone (public)</label>
+                  <label htmlFor="contactPhone">Phone on documents</label>
                   <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.contactPhone ?? ""} />
                 </div>
                 <div className="field full">
-                  <label htmlFor="logoUrl">Logo URL (HTTPS)</label>
-                  <input id="logoUrl" name="logoUrl" placeholder="https://…/logo.png" defaultValue={biz.logoUrl ?? ""} />
+                  <span>Library logo</span>
+                  {letterhead.logoUrl && <img src={letterhead.logoUrl} alt={`${biz.businessName} library logo`} style={{ maxWidth: 180, maxHeight: 80, objectFit: "contain" }} /> /* eslint-disable-line @next/next/no-img-element */}
+                  <a className="button" href={`/company/library?section=branding&preview=${encodeURIComponent(businessId)}`}>Open Library → Branding</a>
+                </div>
+                <div className="field full">
+                  <label htmlFor="documentStyle">Document look</label>
+                  <select id="documentStyle" name="documentStyle" defaultValue={biz.documentStyle ?? "standard"}>
+                    <option value="standard">Standard</option><option value="classic">Classic letterhead</option>
+                  </select>
                 </div>
                 <div className="field full">
                   <label htmlFor="contactEmail">Contact email (public)</label>
@@ -966,7 +1005,7 @@ export default function AdminBusinessConfigPage({
               </h2>
             </div>
             <div className="panel-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 14px" }}>
                 Used when generating invoices from field updates. Field crews can voice these values, but setting defaults here ensures accuracy when not stated.
               </p>
               <div className="form-grid">
