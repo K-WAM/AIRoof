@@ -77,9 +77,9 @@ export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOp
                 );
               }
               return path === "feedback" ? (
-                <button key={path} type="button" className="company-nav-trigger" data-state={feedbackOpen ? "open" : undefined}
+                <button key={path} type="button" className="company-nav-trigger" style={{ whiteSpace: "normal", textAlign: "left", width: "100%" }} data-state={feedbackOpen ? "open" : undefined}
                   disabled={!!user?.viewAs} title={user?.viewAs ? "Not available while viewing as someone else" : undefined} onClick={() => (onOpenFeedback ? onOpenFeedback() : setFeedbackOpen(true))} aria-haspopup="dialog" aria-label={user?.viewAs ? "Feedback — Not available while viewing as someone else" : "Send feedback"}>
-                  <Icon size={16} strokeWidth={1.75} />{label}
+                  <Icon size={16} strokeWidth={1.75} style={{ flexShrink: 0 }} /><span style={{ minWidth: 0 }}>{label}{user?.viewAs && <small style={{ display: "block" }}>Not available while viewing as someone else</small>}</span>
                 </button>
               ) : (
                 <Link href={`${path}${suffix}`} key={path} aria-current={pathname === path ? "page" : undefined}>

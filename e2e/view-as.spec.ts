@@ -37,11 +37,11 @@ test("View as Office staff is a read-only company view, and Exit returns to Clie
   await expect(banner).toContainText("read-only");
 
   await openMenu(page, testInfo);
-  // Office staff navigation, not the platform one: no Team tab and no Feedback button in a view-as session.
+  // Office staff navigation, not the platform one: no Team tab; Feedback explains the read-only restriction.
   const nav = page.getByRole("navigation", { name: "Company navigation" }).first();
   await expect(nav.getByRole("link", { name: "Dashboard" }).first()).toBeAttached();
   await expect(page.getByRole("link", { name: "Team", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /feedback/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Feedback.*Not available/ }).filter({ visible: true })).toBeDisabled();
   await expect(page.locator(".user-role-badge").first()).toHaveText("Office staff");
   await expectHealthy(page);
   await shot(page, "view-as-office");

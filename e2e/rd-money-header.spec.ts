@@ -54,6 +54,7 @@ test("View as keeps Feedback visible, disabled and explained", async ({ as }, te
   await expect(feedback).toBeDisabled();
   await expect(feedback).toBeInViewport();
   await expect(feedback.getByText("Not available while viewing as someone else")).toBeVisible();
+  expect(await feedback.getByText("Not available while viewing as someone else").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await shot(page, "rd-feedback-view-as");
   await page.request.delete("/api/admin/view-as");
 });

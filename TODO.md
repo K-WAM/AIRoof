@@ -3257,6 +3257,6 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 
 | T-338 | task/rd-money | review | SVG and 1000px PNG uploaded via logo-library API; 1280/1440/375 screenshots verified, with readable phone brand row. |
 
-| T-339 | task/rd-money | in progress | Feedback role checks pass; View as disabled state needs browser verification. |
+| T-339 | task/rd-money | review | View as Feedback stays disabled with a readable note; desktop/phone and existing read-only/Exit checks passed. |
 
 | T-340 | task/rd-money | review | Imported customer list/search fields derived and repair verified locally: 191 repaired, then zero changes. |
