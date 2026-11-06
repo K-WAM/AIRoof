@@ -10,6 +10,7 @@ import { ClassicDocument } from "./ClassicDocument";
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
 export interface DocumentPreviewProps {
+  /** Grouped, numbered findings by default; false retains the compact presentation. */
   findingSections?: boolean;
   serviceAt?: string; customerCode?: string; depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   children?: ReactNode;

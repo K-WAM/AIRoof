@@ -1,7 +1,7 @@
 import { documentPreheader } from "@/lib/documents/emailCopy";
 import type { JobQuote } from "@/types/quote";
 import { quoteGroups } from "@/lib/documents/groups";
-import { billToBlock, classicLetterTopBlock, documentShell, emailAccent, findingsBlock, footerBlock, groupsBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import { billToBlock, classicLetterTopBlock, documentShell, emailAccent, findingSectionsBlock, footerBlock, groupsBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
 import { addressLines } from "@/lib/documents/documentStyle";
 import { fmtDate } from "@/lib/format";
 import { fmtPhone } from "@/lib/format/phone";
@@ -46,5 +46,5 @@ export function buildQuoteEmailHtml(quote: JobQuote, business: LetterheadBusines
     }
     return documentShell(letterheadBlock(brand, model.letter.title, meta) + billToBlock(quote.billTo) + (quote.attention ? `<p>Attention: ${esc(quote.attention)}</p>` : "") + `<p><strong>RE:</strong> ${esc([quote.serviceAt ?? quote.billTo.address, quote.description, `Work order ${quote.jobId}`].filter(Boolean).join(" · "))}</p>` + narrativeBlock(quote.narrative) + letterHtml(model.letter) + scope + signatureHtml(template.signer?.name ?? "", template.signer?.title ?? "", tm) + photosBlock(photos) + (tm ? answer.replace("Accept quote", "Authorize") : answer) + noticesBlock(notices) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
   }
-  return documentShell(letterheadBlock(brand, "Quote", meta) + billToBlock(quote.billTo) + narrativeBlock(quote.narrative) + findingsBlock(quote.findings) + (brand.documentStyle === "classic" ? invoiceGroupsBlock(quoteGroups(quote), true) : groupsBlock(quoteGroups(quote))) + totalBlock("Estimated Total", quote.total, emailAccent(brand)) + notesBlock(quote.notes) + photosBlock(photos) + answer + noticesBlock(notices) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
+  return documentShell(letterheadBlock(brand, "Quote", meta) + billToBlock(quote.billTo) + narrativeBlock(quote.narrative) + findingSectionsBlock(quote.findings) + (brand.documentStyle === "classic" ? invoiceGroupsBlock(quoteGroups(quote), true) : groupsBlock(quoteGroups(quote))) + totalBlock("Estimated Total", quote.total, emailAccent(brand)) + notesBlock(quote.notes) + photosBlock(photos) + answer + noticesBlock(notices) + footerBlock(brand), documentPreheader(brand.businessName ?? "", "Your document is ready to review."));
 }

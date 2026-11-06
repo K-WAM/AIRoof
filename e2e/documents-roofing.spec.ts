@@ -30,14 +30,14 @@ test("scope and renewal fields and category findings match app email and print",
     const page = await as("owner");
     await page.goto(`/company/jobs/${job.jobId}?tab=report`); await settle(page); await expectHealthy(page);
     await expect(page.getByText("Unfilled letter fields: renewalMonth", { exact: true })).toBeVisible();
-    await expect(page.locator(".report-doc li")).toHaveText(["Restore entry surface", "Secure access fitting"]);
+    await expect(page.locator(".report-doc ul li")).toHaveText(["Restore entry surface", "Secure access fitting"]);
     await expect(page.getByLabel("Show findings as Problem / Corrective Action")).toBeChecked();
     await page.getByLabel("Renewal month", { exact: true }).fill("September 2026");
     await page.getByLabel("Renewal month", { exact: true }).blur();
     await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}?businessId=${B}`), "renewal saved").job.reportDocument.renewalMonth).toBe("September 2026");
     const report = page.locator(".report-doc");
     await expect(report).toContainText("Renewal month: September 2026");
-    await expect(report.locator(".document-finding h3")).toHaveText(["Entry", "Access"]);
+    await expect(report.locator(".document-finding-category > h3")).toHaveText(["Entry", "Access"]);
     await expect(report.locator(".document-finding").first()).toContainText("Problem: Worn entry surface");
     await expect(report.locator(".document-finding").first()).toContainText("Corrective Action: Restore entry surface");
     await expect(report).not.toContainText("$");
@@ -54,7 +54,7 @@ test("scope and renewal fields and category findings match app email and print",
     const { invoice } = must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "section invoice");
     await page.goto(`/company/jobs/${job.jobId}?tab=invoice`); await settle(page); await expectHealthy(page);
     const invoiceDoc = page.locator(".invoice-doc");
-    await expect(invoiceDoc.locator(".document-finding h3")).toHaveText(["Entry", "Access"]);
+    await expect(invoiceDoc.locator(".document-finding-category > h3")).toHaveText(["Entry", "Access"]);
     await page.getByLabel("Show findings as Problem / Corrective Action").uncheck();
     await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/invoice?businessId=${B}`), "invoice choice").invoice.showFindingSections).toBe(false);
     await expect(invoiceDoc.locator(".document-finding")).toHaveCount(0);
@@ -323,11 +323,60 @@ test("invoice drafts include the priced findings", async ({ as }) => {
   await page.goto(`/company/jobs/${job.jobId}?tab=invoice`);
   await settle(page);
   await expectHealthy(page);
-  await expect(page.getByText("Restore entrance surface").first()).toBeVisible();
+  await expect(page.locator(".invoice-doc").getByText("Restore entrance surface").first()).toBeVisible();
   await expect(page.getByText("$1,760.00").first()).toBeVisible();
   await expect(page.locator(".invoice-doc")).toContainText("Service at");
   await expect(page.locator(".invoice-doc")).toContainText("Description: Document review");
   expect(await page.locator(".invoice-doc").evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-invoice");
+});
+
+
+test("findings print each category once in standard and classic reports, quotes, invoices and email", async ({ as }, testInfo) => {
+  test.setTimeout(300_000);
+  const owner = await api("owner"), tag = Date.now(), email = `finding-groups-${tag}@customer.e2e.test`;
+  const page = await as("owner");
+  await page.goto("/company/library?section=branding"); await settle(page);
+  try {
+    for (const documentStyle of ["standard", "classic"]) {
+      const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Grouped findings review", clientName: "Sample Customer", clientEmail: email, address: "14 Example Avenue" }), "grouped job");
+      const categories = ["Leaks", "Flashing", "Leaks", "Leaks", ""];
+      const findings = categories.map((category, i) => ({ findingId: `group-${i}`, category, problem: `Problem ${i + 1}`, solution: `Repair ${i + 1}`, note: `Inspector note ${i + 1}`, includeInReport: true, includeInQuote: true, addedAt: tag, lines: [{ kind: "other", description: `Repair ${i + 1}`, quantity: 1, unitPrice: 100 }] }));
+      must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings }), "grouped findings");
+      must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "grouped quote");
+      must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "grouped invoice");
+      must(await owner.put("/api/company/settings", { businessId: B, documentStyle }), "document look");
+      // Fixture mutation happened outside the browser; explicitly refresh its cached settings response.
+      await page.evaluate(async businessId => { await fetch(`/api/company/settings?businessId=${businessId}`, { cache: "reload" }); }, B);
+      for (const tab of ["report", "quote", "invoice"]) {
+        await page.goto(`/company/jobs/${job.jobId}?tab=${tab}`); await settle(page);
+        const doc = page.locator(`.${tab}-doc`);
+        await expect(doc).toBeVisible();
+        if (documentStyle === "classic") await expect(doc).toHaveClass(/k1-classic/);
+        else await expect(doc).not.toHaveClass(/k1-classic/);
+        await expect(doc.locator(".document-finding-category > h3")).toHaveText(["Leaks", "Flashing", "Findings"]);
+        const leaks = doc.locator(".document-finding-category").first();
+        await expect(leaks.locator("ol > li")).toHaveCount(3);
+        await expect(leaks.locator(".document-finding p:first-child")).toHaveText(["Problem: Problem 1", "Problem: Problem 3", "Problem: Problem 4"]);
+        await expect(doc.locator(".document-finding")).toHaveCount(5);
+        await expect(doc).toContainText("Inspector note 5");
+        await shot(page, `finding-groups-${documentStyle}-${tab}`); await expectHealthy(page);
+        await page.emulateMedia({ media: "print" });
+        await expect(doc.locator(".document-finding-category > h3")).toHaveText(["Leaks", "Flashing", "Findings"]);
+        if (tab === "report") await doc.screenshot({ path: `test-results/screens/${testInfo.project.name}/finding-groups-${documentStyle}-report-print.png` });
+        await page.emulateMedia({ media: "screen" });
+      }
+      const before = new Set((await outbox({ to: email })).map(message => message.id));
+      for (const doc of ["report", "quote", "invoice"]) must(await owner.post(`/api/jobs/${job.jobId}/${doc}/send`, { businessId: B, to: email }), `grouped ${doc} email`);
+      const messages = (await outbox({ to: email })).filter(message => !before.has(message.id)); expect(messages).toHaveLength(3);
+      for (const message of messages) {
+        const html = String(message.html);
+        expect(html.match(/<h3>Leaks<\/h3>/g)).toHaveLength(1);
+        expect(html.match(/<h3>Findings<\/h3>/g)).toHaveLength(1);
+        expect(html.match(/class="document-finding"/g)).toHaveLength(5);
+        expect(html).toContain("Inspector note 5");
+      }
+    }
+  } finally { must(await owner.put("/api/company/settings", { businessId: B, documentStyle: "standard" }), "restore standard"); }
 });

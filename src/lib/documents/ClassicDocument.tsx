@@ -1,3 +1,4 @@
+import { FindingSections } from "./FindingSections";
 import type { CSSProperties, ReactNode } from "react";
 import type { DocumentPreviewProps, DocumentPhoto } from "./DocumentPreview";
 import type { Letterhead } from "./letterhead";
@@ -62,7 +63,7 @@ function MetaGrid({ meta, accent, kind }: { meta: [string, string][]; accent: st
 
 const caps: CSSProperties = { textTransform: "uppercase", letterSpacing: "0.01em" };
 
-export function ClassicDocument({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, totals, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }: DocumentPreviewProps) {
+export function ClassicDocument({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections = true, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, totals, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }: DocumentPreviewProps) {
   const accent = classicAccent(brand.brandColor);
   const kind = classicKind(title);
   const capsBody = kind === "invoice" || kind === "notice";
@@ -93,7 +94,7 @@ export function ClassicDocument({ title, brand, meta, billTo, partyLabel = "Bill
     <hr style={{ border: 0, borderTop: `3px double ${RULE}`, margin: "18px 0 6px" }} />
     {opening && <p style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, margin: "14px 0", ...(capsBody ? caps : {}) }}>{opening}</p>}
     {children && <div className="k1-classic-body" style={{ fontSize: 13, lineHeight: 1.6, ...(kind === "notice" ? caps : {}) }}>{children}</div>}
-    {findingSections ? findings?.map((finding, index) => <section key={index} className="document-finding" style={{ padding: "10px 0", whiteSpace: "pre-wrap", fontSize: 13 }}><h3 style={{ fontSize: 13, margin: "0 0 4px", textTransform: "uppercase", textDecoration: "underline" }}>{finding.category || `Finding ${index + 1}`}</h3><p style={{ margin: "2px 0" }}><strong>Problem:</strong> {finding.problem}</p><p style={{ margin: "2px 0" }}><strong>Corrective Action:</strong> {finding.solution}</p>{finding.note?.trim() && <p style={{ margin: "2px 0" }}><em>Inspector&apos;s note: {finding.note.trim()}</em></p>}</section>) : !!findings?.length && <section style={{ padding: "10px 0", fontSize: 13 }}><strong>{kind === "invoice" ? "Findings and corrective action" : "Issues found & work recommended"}</strong>{findings.map((finding, index) => <p key={index} style={{ whiteSpace: "pre-wrap" }}>{kind === "invoice" ? <><strong>Problem:</strong> {finding.problem}<br /><strong>Corrective action:</strong> {finding.solution}</> : <><strong>{finding.problem}</strong><br />{finding.solution}</>}{finding.note?.trim() && <><br /><em>Inspector&apos;s note: {finding.note.trim()}</em></>}</p>)}</section>}
+    {findingSections ? <FindingSections findings={findings ?? []} classic /> : !!findings?.length && <section style={{ padding: "10px 0", fontSize: 13 }}><strong>{kind === "invoice" ? "Findings and corrective action" : "Issues found & work recommended"}</strong>{findings.map((finding, index) => <p key={index} style={{ whiteSpace: "pre-wrap" }}>{kind === "invoice" ? <><strong>Problem:</strong> {finding.problem}<br /><strong>Corrective action:</strong> {finding.solution}</> : <><strong>{finding.problem}</strong><br />{finding.solution}</>}{finding.note?.trim() && <><br /><em>Inspector&apos;s note: {finding.note.trim()}</em></>}</p>)}</section>}
     {narrative && <section style={{ padding: "10px 0", whiteSpace: "pre-wrap", fontSize: 13 }}><strong>Description of work</strong><p style={{ margin: "4px 0" }}>{narrative}</p></section>}
     {groups.length > 0 && (showTable ? <div style={{ overflowX: "auto", marginTop: 14 }}>
       <table className="k1-classic-items" style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: "clamp(10px, 1.2vw, 12px)" }}>

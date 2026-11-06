@@ -1,3 +1,4 @@
+import { groupFindingsByCategory, type DocumentFinding } from "./findingGroups";
 import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import { escapeHtml } from "./letterhead";
@@ -72,8 +73,8 @@ export function findingsBlock(findings: Array<{ problem: string; solution: strin
   return findings.length ? `<section style="padding:18px 0"><strong>Issues found &amp; work recommended</strong>${findings.map((finding) => `<p style="line-height:1.5"><strong>${escapeHtml(finding.problem)}</strong><br/>${escapeHtml(finding.solution)}${finding.note?.trim() ? `<br/><em style="color:#475569">Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em>` : ""}</p>`).join("")}</section>` : "";
 }
 
-export function findingSectionsBlock(findings: Array<{ category?: string; problem: string; solution: string; note?: string }>): string {
-  return findings.map((finding, index) => `<section style="padding:18px 0;white-space:pre-wrap"><h3>${escapeHtml(finding.category || `Finding ${index + 1}`)}</h3><p><strong>Problem:</strong> ${escapeHtml(finding.problem)}</p><p><strong>Corrective Action:</strong> ${escapeHtml(finding.solution)}</p>${finding.note?.trim() ? `<p><em>Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em></p>` : ""}</section>`).join("");
+export function findingSectionsBlock(findings: readonly DocumentFinding[]): string {
+  return groupFindingsByCategory(findings).map(group => `<section class="document-finding-category" style="padding:18px 0"><h3>${escapeHtml(group.category)}</h3><ol style="margin:0;padding-left:24px;list-style-type:decimal">${group.findings.map(finding => `<li class="document-finding" style="padding:0 0 10px 4px;white-space:pre-wrap;break-inside:avoid"><p style="margin:4px 0"><strong>Problem:</strong> ${escapeHtml(finding.problem)}</p><p style="margin:4px 0"><strong>Corrective Action:</strong> ${escapeHtml(finding.solution)}</p>${finding.note?.trim() ? `<p style="margin:4px 0"><em>Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em></p>` : ""}</li>`).join("")}</ol></section>`).join("");
 }
 
 export function groupsBlock(groups: DocumentGroup[]): string {
