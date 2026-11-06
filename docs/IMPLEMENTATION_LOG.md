@@ -2662,3 +2662,8 @@ logos.
   findings through the document suite), `lib/pipeline/jobPrefill.ts` (+ test). Kept on purpose: `DemoHero` (self-led demo plan)
   and `useQuery` (planned cache layer). Unimported files never reach a page bundle, so this tidies the repo; load time is unchanged.
 - **Docs:** Roof Doctors data-gaps doc (Claude Docs, private) https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw.
+
+### T-330 - Calendar progress colours (2026-11-06)
+- Reviewed the supplied implementation; retained completed work, status words and inspection/crew focus. Fixed completed phone cards opening reschedule; linked inspections open their job on phones too.
+- Evidence: tsc clean; changed-file eslint clean; related baseline 1457 passed with guide bullet failure corrected (21 focused tests passed); calendar state/legacy copy 16 passed. Calendar status desktop and 375px phone passed after fixing overlapping test fixtures. Read calendar-status-week and calendar-status-phone screenshots. Existing calendar-smooth, crews-calendar, hints and guide checks passed in the 58-pass browser batch (3 skips; document-route flake passed retry).
+- No stored data or booking-engine changes. Commit: T-330 in task/rd-polish.

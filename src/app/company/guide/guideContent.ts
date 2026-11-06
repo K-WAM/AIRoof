@@ -307,8 +307,8 @@ const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
   }),
   "/company/calendar": (w) => w.calendarMode === "jobs"
     ? {
-      see: [`One row per ${w.crew}, one column per day. New ${w.jobs} wait in Unscheduled.`, "Grey dashed cards are not confirmed yet. Colored cards are confirmed."],
-      act: [`Drag a ${w.job} onto a ${w.crew} and a day, pick the time, then Confirm + email crew.`, "Tap a card to reschedule it. Undo fixes a wrong move."],
+      see: [`One row per ${w.crew}, one column per day. New ${w.jobs} wait in Unscheduled. Inspectors and crews have their own sections; Everything / Inspections / Crew work shows one at a time.`, "Grey dashed cards are not confirmed yet. Then the colour shows progress: blue scheduled, amber in progress, green complete."],
+      act: [`Drag a ${w.job} onto a ${w.crew} and a day, pick the time, then Confirm + email crew. Drag a phone booking onto an inspector to schedule the inspection.`, "Tap a card to reschedule it. Undo fixes a wrong move."],
     }
     : {
       see: [`One row per ${w.crew}, one column per day. New bookings wait in Unassigned.`, "Grey dashed cards are not confirmed yet."],
