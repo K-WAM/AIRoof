@@ -6,6 +6,7 @@ import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 import type { CanonicalBusinessHours } from "@/lib/scheduling/hours";
+import type { EmailSendingSetup } from "@/types";
 import {
   Building2,
   Check,
@@ -61,6 +62,10 @@ export default function OnboardingPage() {
   const [dirty, setDirty] = useState(false);
   const [businessHours, setBusinessHours] = useState<CanonicalBusinessHours>(DEFAULT_BUSINESS_HOURS);
   const [hoursValid, setHoursValid] = useState(true);
+  const [emailSendingMode, setEmailSendingMode] = useState<"luxor" | "own-domain">("luxor");
+  const [emailDnsHost, setEmailDnsHost] = useState("");
+  const [businessNameHint, setBusinessNameHint] = useState("");
+  const [notificationEmailHint, setNotificationEmailHint] = useState("");
 
   useEffect(() => {
     if (!dirty) return;
@@ -129,8 +134,11 @@ export default function OnboardingPage() {
     }
 
     const formData = new FormData(event.currentTarget);
+    const emailSendingModeValue = String(formData.get("emailSendingMode") || "luxor") as "luxor" | "own-domain";
     const validationChecks = [
       { name: "businessName", valid: Boolean(String(formData.get("businessName") || "").trim()), message: "Enter a business name." },
+      { name: "emailReplyTo", valid: !String(formData.get("emailReplyTo") || "").trim() || EMAIL_PATTERN.test(String(formData.get("emailReplyTo") || "").trim()), message: "Enter a valid reply-to email." },
+      { name: "emailDnsContactEmail", valid: emailSendingModeValue !== "own-domain" || !String(formData.get("emailDnsContactEmail") || "").trim() || EMAIL_PATTERN.test(String(formData.get("emailDnsContactEmail") || "").trim()), message: "Enter a valid DNS contact email." },
       { name: "businessId", valid: Boolean(String(formData.get("businessId") || "").trim()), message: "Enter a business ID." },
       { name: "ownerEmail", valid: EMAIL_PATTERN.test(String(formData.get("ownerEmail") || "").trim()), message: "Enter a valid owner email." },
       { name: "phoneNumber", valid: PHONE_PATTERN.test(String(formData.get("phoneNumber") || "").trim()), message: "Enter a valid main phone number." },
@@ -189,6 +197,19 @@ export default function OnboardingPage() {
       brandColor: String(formData.get("brandColor") || "").trim() || undefined,
       contactPhone: String(formData.get("contactPhone") || "").trim() || undefined,
       logoUrl: String(formData.get("logoUrl") || "").trim() || null,
+      emailSending: {
+        senderName: String(formData.get("emailSenderName") || "").trim() || undefined,
+        replyTo: String(formData.get("emailReplyTo") || "").trim() || undefined,
+        mode: emailSendingModeValue,
+        ...(emailSendingModeValue === "own-domain" ? {
+          ownDomain: String(formData.get("emailOwnDomain") || "").trim() || undefined,
+          dnsHost: (String(formData.get("emailDnsHost") || "").trim() || undefined) as EmailSendingSetup["dnsHost"],
+          dnsHostOther: String(formData.get("emailDnsHostOther") || "").trim() || undefined,
+          dnsContactName: String(formData.get("emailDnsContactName") || "").trim() || undefined,
+          dnsContactEmail: String(formData.get("emailDnsContactEmail") || "").trim() || undefined,
+        } : {}),
+        notes: String(formData.get("emailNotes") || "").trim() || undefined,
+      } satisfies EmailSendingSetup,
       active: false,
     };
 
@@ -271,7 +292,7 @@ export default function OnboardingPage() {
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="businessName">Business name</label>
-                  <input id="businessName" name="businessName" required placeholder="Apex Roofing" />
+                  <input id="businessName" name="businessName" required placeholder="Apex Roofing" onChange={(event) => setBusinessNameHint(event.target.value)} />
                 </div>
                 <div className="field">
                   <label htmlFor="businessId">Business ID</label>
@@ -505,6 +526,7 @@ export default function OnboardingPage() {
                     name="notificationEmail"
                     type="email"
                     placeholder="dispatch@example.com"
+                    onChange={(event) => setNotificationEmailHint(event.target.value)}
                   />
                 </div>
                 <div className="field full">
@@ -518,6 +540,86 @@ export default function OnboardingPage() {
                 <div className="field full">
                   <label htmlFor="bookingRules">Booking rules (one per line)</label>
                   <textarea id="bookingRules" name="bookingRules" defaultValue={roofingTemplate.bookingRules.join("\n")} />
+                </div>
+              </div>
+
+              <div className="rule-section" style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+                <h3 className="rule-heading">Customer emails</h3>
+                <p className="helper-text" style={{ margin: "0 0 14px" }}>
+                  Nothing is sent from a new address until Luxor verifies it.
+                </p>
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="emailSenderName">Sender name customers see</label>
+                    <input id="emailSenderName" name="emailSenderName" maxLength={80} placeholder={businessNameHint.trim() || "Business name"} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="emailReplyTo">Reply-to email</label>
+                    <input id="emailReplyTo" name="emailReplyTo" type="email" maxLength={254} placeholder={notificationEmailHint.trim() || "dispatch@example.com"} />
+                    <span className="helper-text">Where customer replies go.</span>
+                  </div>
+                  <div className="field full">
+                    <span>Send from</span>
+                    <label className="check-row">
+                      <input
+                        type="radio"
+                        name="emailSendingMode"
+                        value="luxor"
+                        checked={emailSendingMode === "luxor"}
+                        onChange={() => setEmailSendingMode("luxor")}
+                      />
+                      <span>A Luxor address for this client (we set it up)</span>
+                    </label>
+                    <label className="check-row">
+                      <input
+                        type="radio"
+                        name="emailSendingMode"
+                        value="own-domain"
+                        checked={emailSendingMode === "own-domain"}
+                        onChange={() => setEmailSendingMode("own-domain")}
+                      />
+                      <span>Their own domain (needs their DNS)</span>
+                    </label>
+                  </div>
+                  {emailSendingMode === "own-domain" && (
+                    <>
+                      <div className="field">
+                        <label htmlFor="emailOwnDomain">Domain</label>
+                        <input id="emailOwnDomain" name="emailOwnDomain" placeholder="yourcompany.com" />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="emailDnsHost">Who manages their DNS</label>
+                        <select id="emailDnsHost" name="emailDnsHost" value={emailDnsHost} onChange={(event) => setEmailDnsHost(event.target.value)}>
+                          <option value="">Not sure yet</option>
+                          <option value="godaddy">GoDaddy</option>
+                          <option value="cloudflare">Cloudflare</option>
+                          <option value="google">Google</option>
+                          <option value="wix">Wix</option>
+                          <option value="squarespace">Squarespace</option>
+                          <option value="namecheap">Namecheap</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      {emailDnsHost === "other" && (
+                        <div className="field">
+                          <label htmlFor="emailDnsHostOther">DNS provider name</label>
+                          <input id="emailDnsHostOther" name="emailDnsHostOther" maxLength={80} placeholder="Who hosts their DNS?" />
+                        </div>
+                      )}
+                      <div className="field">
+                        <label htmlFor="emailDnsContactName">DNS contact name</label>
+                        <input id="emailDnsContactName" name="emailDnsContactName" maxLength={80} placeholder="Maria" />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="emailDnsContactEmail">DNS contact email</label>
+                        <input id="emailDnsContactEmail" name="emailDnsContactEmail" type="email" maxLength={254} placeholder="maria@yourcompany.com" />
+                      </div>
+                      <div className="field full">
+                        <label htmlFor="emailNotes">Notes</label>
+                        <textarea id="emailNotes" name="emailNotes" maxLength={500} rows={3} placeholder="Anything Luxor should know before adding the sending records." />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

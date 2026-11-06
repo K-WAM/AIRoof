@@ -140,6 +140,7 @@ function ClientTab() {
           { text: <><b>Preview ↗</b> → Library → <b>Branding</b>: upload the logo, set it as default.</> },
           { text: <>Library → <b>Load starter kit</b> → swap every “Starter — review price” for their real price → add <b>Crews</b>.</> },
           { text: <>Settings → <b>Advanced</b>: recording notice on or off (draft wording — confirm with the client).</> },
+          { text: <><b>Customer emails</b>: sender name, reply-to, and (own domain) who manages their DNS — Luxor then adds the sending records.</>, href: CLIENTS, go: "Clients" },
         ]} />
       </Section>
 
