@@ -13,3 +13,11 @@ it("caps properties", () => { const x=mapProperties(Array.from({length:501},()=>
 it("skips disabled materials", () => expect(mapMaterials([{Name:"Nail",Enabled:"No"},{Name:"Board",Enabled:"Yes","Std Cost":"3"}])).toEqual([{name:"Board",unit:"each",unitPrice:3}]));
 it("maps voided invoices", () => expect(mapInvoiceHistory([{ "Invoice ID":"1",Date:"11/3/26",Voided:"Yes","Amt Due":"12.50"}],"America/New_York")[0]).toMatchObject({id:"jobba-1",voided:true,amountDue:12.5}));
 it("maps inspections", () => expect(mapInspections([{ID:"1",Customer:"Seagrass",Due:"11/3/26"}],"America/New_York")[0]).toMatchObject({id:"jobba-1",customerName:"Seagrass",dueAt:Date.UTC(2026,10,3,17)}));
+it("gives rows with a blank Jobba ID their own stable id instead of one shared \"jobba-\"", () => {
+  const rows = [{ID:"",Customer:"Seagrass",Due:"11/3/26"},{ID:" ",Customer:"Palm Isles",Due:"11/4/26"}];
+  const [a, b] = mapInspections(rows, "America/New_York"), again = mapInspections(rows, "America/New_York");
+  expect(a.id).toMatch(/^jobba-noid-[0-9a-f]{12}$/);
+  expect(b.id).not.toBe(a.id);
+  expect(again.map(r => r.id)).toEqual([a.id, b.id]);
+  expect(mapInvoiceHistory([{"Invoice ID":"","Bill To":"Seagrass"}], "America/New_York")[0].id).toMatch(/^jobba-noid-/);
+});

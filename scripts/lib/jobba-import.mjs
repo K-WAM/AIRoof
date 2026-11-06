@@ -1,3 +1,13 @@
+import { createHash } from "node:crypto";
+
+/** A history record's doc id. Jobba exports some rows with a blank ID (8 of Roof Doctors' 248 inspections, 2026-11-05);
+ *  they all became "jobba-" and overwrote each other. A blank ID now gets a stable id from the row's content, so a re-run
+ *  writes the same doc instead of a new copy. */
+export function historyId(sourceId, row) {
+  const id = String(sourceId ?? "").trim();
+  return id ? `jobba-${id}` : `jobba-noid-${createHash("sha1").update(JSON.stringify(row)).digest("hex").slice(0, 12)}`;
+}
+
 /** @param {Uint8Array} buffer */
 export function decodeCsvBuffer(buffer) {
   let text = new TextDecoder("utf-8").decode(buffer);
@@ -65,6 +75,6 @@ export function mapProperties(rows) {
 /** @param {Array<Record<string,string>>} rows */
 export function mapMaterials(rows) { const seen = new Set(); return rows.filter(r => r.Enabled === "Yes" && r.Name?.trim()).flatMap(r => { const name = r.Name.trim(), key = name.toLowerCase(); if (seen.has(key)) return []; seen.add(key); return [{name,unit:"each",unitPrice:parseMoney(r["Pkg Price"]?.trim() ? r["Pkg Price"] : r["Std Cost"])}]; }); }
 /** @param {Array<Record<string,string>>} rows @param {string} tz */
-export function mapInvoiceHistory(rows,tz) { return rows.map(r => ({id:`jobba-${r["Invoice ID"]}`,sourceInvoiceId:r["Invoice ID"],issuedAt:parseUsDate(r.Date,tz),workName:r.Name,billTo:r["Bill To"],amount:parseMoney(r.Amount),tax:parseMoney(r.Tax),credits:parseMoney(r.Credits),amountDue:parseMoney(r["Amt Due"]),...(r.Paid ? {paidAt:parseUsDate(r.Paid,tz)} : {}),voided:r.Voided === "Yes",status:r.Status,source:"jobba"})); }
+export function mapInvoiceHistory(rows,tz) { return rows.map(r => ({id:historyId(r["Invoice ID"],r),sourceInvoiceId:r["Invoice ID"],issuedAt:parseUsDate(r.Date,tz),workName:r.Name,billTo:r["Bill To"],amount:parseMoney(r.Amount),tax:parseMoney(r.Tax),credits:parseMoney(r.Credits),amountDue:parseMoney(r["Amt Due"]),...(r.Paid ? {paidAt:parseUsDate(r.Paid,tz)} : {}),voided:r.Voided === "Yes",status:r.Status,source:"jobba"})); }
 /** @param {Array<Record<string,string>>} rows @param {string} tz */
-export function mapInspections(rows,tz) { return rows.map(r => ({id:`jobba-${r.ID}`,sourceId:r.ID,customerName:r.Customer,property:r.Property,address:r.Address,city:r.City,state:r.State,zip:r.Zip,status:r.Status,jobType:r["Job Type"],createdBy:r["Created By"],...(r.Due ? {dueAt:parseUsDate(r.Due,tz)} : {}),source:"jobba"})); }
+export function mapInspections(rows,tz) { return rows.map(r => ({id:historyId(r.ID,r),sourceId:r.ID,customerName:r.Customer,property:r.Property,address:r.Address,city:r.City,state:r.State,zip:r.Zip,status:r.Status,jobType:r["Job Type"],createdBy:r["Created By"],...(r.Due ? {dueAt:parseUsDate(r.Due,tz)} : {}),source:"jobba"})); }
