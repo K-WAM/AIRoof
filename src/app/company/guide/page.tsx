@@ -10,12 +10,15 @@ import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModul
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { defaultLandingPath } from "@/lib/team/landing";
 import type { TeamRole, TradeTitle } from "@/types/team";
-import { GUIDE_QUICK_ANSWERS, GUIDE_ROLES, guideFor, type GuideRole } from "./guideContent";
+import { FIELD_GUIDE_ROLES, GUIDE_QUICK_ANSWERS, GUIDE_ROLES, JOBS_GUIDE_ROLES, guideFor, screensFor, type GuideRole } from "./guideContent";
 
 /**
- * The quick guide (owner, 2026-10-30): one short, printable page per role — Owner, Admin, Office staff, Foreman — in
- * the client's own branding, with an "Ask a question" button that reaches the Luxor team. Steps come from
- * guideContent.ts, which reads this industry's words and products, so a tab or button named here always exists.
+ * The quick guide (owner, 2026-10-30): one short, printable page per role in the client's own branding, with an "Ask
+ * a question" button that reaches the Luxor team. Steps come from guideContent.ts, which reads this industry's words
+ * and products, so a tab or button named here always exists. The role manuals (owner, 2026-11-05: "neat how-to steps
+ * and a short reference of each screen available to that role") add Supervisor, Inspector and View only, two "How
+ * to…" cards per role, and "Your screens" — built from the same list as that role's menu. A field login sees only the
+ * field guides.
  */
 export default function GuidePage() {
   const searchParams = useSearchParams();
@@ -26,10 +29,13 @@ export default function GuidePage() {
   const { isEnabled, vocab, calendarMode, disabledModules, quotes } = useBusinessModules();
   const [asking, setAsking] = useState(false);
 
-  const roles = GUIDE_ROLES.filter((role) => role !== "foreman" || isEnabled("jobs"));
+  const fieldLogin = user?.role === "crew" && !user?.superadmin;
+  const roles = GUIDE_ROLES.filter((role) => (isEnabled("jobs") || !JOBS_GUIDE_ROLES.includes(role)) && (!fieldLogin || FIELD_GUIDE_ROLES.includes(role)));
   const [picked, setPicked] = useState<GuideRole | null>(null);
   const role = picked && roles.includes(picked) ? picked : defaultRole(user, disabledModules, roles);
-  const guide = guideFor(role, { isEnabled, vocab, calendarMode, quotes });
+  const context = { isEnabled, vocab, calendarMode, quotes, showcase: business?.showcase, multiCompany: (business?.companies?.length ?? 0) > 1 };
+  const guide = guideFor(role, context);
+  const screens = screensFor(role, context);
   const businessName = business?.businessName ?? "Your business";
   const href = (path: string) => `${path}${path.includes("?") ? sfx.replace("?", "&") : sfx}`;
 
@@ -80,6 +86,34 @@ export default function GuidePage() {
             <strong>Good to know</strong>
             <ul>{guide.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
           </div>
+          {guide.howTo.length > 0 && <>
+            <h3 className="guide-section-title">How to…</h3>
+            <div className="guide-cards">
+              {guide.howTo.map((task) => (
+                <div key={task.title} className="guide-mini">
+                  <div className="guide-mini-head">
+                    <strong>{task.title}</strong>
+                    {task.path && <Link href={href(task.path)} className="button ghost small no-print">Open</Link>}
+                  </div>
+                  <ol>{task.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+                </div>
+              ))}
+            </div>
+          </>}
+          {screens.length > 0 && <>
+            <h3 className="guide-section-title">Your screens</h3>
+            <div className="guide-cards" data-testid="guide-screens">
+              {screens.map((screen) => (
+                <div key={screen.path} className="guide-mini">
+                  <div className="guide-mini-head">
+                    <strong>{screen.name}</strong>
+                    <Link href={href(screen.path)} className="button ghost small no-print" aria-label={`Open ${screen.name}`}>Open</Link>
+                  </div>
+                  <ul>{screen.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
+                </div>
+              ))}
+            </div>
+          </>}
           <p className="guide-footer">Powered by Luxor CRM</p>
         </div>
       </section>
@@ -94,18 +128,24 @@ export default function GuidePage() {
   );
 }
 
-const ROLE_LABEL: Record<GuideRole, string> = { owner: "Owner", admin: "Admin", staff: "Office staff", foreman: "Foreman" };
+const ROLE_LABEL: Record<GuideRole, string> = {
+  owner: "Owner", admin: "Admin", staff: "Office staff", supervisor: "Supervisor", inspector: "Inspector", foreman: "Field crew", viewer: "View only",
+};
 
-/** Open the page on the reader's own role: field people on Foreman, office logins on Office staff, Admins on Owner. */
+/** Open the page on the reader's own role: inspectors on Inspector, other field people on Field crew, View only on its
+ *  own page, supervisors on Supervisor, other office logins on Office staff, Admins on Owner. */
 function defaultRole(
   user: { role?: string; trade?: string; superadmin?: boolean } | null | undefined,
   disabledModules: CompanyModule[],
   roles: GuideRole[],
 ): GuideRole {
   if (!user || user.superadmin) return "owner";
+  if (user.role === "viewer") return "viewer";
   const lands = defaultLandingPath({ role: user.role as TeamRole, trade: user.trade as TradeTitle | undefined }, disabledModules);
+  if (lands === "/company/field" && user.trade === "inspector" && roles.includes("inspector")) return "inspector";
   if (lands === "/company/field" && roles.includes("foreman")) return "foreman";
   if (user.role === "owner") return "owner";
+  if (user.trade === "supervisor" && roles.includes("supervisor")) return "supervisor";
   return "staff";
 }
 
@@ -125,7 +165,16 @@ const PRINT_CSS = `
 .guide-tips { padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
 .guide-tips ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.55; }
 .guide-footer { margin: 14px 0 0; font-size: 12px; color: var(--text-muted); }
+.guide-section-title { margin: 20px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.guide-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.guide-mini { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; break-inside: avoid; }
+.guide-mini-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guide-mini ol, .guide-mini ul { margin: 6px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.guide-mini ul { color: var(--text-muted); }
+.guide-mini li + li { margin-top: 2px; }
 @media print {
+  .guide-cards { grid-template-columns: 1fr 1fr; }
+  .guide-mini { padding: 8px 10px; }
   .no-print, .company-topbar, .company-sidebar, .company-nav { display: none !important; }
   .company-shell { grid-template-columns: 1fr !important; }
   .company-main { padding: 0 !important; background: #fff !important; }

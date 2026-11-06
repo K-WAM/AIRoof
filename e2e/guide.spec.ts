@@ -18,9 +18,20 @@ test("owner opens their own page, switches roles, and can ask a question", async
   await expectHealthy(page);
   await shot(page, "guide-owner");
 
+  // The role manuals (2026-11-05): How to… cards and Your screens, built from the same list as that role's menu.
+  await expect(page.getByRole("heading", { name: "How to…" })).toBeVisible();
+  await expect(page.getByTestId("guide-screens").getByText("Team", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Office staff" }).click();
-  await expect(page.getByText("Confirm + email crew", { exact: false })).toBeVisible();
-  await page.getByRole("tab", { name: "Foreman" }).click();
+  await expect(page.getByText("Confirm + email crew", { exact: false }).first()).toBeVisible();
+  await expect(page.getByTestId("guide-screens").getByText("Team", { exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Supervisor" }).click();
+  await expect(page.getByText("Keep every crew on track")).toBeVisible();
+  await shot(page, "guide-supervisor");
+  await page.getByRole("tab", { name: "View only" }).click();
+  await expect(page.getByText("See everything, change nothing")).toBeVisible();
+  await expect(page.getByTestId("guide-screens")).not.toContainText("Drag ");
+  await shot(page, "guide-viewer");
+  await page.getByRole("tab", { name: "Field crew" }).click();
   await expect(page.getByText("Hold to talk, or tap to start")).toBeVisible();
   await shot(page, "guide-foreman");
 
@@ -32,10 +43,11 @@ test("owner opens their own page, switches roles, and can ask a question", async
   await shot(page, "guide-ask");
 });
 
-test("a field-only login lands on the Foreman page and is not bounced to Field", async ({ as }) => {
+test("a field-only login lands on the Field crew page, sees only the field guides, and is not bounced to Field", async ({ as }) => {
   const page = await as("fieldCrew");
   await page.goto("/company/guide");
-  await expect(page.getByRole("tab", { name: "Foreman" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Field crew" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab")).toHaveText(["Inspector", "Field crew"]);
   await settle(page, 1500);
   await expect(page).toHaveURL(/\/company\/guide/);
   await expect(page.getByText("Talk, don't type")).toBeVisible();
