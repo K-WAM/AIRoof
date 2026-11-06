@@ -4,7 +4,7 @@ Done: account in production with their Jobba data and logos (T-291), preview pag
 data-gaps doc, everything pushed and deployed.
 
 Owner:
-- [ ] Deploy the security rules: `firebase deploy --only firestore:rules --project business-expense-trackin-ef659`
+- [x] Deploy the security rules: `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` — done 2026-11-06 by Claude with the owner's OK (16/16 rules tests; live ruleset verified identical to firestore.rules)
 - [ ] Decide when the (689) 204-2643 line becomes Roof Doctors' own Alice: now, or Tue Nov 10 (other demos use the Canada
       (778) 907-9769 line meanwhile)
 - [ ] Click through Admin → Clients → Roof Doctors → Preview, then View as → Admin / Office staff / Supervisor / Inspector

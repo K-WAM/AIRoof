@@ -2926,7 +2926,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 **Roof Doctors review, Fri 2026-11-13 10 a.m. — owner items (added 2026-11-05 night).** Claude's side is T-305, T-307 and
 T-298 below; the same list with check boxes is at the top of `docs/NEXT_SESSION.md`.
-- [ ] **Deploy the security rules** (refused for the agent): `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` → "Deploy complete!".
+- [x] **Deploy the security rules** (done 2026-11-06 by Claude with the owner's explicit OK; live ruleset verified identical): `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` → "Deploy complete!".
 - [ ] **Line switch timing (T-307):** (689) 204-2643 becomes Roof Doctors' own Alice "now" or Tue Nov 10; other demos use the Canada (778) 907-9769 line meanwhile.
 - [ ] **Click through** Admin → Clients → Roof Doctors → Preview, then View as → Admin / Office staff / Supervisor / Inspector.
 - [ ] **Their crew names** → Claude enters them (Library → Crews). The Calendar needs at least one crew to schedule a job.
