@@ -149,7 +149,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const now = Date.now();
   const documentBusiness = documentLetterhead(business ?? {}, resolveDocumentCompany(business, { jobCompanyId: job.companyId, customerCompanyId: customer?.companyId }));
   const name = typeof documentBusiness.businessName === "string" ? documentBusiness.businessName : "";
-  const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.jobNoun };
+  const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.industryNoun };
   const copy = business?.invoiceCopy ?? {};
   const openingTemplate = await loadLetter(db, businessId, "invoice_opening");
   const openingLetter = renderLetter(openingTemplate, { date: values.visitDate, "customer.name": job.clientName,

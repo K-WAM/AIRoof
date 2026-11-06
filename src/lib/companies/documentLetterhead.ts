@@ -21,6 +21,10 @@ export function documentLetterhead<T extends LetterheadBusiness & { billingPrefs
     contactPhone: isDefault ? company.phone ?? business.contactPhone : company.phone,
     contactEmail: isDefault ? company.email ?? business.contactEmail : company.email,
     licenseNumber: isDefault ? company.license ?? business.licenseNumber : company.license,
+    // Same rule for the website (2026-11-06): an RCU document must not print the RDSF website.
+    websiteUrl: isDefault ? company.website ?? business.websiteUrl : company.website,
+    fax: company.fax,
+    tagline: company.tagline,
     billingPrefs: {
       ...business.billingPrefs,
       payInstructions: isDefault ? company.payInstructions ?? business.billingPrefs?.payInstructions ?? "" : company.payInstructions ?? "",

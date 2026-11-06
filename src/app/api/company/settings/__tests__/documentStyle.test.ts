@@ -1,0 +1,14 @@
+import { NextRequest } from "next/server";
+import { beforeEach, expect, it, vi } from "vitest";
+const m = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), update: vi.fn() }));
+vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: m.gate }));
+vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: m.db }));
+vi.mock("@/lib/voice/provider", () => ({ getVoiceProvider: vi.fn() }));
+import { PUT } from "../route";
+const req = (style: unknown) => new NextRequest("http://localhost/api/company/settings", { method: "PUT", body: JSON.stringify({ businessId: "biz", documentStyle: style }) });
+beforeEach(() => { vi.resetAllMocks(); m.gate.mockResolvedValue({ user: { role: "owner" } }); m.db.mockReturnValue({ collection: () => ({ doc: () => ({ update: m.update }) }) }); });
+it("rejects a denied session without storing a style", async () => { m.gate.mockResolvedValue({ error: new Response("Forbidden", { status: 403 }) }); expect((await PUT(req("classic"))).status).toBe(403); expect(m.update).not.toHaveBeenCalled(); });
+it("staff cannot change the document style", async () => { m.gate.mockResolvedValue({ user: { role: "staff" } }); expect((await PUT(req("classic"))).status).toBe(403); expect(m.update).not.toHaveBeenCalled(); });
+it.each(["other", null, {}, true])("rejects invalid document look %j", async value => { expect((await PUT(req(value))).status).toBe(400); expect(m.update).not.toHaveBeenCalled(); });
+it.each(["standard", "classic"])("lets an owner save %s without changing another setting", async style => { expect((await PUT(req(style))).status).toBe(200); expect(m.update).toHaveBeenCalledWith({ documentStyle: style, updatedAt: expect.any(Number) }); });
+it("lets the platform save a document look", async () => { m.gate.mockResolvedValue({ user: { superadmin: true } }); expect((await PUT(req("classic"))).status).toBe(200); });

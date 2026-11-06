@@ -74,18 +74,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
         const values = (): InvoiceCopyValues => ({
           address: job.address ?? "the service address",
           visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? invoice.createdAt, biz.timezone ?? "America/New_York"),
-          industryNoun: getVerticalTemplate(biz.industry ?? "").vocab.jobNoun,
+          industryNoun: getVerticalTemplate(biz.industry ?? "").vocab.industryNoun,
         });
         const invoiceCopy = biz.invoiceCopy ?? {};
-        const generated = (name: string) => {
-          const filled = { businessName: name, ...values() };
+        const generated = (name: string, industryNoun?: string) => {
+          const filled = { businessName: name, ...values(), ...(industryNoun ? { industryNoun } : {}) };
           return {
             closing: fillInvoiceCopy(invoiceCopy.closing ?? DEFAULT_INVOICE_COPY.closing, filled),
             thankYou: fillInvoiceCopy(invoiceCopy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, filled),
           };
         };
-        copy.closing = refreshGeneratedText(invoice.closing, names, nextCompany.name, name => generated(name).closing);
-        copy.thankYou = refreshGeneratedText(invoice.thankYou, names, nextCompany.name, name => generated(name).thankYou);
+        // Drafts from before 2026-11-06 filled {industryNoun} with the job noun ("your job needs"); still generated text.
+        const legacyNoun = getVerticalTemplate(biz.industry ?? "").vocab.jobNoun;
+        copy.closing = refreshGeneratedText(invoice.closing, names, nextCompany.name, name => generated(name).closing, name => generated(name, legacyNoun).closing);
+        copy.thankYou = refreshGeneratedText(invoice.thankYou, names, nextCompany.name, name => generated(name).thankYou, name => generated(name, legacyNoun).thankYou);
       }
       copy = Object.fromEntries(Object.entries(copy).filter(([, value]) => value !== undefined)) as CopyPatch;
       tx.update(ref, { companyId: body.companyId, ...copy, updatedAt: Date.now() });

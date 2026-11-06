@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 
-const LABELS = { id: "Company id", name: "Legal name", shortName: "Short name", address: "Address", phone: "Phone", email: "Email", license: "License", payInstructions: "Payment instructions", payLink: "Pay link" } as const;
+const LABELS = { id: "Company id", name: "Legal name", shortName: "Short name", address: "Address", phone: "Phone", fax: "Fax (optional)", email: "Email", website: "Website (optional)", license: "License", tagline: "Letterhead slogan (optional)", payInstructions: "Payment instructions", payLink: "Pay link" } as const;
 export function CompanyProfiles({ companies, logos, admin, readOnly, onSave }: { companies: BillingCompany[]; logos: LibraryLogo[]; admin?: boolean; readOnly?: boolean; onSave: (next: BillingCompany[]) => Promise<void> }) {
   const [editing, setEditing] = useState<BillingCompany | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);

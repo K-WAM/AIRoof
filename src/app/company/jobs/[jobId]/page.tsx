@@ -1965,7 +1965,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
                   billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceDisplayCopy.closing} thankYou={invoiceDisplayCopy.thankYou}
                   findingSections={invoiceShowFindingSections !== false} findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }))}
-                  groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
+                  groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal} totals={{ subtotal, tax }}
                   howToPay={invoiceStatus !== "paid" && hasBilling && invoiceLetterhead.billingPrefs ? { instructions: invoiceLetterhead.billingPrefs.payInstructions ?? "", link: invoiceLetterhead.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: invoiceLetterhead.businessName, licenseNumber: invoiceLetterhead.licenseNumber } })} >
@@ -2306,7 +2306,13 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   if (isCompletion(job.reportDocument)) {
     const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
     const letter = completionLetter(job, brand, templates[kind], Date.now(), quote);
-    return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
+    // A completion notice names the work and the order it closes, like the contractor's own notice (2026-11-06).
+    const noticeMeta: [string, string][] = [
+      ...meta.map(([key, value]) => (key === "Reference" ? [key, `Work order ${jobId}`] : [key, value]) as [string, string]),
+      ...(job.title ? [["Description", job.title] as [string, string]] : []),
+      ...(job.reportDocument?.poNumber ? [["PO number", job.reportDocument.poNumber] as [string, string]] : []),
+    ];
+    return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={noticeMeta} billTo={{ name: job.clientName ?? "", address: job.address }} partyLabel="Customer" findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
   }
   return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
     billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"

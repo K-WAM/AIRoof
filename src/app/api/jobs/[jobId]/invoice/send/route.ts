@@ -125,6 +125,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     licenseNumber: biz.licenseNumber,
     industry: biz.industry,
     timezone: biz.timezone,
+    // Document look + the company's letterhead extras (src/lib/documents/documentStyle.ts).
+    documentStyle: biz.documentStyle, fax: biz.fax, tagline: biz.tagline,
   }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
   noticesForDocument({ doc: "invoice", total: invoice.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,

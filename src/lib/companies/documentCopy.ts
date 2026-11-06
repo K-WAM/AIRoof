@@ -30,11 +30,14 @@ export function refreshGeneratedText(
   names: readonly string[],
   resolvedName: string,
   generate: (name: string) => string,
+  /** An earlier version of the same default (wording fixed since); a draft still holding it counts as generated. */
+  legacy?: (name: string) => string,
 ): string | undefined {
   if (!stored || !resolvedName) return stored;
   if (stored === generate(resolvedName)) return stored;
   for (const name of names) {
     if (name !== resolvedName && stored === generate(name)) return generate(resolvedName);
+    if (legacy && stored === legacy(name)) return generate(resolvedName);
   }
   return stored;
 }
@@ -48,15 +51,17 @@ export function resolvedInvoiceCopy(invoice: Pick<JobInvoice, "closing" | "thank
   const values = (): InvoiceCopyValues => ({
     address: job.address ?? "the service address",
     visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? invoice.createdAt, business.timezone ?? "America/New_York"),
-    industryNoun: getVerticalTemplate(business.industry ?? "").vocab.jobNoun,
+    industryNoun: getVerticalTemplate(business.industry ?? "").vocab.industryNoun,
   });
-  const generate = (name: string, key: "closing" | "thankYou") => {
-    const filled = { businessName: name, ...values() };
+  const generate = (name: string, key: "closing" | "thankYou", industryNoun?: string) => {
+    const filled = { businessName: name, ...values(), ...(industryNoun ? { industryNoun } : {}) };
     return fillInvoiceCopy(business.invoiceCopy?.[key] ?? DEFAULT_INVOICE_COPY[key], filled);
   };
+  // Before 2026-11-06 {industryNoun} was filled with the job noun ("your job needs"): such drafts are still generated text.
+  const legacyNoun = getVerticalTemplate(business.industry ?? "").vocab.jobNoun;
   return {
-    closing: refreshGeneratedText(invoice.closing, names, resolvedName, name => generate(name, "closing")),
-    thankYou: refreshGeneratedText(invoice.thankYou, names, resolvedName, name => generate(name, "thankYou")),
+    closing: refreshGeneratedText(invoice.closing, names, resolvedName, name => generate(name, "closing"), name => generate(name, "closing", legacyNoun)),
+    thankYou: refreshGeneratedText(invoice.thankYou, names, resolvedName, name => generate(name, "thankYou"), name => generate(name, "thankYou", legacyNoun)),
   };
 }
 

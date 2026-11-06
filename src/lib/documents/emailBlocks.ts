@@ -7,11 +7,47 @@ import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
 import { fmtPhone } from "@/lib/format/phone";
 import { fmtMoney } from "@/lib/format/money";
+import { addressLines, classicAccent, classicGroupTitle, classicKind, displayWebsite } from "./documentStyle";
 
 const money = (value: number) => fmtMoney(value);
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
 
+/** The accent every block of one email uses: the brand colour, or each look's own default. */
+export function emailAccent(brand: Letterhead): string {
+  if (brand.documentStyle === "classic") return classicAccent(brand.brandColor);
+  return /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "#0f766e";
+}
+
+/** Classic letterhead (documentStyle): logo with address, phone/fax and license on the left; title and details right. */
+function classicLetterheadBlock(brand: Letterhead, title: string, meta: [string, string][]): string {
+  const accent = classicAccent(brand.brandColor);
+  const name = escapeHtml(brand.businessName ?? "");
+  const kind = classicKind(title);
+  const phoneFax = [brand.contactPhone ? `Phone: ${fmtPhone(brand.contactPhone)}` : "", brand.fax ? `Fax: ${fmtPhone(brand.fax)}` : ""].filter(Boolean).map(escapeHtml).join("&nbsp;&nbsp;");
+  const from = addressLines(brand.address).map((line) => `<div>${escapeHtml(line.toUpperCase())}</div>`).join("")
+    + (phoneFax ? `<div>${phoneFax}</div>` : "")
+    + (brand.licenseNumber ? `<div>STATE LICENSE #${escapeHtml(brand.licenseNumber)}</div>` : "");
+  const logo = brand.logoUrl ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${name}" style="display:block;max-width:220px;max-height:92px;object-fit:contain;margin-bottom:6px"/>` : `<div style="font-size:19px;font-weight:800">${name}</div>`;
+  const titleStyle = kind === "invoice" || kind === "quote"
+    ? `font-size:30px;font-weight:500;color:${accent}`
+    : `font-size:22px;font-weight:800;font-style:italic;text-transform:uppercase;color:${accent}`;
+  const rows = meta.map(([key, value], i) => `<tr><td style="padding:1px 10px 1px 0;font-weight:700;white-space:nowrap;vertical-align:top;color:${i < 2 ? "#1d4ed8" : "#111827"}">${escapeHtml(kind === "invoice" && key === "Number" ? "Invoice No." : key)}:</td><td style="padding:1px 0;vertical-align:top">${escapeHtml(value)}</td></tr>`).join("");
+  return `<table role="presentation" style="width:100%;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif"><tr><td style="vertical-align:top;width:50%;padding-right:12px">${logo}<div style="font-size:11px;line-height:1.45;color:#111827">${from}</div></td><td style="vertical-align:top;width:50%"><div style="${titleStyle};border-bottom:2px solid #111827;padding-bottom:4px">${escapeHtml(title)}</div><table role="presentation" style="border-collapse:collapse;font-size:12px;margin-top:8px">${rows}</table></td></tr></table><div style="border-top:3px double #111827;margin:16px 0 4px"></div>`;
+}
+
+/** The classic typed letter's top: optional slogan, the brand-colour bar with the company line, then the logo. */
+export function classicLetterTopBlock(brand: Letterhead): string {
+  const accent = classicAccent(brand.brandColor);
+  const name = escapeHtml(brand.businessName ?? "");
+  const line = [brand.businessName, (brand.address ?? "").replace(/\s*\n\s*/g, ", "), brand.contactPhone ? `Phone ${fmtPhone(brand.contactPhone)}` : "", brand.fax ? `Fax ${fmtPhone(brand.fax)}` : ""].filter(Boolean).map((part) => escapeHtml(part!)).join(" &bull; ");
+  const logo = brand.logoUrl ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${name}" style="display:block;max-width:240px;max-height:100px;object-fit:contain;margin:14px 0 6px"/>` : `<div style="font-size:21px;font-weight:800;margin:14px 0 6px">${name}</div>`;
+  return (brand.tagline ? `<div style="text-align:center;color:${accent};font-style:italic;font-weight:700;font-size:17px;margin-bottom:4px">${escapeHtml(brand.tagline)}</div>` : "")
+    + (brand.licenseNumber ? `<div style="font-size:11px">STATE LICENSE #${escapeHtml(brand.licenseNumber)}</div>` : "")
+    + `<div style="background:${accent};color:#fff;text-align:center;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.03em;padding:5px 10px;line-height:1.4">${line}</div>${logo}`;
+}
+
 export function letterheadBlock(brand: Letterhead, title: string, meta: [string, string][]): string {
+  if (brand.documentStyle === "classic") return classicLetterheadBlock(brand, title, meta);
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor : "#0f766e";
   const name = escapeHtml(brand.businessName ?? "");
   const lines = [brand.address, brand.contactPhone, brand.contactEmail].filter(Boolean).map((v) => `<div>${escapeHtml(v!)}</div>`).join("") + (brand.licenseNumber ? `<div>License #${escapeHtml(brand.licenseNumber)}</div>` : "");
@@ -44,7 +80,24 @@ export function groupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0">${group.title === "Project price" ? "" : `<h3 style="font-size:13px;color:#334155">${group.title}</h3>`}<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.description)}${row.detail ? `<div style="font-size:11px;color:#64748b">${escapeHtml(row.detail)}</div>` : ""}</td><td style="${cell};text-align:right;font-weight:600">${money(row.amount)}</td></tr>`).join("")}</tbody></table>${group.title === "Project price" ? "" : `<div style="text-align:right;padding:8px 12px;font-weight:700">${group.title} subtotal: ${money(group.subtotal)}</div>`}</section>`).join("");
 }
 
-export function invoiceGroupsBlock(groups: DocumentGroup[]): string {
+/** Classic look: one boxed Item / Description / Quantity / Unit Price / Amount table, a subtotal under each group. */
+function classicGroupsTable(groups: DocumentGroup[]): string {
+  const b = "border:1px solid #111827";
+  const head = ["Item", "Description", "Quantity", "Unit Price", "Amount"].map((h, i) => `<th style="${b};padding:4px 8px;text-align:${i >= 2 ? "right" : "left"}">${h}</th>`).join("");
+  const body = groups.map((group) => {
+    const name = classicGroupTitle(group.title);
+    const rows = group.rows.map((row, i) => {
+      const described = row.item && row.item !== group.title && row.item !== "Labor" && row.item !== "Other" ? `${escapeHtml(row.item)}${row.description && row.description !== "Material" ? `<br/><span style="color:#4b5563">${escapeHtml(row.description)}</span>` : ""}` : escapeHtml(row.description);
+      return `<tr><td style="padding:5px 8px;vertical-align:top;font-weight:${i === 0 ? 700 : 400}">${i === 0 && group.title !== "Project price" ? escapeHtml(name) : ""}</td><td style="padding:5px 8px;vertical-align:top">${described}${row.detail ? `<div style="color:#4b5563">${escapeHtml(row.detail)}</div>` : ""}</td><td style="padding:5px 8px;text-align:right;vertical-align:top">${row.quantity !== undefined ? row.quantity.toFixed(2) : ""}</td><td style="padding:5px 8px;text-align:right;vertical-align:top">${row.unitPrice !== undefined ? money(row.unitPrice) : ""}</td><td style="padding:5px 8px;text-align:right;vertical-align:top;white-space:nowrap">${money(row.amount)}</td></tr>`;
+    }).join("");
+    const subtotal = group.title === "Project price" ? "" : `<tr><td colspan="3" style="padding:3px 8px 10px;text-align:right;font-weight:700">${escapeHtml(name)}</td><td style="padding:3px 8px 10px;text-align:right;font-weight:700;border-top:1px solid #111827">Subtotal</td><td style="padding:3px 8px 10px;text-align:right;font-weight:700;border-top:1px solid #111827;white-space:nowrap">${money(group.subtotal)}</td></tr>`;
+    return rows + subtotal;
+  }).join("");
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:16px 0;font-family:Arial,Helvetica,sans-serif"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+export function invoiceGroupsBlock(groups: DocumentGroup[], classic = false): string {
+  if (classic) return classicGroupsTable(groups);
   return groups.map((group) => group.title === "Project price" ? `<section style="margin:20px 0"><table style="width:100%"><tbody><tr><td style="${cell}">Project price</td><td style="${cell};text-align:right;font-weight:600">${money(group.subtotal)}</td></tr></tbody></table></section>` : `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${escapeHtml(group.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${["Item", "Description", "Qty", "Unit price", "Amount"].map((heading) => `<th style="${cell};text-align:left">${heading}</th>`).join("")}</tr></thead><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.item ?? group.title)}</td><td style="${cell}">${escapeHtml(row.description)}</td><td style="${cell}">${row.quantity ?? ""}</td><td style="${cell}">${row.unitPrice === undefined ? "" : money(row.unitPrice)}</td><td style="${cell}">${money(row.amount)}</td></tr>`).join("")}</tbody></table><div style="text-align:right;padding:8px 12px;font-weight:700">${escapeHtml(group.title)} subtotal: ${money(group.subtotal)}</div></section>`).join("");
 }
 
@@ -84,6 +137,11 @@ export function totalBlock(label: string, amount: number, accent?: string | null
 }
 
 export function footerBlock(brand: Letterhead): string {
+  if (brand.documentStyle === "classic") {
+    const site = displayWebsite(brand.websiteUrl);
+    if (!brand.licenseNumber && !site) return "";
+    return `<table role="presentation" style="width:100%;margin-top:32px;border-top:1px solid #d1d5db;font-size:11px;color:#374151;font-family:Arial,Helvetica,sans-serif"><tr><td style="padding-top:10px">${brand.licenseNumber ? `LIC# ${escapeHtml(brand.licenseNumber)}` : ""}</td><td style="padding-top:10px;text-align:right">${site ? `<span style="color:${classicAccent(brand.brandColor)};text-transform:uppercase;text-decoration:underline">${escapeHtml(site)}</span>` : ""}</td></tr></table>`;
+  }
   return `<footer style="margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;text-align:center;font-size:11px;color:#64748b">${[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).map((v) => escapeHtml(v!)).join(" &middot; ")}</footer>`;
 }
 

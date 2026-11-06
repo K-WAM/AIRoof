@@ -2,7 +2,11 @@ import { logoDataUri, logoStyle, needsLogoChip, pickDefaultLogo } from "@/lib/br
 import type { LibraryLogo } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 
-export type LetterheadBusiness = Partial<Pick<BusinessConfig, "businessName" | "brandColor" | "logoUrl" | "address" | "contactPhone" | "contactEmail" | "websiteUrl" | "licenseNumber" | "timezone">>;
+export type LetterheadBusiness = Partial<Pick<BusinessConfig, "businessName" | "brandColor" | "logoUrl" | "address" | "contactPhone" | "contactEmail" | "websiteUrl" | "licenseNumber" | "timezone" | "documentStyle">> & {
+  /** From the billing company (src/types/company.ts); the business itself has neither. */
+  fax?: string;
+  tagline?: string;
+};
 export interface Letterhead extends LetterheadBusiness { logoStyle: ReturnType<typeof logoStyle>; logoChip: boolean }
 
 export function resolveLetterhead(business: LetterheadBusiness, logos: LibraryLogo[] = [], surface: "light" | "brand-bar" = "light", logoId?: string | null): Letterhead {

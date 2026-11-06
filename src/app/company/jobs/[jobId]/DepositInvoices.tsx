@@ -13,6 +13,7 @@ import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyCo
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { fmtMoney } from "@/lib/format/money";
+import { fmtDate } from "@/lib/format";
 import { invoiceBalance } from "@/lib/billing/customerPayments";
 import { parseDocumentRecipients } from "@/lib/documents/recipients";
 import { InvoicePayPrint, type SentPayLink } from "./InvoicePayPrint";
@@ -65,7 +66,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
       </div>}
       <ul style={{ listStyle: "none", padding: 0 }}>{(all ? deposits : deposits.slice(0, 5)).map(d => <li key={d.invoiceId} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><strong>{d.invoiceId}</strong> · {fmtMoney(d.total)} · {d.status}<button className="button" onClick={() => { setSelected(d); setRequesting(false); setNewPayLink(false); }}>Review deposit</button></li>)}</ul>
       {deposits.length > 5 && <button className="button" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${deposits.length}`}</button>}
-      {selected && <div style={{ marginTop: 14 }}><DocumentCompanyControl jobId={jobId} kind="deposit" invoiceId={selected.invoiceId} companyId={selected.companyId} jobCompanyId={jobCompanyId} sent={selected.status !== "draft"} disabled={readOnly || busy} onSaved={(companyId, copy) => { setSelected(current => current ? { ...current, companyId, ...(copy?.opening !== undefined ? { opening: copy.opening } : {}) } : current); setDeposits(current => current.map(d => d.invoiceId === selected.invoiceId ? { ...d, companyId } : d)); }} />{staleDepositName && <InlineNotice message={`This text mentions ${staleDepositName} — check it before sending`} />}<button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={selectedBrand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} howToPay={selected.status === "paid" || !isMultiCompany(businessConfig) ? null : { instructions: selectedBrand.billingPrefs?.payInstructions ?? "", link: selectedBrand.billingPrefs?.payLink ?? "" }} />
+      {selected && <div style={{ marginTop: 14 }}><DocumentCompanyControl jobId={jobId} kind="deposit" invoiceId={selected.invoiceId} companyId={selected.companyId} jobCompanyId={jobCompanyId} sent={selected.status !== "draft"} disabled={readOnly || busy} onSaved={(companyId, copy) => { setSelected(current => current ? { ...current, companyId, ...(copy?.opening !== undefined ? { opening: copy.opening } : {}) } : current); setDeposits(current => current.map(d => d.invoiceId === selected.invoiceId ? { ...d, companyId } : d)); }} />{staleDepositName && <InlineNotice message={`This text mentions ${staleDepositName} — check it before sending`} />}<button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={selectedBrand} meta={depositMeta(selected, jobId, businessConfig?.timezone ?? "America/New_York")} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} howToPay={selected.status === "paid" || !isMultiCompany(businessConfig) ? null : { instructions: selectedBrand.billingPrefs?.payInstructions ?? "", link: selectedBrand.billingPrefs?.payLink ?? "" }} />
         {selected.payNowPending && <p role="status">Bank payment pending</p>}
         {selected.payNowNotice && <p role="status">{selected.payNowNotice}</p>}
         {selected.payments?.some(p => p.source === "stripe" && p.amount > 0) && <p>Paid online</p>}
@@ -80,4 +81,18 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
       </div>}
     </details>{error && <p role="alert">{error}</p>}
   </section>{selected && <div className="k1-deposit-print"><DocumentPreview title="Deposit invoice" brand={selectedBrand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} howToPay={selected.status === "paid" || !isMultiCompany(businessConfig) ? null : { instructions: selectedBrand.billingPrefs?.payInstructions ?? "", link: selectedBrand.billingPrefs?.payLink ?? "" }}>{!readOnly && selected.status === "sent" && invoiceBalance(selected) > 0 && <InvoicePayPrint link={payLinks[selected.invoiceId] ?? null} businessId={businessId} jobId={jobId} invoiceId={selected.invoiceId} deposit />}</DocumentPreview></div>}</>;
+}
+
+/**
+ * The deposit invoice's details block, like a contractor's own deposit invoice (2026-11-06): date and number first,
+ * then "Deposit 50% - <work>", the work order it belongs to and the service address.
+ */
+function depositMeta(deposit: JobInvoice, jobId: string, tz: string): [string, string][] {
+  return [
+    ...(deposit.issuedAt ? [["Date", fmtDate(deposit.issuedAt, tz)] as [string, string]] : []),
+    ["Number", deposit.invoiceId],
+    ["Description", [`Deposit${deposit.depositPercent ? ` ${deposit.depositPercent}%` : ""}`, deposit.description].filter(Boolean).join(" - ")],
+    ["Reference", `Work order ${jobId}`],
+    ...(deposit.serviceAt ? [["Service at", deposit.serviceAt] as [string, string]] : []),
+  ];
 }

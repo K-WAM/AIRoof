@@ -7,10 +7,11 @@ import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
 import { fmtPhone } from "@/lib/format/phone";
 import { fmtMoney } from "@/lib/format/money";
+import { ClassicDocument } from "./ClassicDocument";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }:  {
+export interface DocumentPreviewProps {
   findingSections?: boolean;
   serviceAt?: string; customerCode?: string; depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   children?: ReactNode;
@@ -19,6 +20,8 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ category?: string; problem: string; solution: string; note?: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
+  /** INVOICE, classic look only: the Subtotal / Sales Tax rows printed above the total (the standard look shows the total alone). */
+  totals?: { subtotal: number; tax: number };
   /** REPORT only: the optional "Include the quote" block (a sent/accepted quote's work and prices). Built by reportQuoteSection(). */
   quoteSection?: ReportQuoteSection | null;
   /** QUOTE / INVOICE only: "Terms & notices" — pass what noticesForDocument() approved (nothing until the owner approves the wording). */
@@ -26,8 +29,18 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   photos?: DocumentPhoto[];
   /** INVOICE only (Billing product): the business's own payment details, printed under the total. */
   howToPay?: { instructions: string; link: string } | null;
-}) {
+}
+
+export function DocumentPreview(props: DocumentPreviewProps) {
+  // A business on the classic letterhead (BusinessConfig.documentStyle) gets its own layout; everyone else is unchanged.
+  if (props.brand.documentStyle === "classic") return <ClassicDocument {...props} />;
+  return <StandardDocument {...props} />;
+}
+
+function StandardDocument({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, findingSections, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, afterHowToPay, children, serviceAt, customerCode, depositsApplied }: DocumentPreviewProps) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
+  // Say it once: the details block already lists "Service at" when the page passed the same address there.
+  const serviceAtInMeta = meta.some(([key, value]) => key === "Service at" && value.trim() === (serviceAt ?? "").trim());
   return <article className={`k1-document ${className}`} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
     <header style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 24, borderBottom: `3px solid ${accent}`, paddingBottom: 20 }}>
       <div>{brand.logoUrl && <>
@@ -43,7 +56,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
     </header>
     <section style={{ padding: "20px 0", borderBottom: "1px solid #e2e8f0" }}><strong>{partyLabel}</strong><div>{billTo.name}</div>{billTo.address && <div>{billTo.address}</div>}{billTo.phone && <div>{fmtPhone(billTo.phone)}</div>}</section>
     {customerCode && <p><strong>Customer ID:</strong> {customerCode}</p>}
-    {serviceAt !== undefined && <section style={{ padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}><strong>Service at</strong><div>{serviceAt}</div></section>}
+    {serviceAt !== undefined && !serviceAtInMeta && <section style={{ padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}><strong>Service at</strong><div>{serviceAt}</div></section>}
     {children}
     {opening && <section style={{ padding: "20px 0", whiteSpace: "pre-wrap" }}><p>{opening}</p></section>}
     {findingSections ? findings?.map((finding, index) => <section key={index} className="document-finding" style={{ padding: "18px 0", whiteSpace: "pre-wrap" }}><h3>{finding.category || `Finding ${index + 1}`}</h3><p><strong>Problem:</strong> {finding.problem}</p><p><strong>Corrective Action:</strong> {finding.solution}</p>{finding.note?.trim() && <p><em>Inspector&apos;s note: {finding.note.trim()}</em></p>}</section>) : !!findings?.length && <section style={{ padding: "18px 0" }}><strong>{title === "Invoice" ? "Findings and corrective action" : "Issues found & work recommended"}</strong>{findings.map((finding, index) => <p key={index} style={{ whiteSpace: "pre-wrap" }}>{title === "Invoice" ? <><strong>Problem:</strong> {finding.problem}<br /><strong>Corrective action:</strong> {finding.solution}</> : <><strong>{finding.problem}</strong><br />{finding.solution}</>}{finding.note?.trim() && <><br /><em style={{ color: "#475569" }}>Inspector&apos;s note: {finding.note.trim()}</em></>}</p>)}</section>}
