@@ -151,6 +151,20 @@ describe("QuickAdd", () => {
     unsubscribe();
   });
 
+  it("shows the server's reason when a job is refused (e.g. View as is read-only), not a generic form error", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ code: "view_as_read_only", error: "View as is read-only. Exit to make changes." }),
+    });
+    renderQuickAdd();
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByRole("button", { name: /New Job/ }));
+    fireEvent.change(screen.getByLabelText(/Job title/), { target: { value: "Test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create Job" }));
+    expect(await screen.findByText("The job was not created: View as is read-only. Exit to make changes.")).toBeInTheDocument();
+    expect(screen.queryByText(/Review the form and try again/)).not.toBeInTheDocument();
+  });
+
   it("drills into the Material form, reads the current catalog, appends, and shows a success state", async () => {
     (global.fetch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ ok: true, json: async () => ({ library: { materials: [{ name: "Ridge cap", unit: "piece", unitPrice: 8.5 }] } }) })
