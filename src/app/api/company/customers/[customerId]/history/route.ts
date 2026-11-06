@@ -4,7 +4,10 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import type { JobHistoryRecord } from "@/types/invoiceHistory";
 
-const HISTORY_LIMIT = 200;
+// Bounded but generous: one real customer has 206 Jobba work orders plus inspections, and rows are sorted after the
+// read (no orderBy — it would drop records missing dueAt), so a low cap silently hid arbitrary rows. The screen still
+// shows the first 10 with "Show all".
+const HISTORY_LIMIT = 1000;
 
 export interface CustomerHistoryItem {
   id: string;
