@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useBootstrap } from "@/contexts/BootstrapContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 import { resolveDocumentCompany } from "@/lib/companies/companies";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 import type { DocumentCompanyCopy } from "@/types/company";
@@ -15,6 +16,7 @@ export function DocumentCompanyControl({ jobId, kind, companyId, jobCompanyId, c
   sent?: boolean; disabled?: boolean; onSaved: (id: string, copy?: DocumentCompanyCopy) => void;
 }) {
   const companies = useBootstrap().data?.business.companies;
+  const businessId = useBusinessId();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +26,7 @@ export function DocumentCompanyControl({ jobId, kind, companyId, jobCompanyId, c
   async function choose(id: string) {
     setBusy(true); setError("");
     try {
-      const res = await fetch(`/api/jobs/${jobId}/company`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, companyId: id, ...(invoiceId ? { invoiceId } : {}) }) });
+      const res = await fetch(`/api/jobs/${jobId}/company`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, kind, companyId: id, ...(invoiceId ? { invoiceId } : {}) }) });
       const d = await res.json(); if (!res.ok) throw new Error(d.error || "Could not change company."); onSaved(id, d.copy);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not change company."); } finally { setBusy(false); }
   }

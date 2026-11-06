@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
+import { verifyOwnBusinessOrSuperadmin } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
@@ -21,9 +21,10 @@ import type { BillingCompany, DocumentCompanyCopy } from "@/types/company";
 type CopyPatch = DocumentCompanyCopy;
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  const gate = await verifyOwnBusinessRole(req, ["owner", "staff"]);
-  if ("error" in gate) return gate.error;
   const body = await req.json().catch(() => null);
+  // A member switches their own business's documents; the platform admin names the business (Demo Studio / Preview).
+  const gate = await verifyOwnBusinessOrSuperadmin(req, body?.businessId, ["owner", "staff"]);
+  if ("error" in gate) return gate.error;
   if (!body || !["quote", "invoice", "deposit", "report"].includes(body.kind) || typeof body.companyId !== "string") return jsonWithCache({ error: "Choose a document and company." }, "noStore", { status: 400 });
   if (body.kind === "deposit" && (typeof body.invoiceId !== "string" || !/^[\w-]{1,128}$/.test(body.invoiceId))) return jsonWithCache({ error: "Document not found" }, "noStore", { status: 404 });
   const db = getAdminFirestore();

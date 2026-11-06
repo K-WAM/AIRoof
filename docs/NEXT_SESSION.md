@@ -1,3 +1,11 @@
+## Roof Doctors account (2026-11-05, night)
+- Prepared, not yet in production. The owner runs (dry run first):
+  `vercel env pull .env.production.local --environment=production --yes`, then
+  `node client-resources/roofdoctors/05-crm-import/push-workspace.mjs`, then `... --apply --confirm roofdoctors`, then deletes
+  `.env.production.local`. This creates the account with RDSF + RCU, both logos, Alice as the agent name and the send block on
+  (email only to the owner's two addresses, no texts or calls). Next: import dry run -> owner OK -> apply; showcase jobs;
+  demo line switch Tue Nov 10; owner login on an email alias.
+
 ## State 2026-11-05 late (Claude K0) - two companies + View as + address suggestions merged locally, awaiting push approval
 
 - Also merged on main, NOT pushed: T-316/T-317 (RDSF + RCU companies, company split for money and usage), T-318 (View as),

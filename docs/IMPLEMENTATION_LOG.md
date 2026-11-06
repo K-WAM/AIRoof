@@ -2632,3 +2632,17 @@ the owner. e2e/demo-live after hours found T-324: confirming a phone booking tha
 fails (unit-less legacy rows block confirm, while the phone booking counts them as one unit). It is pre-existing, falls
 under the booking-change gate, and is logged rather than rushed.
 
+## 2026-11-05 - T-325: two-company brand lockup; company switch from Preview; Roof Doctors account prepared
+Owner: "logos sharp, not blurry, powered by Luxor below the two logos ... no clutter ... visible on every screen."
+CompanyBrand now renders a lockup for two-company accounts: both logos side by side (44 px row on the sidebar, 30 px on
+the phone header), "Powered by Luxor" under them, and the business name for screen readers only. On phones, the Menu
+button shows as its icon for these accounts (aria-label unchanged). One-company brands are unchanged.
+`PATCH /api/jobs/[jobId]/company` now uses verifyOwnBusinessOrSuperadmin. It returned 403 from Preview, the same class
+of bug as T-321; DocumentCompanyControl now sends businessId.
+Roof Doctors account: built in the harness through the app's own APIs (POST /api/admin/businesses, logo uploads,
+PUT companies), then exported. The production write is a dry-run-first script in the git-ignored
+client-resources/roofdoctors/05-crm-import/ (push-workspace.mjs; create() never overwrites; evaluation guard in the
+same record). The session's permission check refused both pulling production credentials and deploying, so the owner
+runs it. Screens checked: desktop + phone shell, the menu sheet, and RDSF and RCU invoice letterheads with the real
+logos.
+
