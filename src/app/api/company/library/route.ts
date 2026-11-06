@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import type { LibraryPricing } from "@/types/library";
-
-const EMPTY: LibraryPricing = { materials: [], laborRates: [], documents: [] };
+import { normalizePricing } from "@/lib/library/pricing";
 
 // GET /api/company/library?businessId=xxx
 export async function GET(req: NextRequest) {
@@ -19,8 +17,7 @@ export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const snap = await db.collection(`businesses/${businessId}/library`).doc("pricing").get();
-  const library = snap.exists ? (snap.data() as LibraryPricing) : EMPTY;
-  return NextResponse.json({ library });
+  return NextResponse.json({ library: normalizePricing(snap.exists ? snap.data() : undefined) });
 }
 
 // PUT /api/company/library  body: { businessId, materials?, laborRates?, defaultTaxRate?, documents? }

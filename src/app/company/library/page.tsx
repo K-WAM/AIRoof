@@ -166,8 +166,8 @@ export default function LibraryPage() {
   }
 
   const readOnly = user?.role === "viewer";
-  const pricingEmpty = hasPricing && library.materials.length === 0 && library.laborRates.length === 0;
-  const hasStarterPrices = library.materials.some((m) => m.starter) || library.laborRates.some((r) => r.starter) || workCatalog.items.some((i) => i.starter);
+  const pricingEmpty = hasPricing && (library.materials ?? []).length === 0 && (library.laborRates ?? []).length === 0;
+  const hasStarterPrices = (library.materials ?? []).some((m) => m.starter) || (library.laborRates ?? []).some((r) => r.starter) || workCatalog.items.some((i) => i.starter);
 
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError) {
