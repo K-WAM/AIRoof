@@ -2924,6 +2924,20 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 ## NEEDS-HUMAN
 
+**Roof Doctors review, Fri 2026-11-13 10 a.m. — owner items (added 2026-11-05 night).** Claude's side is T-305, T-307 and
+T-298 below; the same list with check boxes is at the top of `docs/NEXT_SESSION.md`.
+- [ ] **Deploy the security rules** (refused for the agent): `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` → "Deploy complete!".
+- [ ] **Line switch timing (T-307):** (689) 204-2643 becomes Roof Doctors' own Alice "now" or Tue Nov 10; other demos use the Canada (778) 907-9769 line meanwhile.
+- [ ] **Click through** Admin → Clients → Roof Doctors → Preview, then View as → Admin / Office staff / Supervisor / Inspector.
+- [ ] **Their crew names** → Claude enters them (Library → Crews). The Calendar needs at least one crew to schedule a job.
+- [ ] **Their RCU customers** (municipal + school) → Claude marks them (Customers → Company: RCU); Jobba never recorded it.
+- [ ] **Ask Michael for the Jobba contacts export** (each customer's phone + email): the customer export has none.
+- [ ] **Share the data-gaps doc or not:** https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw (private until shared).
+- [ ] **Say "build the sample job" (T-305)** so Jobs and Calendar aren't empty.
+- [ ] **Rehearse Nov 11–12** with a live call (give your own email so the confirmation arrives); freeze Thu 6 p.m. (T-298).
+- [ ] **Pricing decisions before quoting them:** included AI minutes, seats 16–20, texting fees (under Jobba's $1,289/month).
+- [ ] **Later, not blocking the review:** create the Stripe Connect platform (Pay now stays a preview until then; RCU needs its own account, T-320) and start the A2P texting registration.
+
 **Demo next week (2026-09-08 note):** of the items below, **NH-8** is the one actually worth doing before the
 demo — it's the only residual gap the 2026-09-08 code review couldn't close by reading (a live click-through of
 Calendar drag→confirm and a real-phone field QR + hold-to-speak). Everything else on this list is
