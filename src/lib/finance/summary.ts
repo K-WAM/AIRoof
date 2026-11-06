@@ -19,7 +19,7 @@ export function rowsFromInvoices(invoices: JobInvoice[], jobCompanyById: Record<
     const total = cents(customerTotals({ kind: "invoice", invoice: i, priceMode: i.priceMode, customerSubtotal: i.customerSubtotal }).total);
     const balance = cents(invoiceBalance(i));
     const companyId = typeof i.companyId === "string" ? i.companyId : jobCompanyById[i.jobId];
-    return { invoiceNo: i.invoiceId, jobId: i.jobId, ...(typeof companyId === "string" ? { companyId } : {}), customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, ...(typeof i.dueAt === "number" ? { dueAt: i.dueAt } : {}), total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
+    return { invoiceNo: i.invoiceId, jobId: i.jobId, ...(i.customerId ? { customerId: i.customerId } : {}), ...(typeof companyId === "string" ? { companyId } : {}), customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, ...(typeof i.dueAt === "number" ? { dueAt: i.dueAt } : {}), total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
   });
 }
 export function summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, now: number, termsDays = 30, tz = "America/New_York"): FinanceSummary {

@@ -32,6 +32,7 @@ describe("finance summary", () => {
 });
 
 describe("company attribution (T-317)", () => {
+  it("retains an app invoice customer link", () => { expect(rowsFromInvoices([invoice({ customerId: "C-EXAMPLE" })])[0].customerId).toBe("C-EXAMPLE"); });
   it("keeps the matched customerId on imported history rows", () => {
     expect(rowsFromHistory([history({ customerId: "C-1" })])[0].customerId).toBe("C-1");
   });

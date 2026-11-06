@@ -3251,7 +3251,7 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 
 | T-335 | task/rd-money | review | Correct imported invoice totals; final browser verification pending. |
 
-| T-336 | task/rd-money | in progress | Finance interactions implemented; final verification pending. |
+| T-336 | task/rd-money | review | Combined filters, chips, toggles, direct record links and bounded invoice pages verified desktop/phone. |
 
 | T-337 | task/rd-money | review | Day-by-day payroll example and labeled person summaries verified on desktop and phone. |
 
