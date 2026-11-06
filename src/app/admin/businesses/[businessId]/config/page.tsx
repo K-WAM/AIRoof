@@ -15,8 +15,10 @@ import { TeamPanel } from "@/app/company/settings/TeamPanel";
 import { CompaniesPanel } from "./CompaniesPanel";
 import { ProductsPanel } from "./ProductsPanel";
 import { PhoneLinesPanel } from "./PhoneLinesPanel";
+import { ArchiveClientPanel } from "./ArchiveClientPanel";
+import { isDemoTenant } from "@/lib/accounts/purpose";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
-import type { VoiceRef } from "@/types";
+import type { AccountPurpose, VoiceRef } from "@/types";
 import {
   ArrowLeft,
   Bot,
@@ -78,6 +80,9 @@ interface BizData {
   employeeCount?: number;
   seatLimit?: number;
   subscriptionStatus?: "active" | "paused" | "trial";
+  accountPurpose?: AccountPurpose;
+  previousAccountPurpose?: AccountPurpose;
+  isDemo?: boolean;
   products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
   upgradeRequests?: Partial<Record<"calls" | "field" | "billing", { at: number; by: string }>>;
   pausedAt?: number;
@@ -121,6 +126,7 @@ const CONFIG_SECTIONS: Array<[string, string]> = [
   ["login-provision", "Login"],
   ["products", "Products"],
   ["subscription", "Plan"],
+  ["archive", "Archive"],
   ["routing", "Routing"],
   ["branding", "Branding"],
   ["pricing", "Pricing"],
@@ -916,6 +922,19 @@ export default function AdminBusinessConfigPage({
               </div>
             </div>
           </section>
+
+          {/* ─── Archive (T-349) ─── */}
+          <ArchiveClientPanel
+            businessId={businessId}
+            businessName={biz.businessName}
+            accountPurpose={biz.accountPurpose}
+            demo={isDemoTenant(businessId, biz)}
+            onChanged={(result) => setBiz((current) => current ? {
+              ...current,
+              accountPurpose: result.accountPurpose ?? undefined,
+              previousAccountPurpose: result.previousAccountPurpose ?? undefined,
+            } : current)}
+          />
 
           {/* ─── Team ─── */}
           <TeamPanel businessId={businessId} />

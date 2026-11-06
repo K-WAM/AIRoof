@@ -166,6 +166,8 @@ export interface BusinessConfig {
   // Phase 32 (T-166, contract C-A): why this tenant exists. Superadmin-set only; missing = "unclassified". The effective
   // value for DEMO_BUSINESS_IDS / isDemo tenants is always "demo" (effectiveAccountPurpose, src/lib/accounts/purpose.ts).
   accountPurpose?: AccountPurpose;
+  /** T-349: the purpose an archived client had before archiving, so Restore can put it back. */
+  previousAccountPurpose?: AccountPurpose;
   /** Demo marker required by Demo Studio / the sandbox before they touch a tenant (T-035). */
   isDemo?: boolean;
   createdAt: number;
@@ -416,7 +418,9 @@ export interface AdminAuditEvent {
     | "subscription.paused"
     | "subscription.resumed"
     | "products.updated"
-    | "companies.updated";
+    | "companies.updated"
+    | "business.archived"
+    | "business.restored";
   targetPath: string;
   before?: unknown;
   after?: unknown;
