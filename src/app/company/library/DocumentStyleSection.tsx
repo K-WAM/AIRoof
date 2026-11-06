@@ -39,6 +39,8 @@ export function DocumentStyleSection({ businessId, readOnly = false }: { busines
       const res = await fetch("/api/company/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, documentStyle: next }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not save the document look.");
+      // Refresh the browser's cached GET too; its 30-second branding cache must not undo this choice on the next document.
+      await fetch(`/api/company/settings?businessId=${businessId}`, { cache: "reload" }).catch(() => null);
       setMessage({ ok: true, text: "Saved. Open any quote, report or invoice to see it." });
     } catch (error) {
       setStyle(previous);

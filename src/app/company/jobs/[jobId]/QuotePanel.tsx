@@ -17,7 +17,7 @@ import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/compa
 import { resolvedQuoteNarrative, staleCompanyName } from "@/lib/companies/documentCopy";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
-import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { LazyDocumentPreview as DocumentPreview } from "@/lib/documents/LazyDocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
@@ -36,7 +36,9 @@ import type { JobPhotoMeta } from "@/types/jobs";
 import { NumberField } from "@/components/ui/NumberField";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { LogoPicker } from "@/lib/documents/LogoPicker";
-import { QuoteLetterPreview } from "@/lib/documents/QuoteLetterPreview";
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
+const QuoteLetterPreview = dynamic(() => import("@/lib/documents/QuoteLetterPreview").then(m => m.QuoteLetterPreview), { ssr: false, loading: () => <PanelSkeleton label="Loading letter" document /> });
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
 import type { LetterRate } from "@/lib/documents/quoteLetter";
 

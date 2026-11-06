@@ -10,7 +10,7 @@ import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/compa
 import { staleCompanyName } from "@/lib/companies/documentCopy";
 import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
-import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { LazyDocumentPreview as DocumentPreview } from "@/lib/documents/LazyDocumentPreview";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { fmtMoney } from "@/lib/format/money";
 import { fmtDate } from "@/lib/format";

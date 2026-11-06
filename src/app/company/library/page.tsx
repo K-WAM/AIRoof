@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { PanelSkeleton } from "@/components/ui/PanelSkeleton";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -13,12 +15,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
-import { CrewsSection } from "./CrewsSection";
-import { CompaniesSection } from "./CompaniesSection";
-import { LogosSection } from "./LogosSection";
-import { DocumentStyleSection } from "./DocumentStyleSection";
-import { WorkCatalogSection } from "./WorkCatalogSection";
-import { LettersSection } from "./LettersSection";
+const CrewsSection = dynamic(() => import("./CrewsSection").then(m => m.CrewsSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const CompaniesSection = dynamic(() => import("./CompaniesSection").then(m => m.CompaniesSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const LogosSection = dynamic(() => import("./LogosSection").then(m => m.LogosSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const DocumentStyleSection = dynamic(() => import("./DocumentStyleSection").then(m => m.DocumentStyleSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const WorkCatalogSection = dynamic(() => import("./WorkCatalogSection").then(m => m.WorkCatalogSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const LettersSection = dynamic(() => import("./LettersSection").then(m => m.LettersSection), { ssr: false, loading: () => <PanelSkeleton /> });
 import {
   BadgeDollarSign,
   BookOpen,

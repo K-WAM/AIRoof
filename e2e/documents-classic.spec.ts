@@ -66,9 +66,13 @@ test("classic documents, company letterhead, finding prices and branding picker"
     const picker = page.getByTestId("document-style-section");
     await picker.getByRole("radio", { name: /^Standard/ }).check();
     await expect.poll(async () => must(await owner.get(`/api/company/settings?businessId=${B}`), "saved style").documentStyle).toBe("standard");
+    await visit("invoice");
+    await expect(page.locator(".invoice-doc")).not.toHaveClass(/k1-classic/);
+    await page.goto("/company/library?section=branding"); await settle(page);
     await picker.getByRole("radio", { name: /^Classic letterhead/ }).check();
     await expect.poll(async () => must(await owner.get(`/api/company/settings?businessId=${B}`), "saved style").documentStyle).toBe("classic");
     await picker.scrollIntoViewIfNeeded(); await shot(page, "classic-branding"); await expectHealthy(page);
+    await visit("invoice"); await expect(page.locator(".invoice-doc.k1-classic")).toBeVisible();
   } finally {
     must(await owner.put("/api/company/settings", { businessId: B, documentStyle: "standard" }), "restore style");
     await ref.update({ websiteUrl: original.websiteUrl ?? null });
