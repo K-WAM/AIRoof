@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 // The Photos tab: drag-and-drop ordering (mouse and keyboard) persists, and Before/After photos show as pairs.
 // This is the check E6a could not do in a real browser. Data is created through the real API, then verified through it.
 import { api, must, pngBase64 } from "../scripts/e2e/lib.cjs";
@@ -23,7 +24,7 @@ async function orderOf(owner: Awaited<ReturnType<typeof api>>, jobId: string): P
 async function openPhotos(page: import("@playwright/test").Page, jobId: string) {
   await page.goto(`/company/jobs/${jobId}`);
   await settle(page);
-  await page.getByTestId("job-tab-photos").click(); // T-161: job sections are tabs now
+  await openJobPanel(page, "photos"); // T-161: job sections are tabs now
   await settle(page);
 }
 
@@ -36,6 +37,8 @@ test.describe("Photos tab", () => {
     await shot(page, "photos-before-drag");
     const handle = (name: string) => page.getByRole("button", { name: `Reorder ${name}` });
     await expect(handle("Alpha")).toBeVisible();
+    // T-344 moved the photos lower; a drag that starts near the viewport edge auto-scrolls the page mid-drag. Start mid-screen.
+    await handle("Alpha").evaluate((el) => el.scrollIntoView({ block: "center" }));
 
     const from = await handle("Alpha").boundingBox();
     const to = await handle("Charlie").boundingBox();
@@ -55,7 +58,7 @@ test.describe("Photos tab", () => {
 
     await page.reload();
     await settle(page);
-    await page.getByTestId("job-tab-photos").click(); // T-161: job sections are tabs now
+    await openJobPanel(page, "photos"); // T-161: job sections are tabs now
     const persisted = await orderOf(owner, jobId);
     // The Photos chunk and its list fetch mount asynchronously. Network-idle may
     // occur before that effect starts; wait for the actual ordered controls.

@@ -1,3 +1,4 @@
+import { openHelp } from "./fixtures";
 import { expect, expectHealthy, settle, shot, test } from "./fixtures";
 import type { Page, TestInfo } from "@playwright/test";
 
@@ -41,7 +42,8 @@ test("View as Office staff is a read-only company view, and Exit returns to Clie
   const nav = page.getByRole("navigation", { name: "Company navigation" }).first();
   await expect(nav.getByRole("link", { name: "Dashboard" }).first()).toBeAttached();
   await expect(page.getByRole("link", { name: "Team", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Feedback.*Not available/ }).filter({ visible: true })).toBeDisabled();
+  await openHelp(page);
+  await expect(page.getByRole("button", { name: /Send feedback.*Not available/ }).filter({ visible: true })).toBeDisabled();
   await expect(page.locator(".user-role-badge").first()).toHaveText("Office staff");
   await expectHealthy(page);
   await shot(page, "view-as-office");

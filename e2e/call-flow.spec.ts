@@ -80,12 +80,12 @@ test("call → booked → inspector schedule follows the real workflow", async (
     const menu = owner.locator("#company-mobile-nav");
     await expect(menu).toBeVisible();
     const menuLabels = (await menu.getByRole("link").allTextContents()).map((label) => label.trim());
-    expect(menuLabels.filter((label) => ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"].includes(label))).toEqual(["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"]);
+    expect(menuLabels.filter((label) => ["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings", "Help"].includes(label))).toEqual(["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings", "Help"]);
     await owner.keyboard.press("Escape");
   } else {
     const nav = owner.locator('nav[aria-label="Company navigation"]').first();
     const labels = await nav.getByRole("link").allTextContents();
-    expect(labels.filter((label) => ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"].includes(label.trim())).map((label) => label.trim())).toEqual(["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"]);
+    expect(labels.filter((label) => ["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings"].includes(label.trim())).map((label) => label.trim())).toEqual(["Dashboard", "Requests", "Calendar", "Jobs", "Finances", "Customers", "Library", "Settings"]);
   }
 
   await owner.goto("/company/pipeline");

@@ -45,7 +45,7 @@ async function openBar() {
   render(<CommandBar />);
   fireEvent.keyDown(window, { key: "k", ctrlKey: true });
   await screen.findByRole("dialog");
-  return screen.getByRole("combobox", { name: /Search calls, requests, jobs and customers/ });
+  return screen.getByRole("combobox", { name: /Search requests, calls, jobs and customers/ });
 }
 
 describe("CommandBar (T-158)", () => {

@@ -39,7 +39,7 @@ describe("guideFor", () => {
 
   it("drops calls steps for a client without the phone product", () => {
     const owner = guideFor("owner", { ...roofing, isEnabled: (m: CompanyModule) => m !== "calls" });
-    expect(owner.steps.map((step) => step.action)).not.toContain("Pipeline");
+    expect(owner.steps.map((step) => step.action)).not.toContain("Requests");
   });
 });
 
@@ -72,7 +72,9 @@ describe("role manuals", () => {
     expect(screensFor("foreman", twoCompanies).map((screen) => screen.path)).toEqual(["/company/field"]);
     expect(screensFor("inspector", twoCompanies)[0].bullets).toContain("My schedule shows your visits for the day.");
     const owner = screensFor("owner", twoCompanies).map((screen) => screen.path);
-    expect(owner).toEqual(expect.arrayContaining(["/company/team", "/company/finances", "/company/payroll"]));
+    expect(owner).toEqual(expect.arrayContaining(["/company/settings", "/company/billing"]));
+    expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Team at the top");
+    expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Finances and Payroll");
     for (const role of ["staff", "supervisor", "viewer"] as const) {
       expect(screensFor(role, twoCompanies).map((screen) => screen.path)).not.toEqual(expect.arrayContaining(["/company/team"]));
       expect(screensFor(role, twoCompanies).some((screen) => screen.path === "/company/finances")).toBe(false);

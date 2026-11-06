@@ -70,7 +70,7 @@ export default function BillingPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Wallet size={20} strokeWidth={1.75} /> Billing
+            <Wallet size={20} strokeWidth={1.75} /> Invoices
           </h1>
           <p className="page-subtitle">
             {totals.overdueCount > 0

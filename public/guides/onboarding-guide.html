@@ -420,7 +420,7 @@
     <ul style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.85;color:#1e293b;">
       <li><strong>Admin sidebar → Platform:</strong> <strong>Clients</strong> (every tenant; <strong>Edit</strong> opens a client's config) and <strong>Usage</strong> (per-business calls/leads/appointments, with a <strong>Phone line</strong> column).</li>
       <li><strong>Admin sidebar:</strong> <strong>Clients</strong> (accounts, new client) · <strong>Demo</strong> (Demo Studio, Client view, Field screen) · <strong>Billing</strong> (Usage &amp; costs, Invoices) · <strong>Help</strong> (Playbook, <code>/hub/guide</code>). On a phone it sits behind the <strong>Menu</strong> button. The <strong>“Run a demo in 5 minutes”</strong> runbook is the panel at the very top of Demo Studio.</li>
-      <li><strong>Company portal</strong> (the client view): Dashboard, Pipeline, Calls, Calendar, Jobs, Field, the industry's Customer list, and Library — plus a top-level <strong>Team</strong> page (owner only: invites, lock/unlock, <strong>Revoke all field QR links</strong>) and <strong>Settings</strong> (invoice wording, <strong>Terms &amp; notices</strong>, hours, recording notice).</li>
+      <li><strong>Company portal</strong> (the client view): Dashboard, Requests, Calls, Calendar, Jobs, Field, the industry's Customer list, and Library — plus a top-level <strong>Team</strong> page (owner only: invites, lock/unlock, <strong>Revoke all field QR links</strong>) and <strong>Settings</strong> (invoice wording, <strong>Terms &amp; notices</strong>, hours, recording notice).</li>
       <li><strong>Admin → Usage → “Phone line”</strong> tells you how each tenant is wired: <em>Live · ElevenLabs</em>, <em>Live · Vapi</em>, <em>Demo · shared line</em>, or <em>No phone line</em>.</li>
     </ul>
   </div>
@@ -433,7 +433,7 @@
       <li><strong>Before (5 min):</strong> <strong style="color:#1d4ed8">crm.luxordev.com/login</strong> as <strong>connect@luxordev.com</strong> → <strong>Demo Studio</strong> (Roofing is preselected) → type their company name, owner, email, phone, city, drop in their logo → <strong>Launch demo</strong>. Press <strong>Test call</strong> and hear your own phone answer as their company. Keep the dashboard open in a second window.</li>
       <li><strong>0–2 min — hand them the number:</strong> <strong style="color:#1d4ed8">+1 (689) 204-2643</strong>. “Call this. It's your receptionist.”</li>
       <li><strong>2–6 min — they call:</strong> ask about tile roofs and insurance, try something off-topic, then book an inspection (name, address, the problem). A <strong>Live</strong> badge appears in <strong>Calls</strong> while they are still talking.</li>
-      <li><strong>6–9 min — the dashboard:</strong> the call now has its summary, transcript and recording. <strong>Pipeline</strong> → open the request → <strong>Confirm &amp; create job</strong> (one tap — customer, email, address and reason are already filled in).</li>
+      <li><strong>6–9 min — the dashboard:</strong> the call now has its summary, transcript and recording. <strong>Requests</strong> → open the request → <strong>Confirm &amp; create job</strong> (one tap — customer, email, address and reason are already filled in).</li>
       <li><strong>9–13 min — the field:</strong> on the job, <strong>Send to a worker</strong> → type your own phone → open the text → type the worker's name (<strong>Your name (required)</strong>) → <strong>Arrived at job</strong> → hold to talk (“six cracked tiles on the south slope, the pipe boot is split…”) → one photo → <strong>＋ Finding</strong>. The office page updates by itself. The crew <strong>cannot</strong> mark the job complete from here any more — only the office can.</li>
       <li><strong>13–16 min — the quote:</strong> the <strong>① Findings</strong> tab lists what the crew reported — add the Library matches. The <strong>② Quote</strong> tab is already drafted → <strong>＋ Add item</strong> (price fills in, edit it) → <strong>Send quote</strong>. Once the customer answers, press <strong>Mark accepted</strong> (or declined/expired) — an answered quote is locked.</li>
       <li><strong>16–18 min — complete, report and invoice:</strong> the office marks the job complete — the <strong>Complete</strong> step on the status bar, or the <strong>Mark work complete</strong> button (the Next action on the Work step). The <strong>③ Report</strong> tab opens already drafted and is price-free unless you tick <strong>Include the quote</strong> → <strong>Mail report</strong> → <strong>Send report</strong>. <strong>④ Invoice</strong> → <strong>Send to Customer</strong> → <strong>Send Invoice</strong>: sending locks the invoice and moves the job to <strong>Invoiced</strong>; press <strong>Mark paid</strong> when it is paid.</li>
@@ -455,7 +455,7 @@
     <li style="margin-bottom:6px;"><strong>Status flow.</strong> <strong>Complete → Invoiced</strong> happens when the invoice is <strong>sent</strong>; then press <strong>Mark paid</strong>. A sent invoice is locked; an answered quote (<strong>Mark accepted / Mark declined / Mark expired</strong>) is locked too, so new findings go on the invoice, not the quote.</li>
     <li style="margin-bottom:6px;"><strong>Documents.</strong> Default invoice wording (Opening, Closing, Thank-you line, Terms) lives in <strong>Settings → Documents</strong>. A report is price-free unless <strong>Include the quote</strong> is ticked — and only a sent or accepted quote can be included. <strong>Settings → Terms &amp; notices</strong> holds the Florida notices: DRAFT wording, switched <strong>off</strong> on every customer document until the owner ticks <strong>I have had these reviewed</strong>. Attorney review is still outstanding (NEEDS-HUMAN) and the wording is not legal advice. Each job also has a <strong>Commercial property</strong> switch — homeowner-protection notices are left off commercial jobs.</li>
     <li style="margin-bottom:6px;"><strong>Photos.</strong> The job's <strong>Photos (N)</strong> tab pairs <strong>Before / After</strong> and supports drag-and-drop ordering (a grip handle, plus keyboard), and the photo edit sheet has a <strong>Pairs with…</strong> selector. Drag-and-drop is code-complete but was not verified in a real browser by its author — check it on the demo [verify]. <em>Coming next (not merged yet):</em> before/after photo pairs printed on the quote, invoice and report — do not promise that today.</li>
-    <li><strong>Calls, leads and jobs.</strong> An escalated call creates an <strong>Urgent</strong> lead in the Pipeline (now shown with an <strong>Escalated</strong> chip) — an escalation or the end-of-call safety net never creates a job. The Jobs list has <strong>Load older jobs</strong> and an <strong>Export CSV</strong> button. The AI no longer books over a scheduled job, and cancelling an appointment frees the slot.</li>
+    <li><strong>Calls, leads and jobs.</strong> An escalated call creates an <strong>Urgent</strong> lead in the Requests (now shown with an <strong>Escalated</strong> chip) — an escalation or the end-of-call safety net never creates a job. The Jobs list has <strong>Load older jobs</strong> and an <strong>Export CSV</strong> button. The AI no longer books over a scheduled job, and cancelling an appointment frees the slot.</li>
   </ul>
 
   <!-- ══ MASTER CHEAT SHEET ══ -->
@@ -632,7 +632,7 @@
   </div>
 
   <div class="highlight">
-    <strong>Dental, Care Homes, Property Mgmt, Childcare &amp; Daycares are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
+    <strong>Dental, Care Homes, Property Mgmt, Childcare &amp; Daycares are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Requests, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
   </div>
 
   <div class="highlight">
@@ -777,7 +777,7 @@
       <li>Hand the prospect your phone → dial <strong style="color:#34d399;font-size:15px;">+1 (689) 204-2643</strong></li>
       <li>They say: <em>"Hi, I had storm damage last night and need someone to inspect my roof."</em></li>
       <li>Alice answers as <em>their</em> company and books the appointment</li>
-      <li>Switch to your dashboard tab → click <strong>Pipeline</strong> → <strong>Appointments</strong> tab → the booking appears in real time</li>
+      <li>Switch to your dashboard tab → click <strong>Requests</strong> → <strong>Appointments</strong> tab → the booking appears in real time</li>
       <li>Click <strong>Calls</strong> → show full transcript of the call just completed</li>
       <li>On the appointment card → click <strong>Send Confirmation</strong> → branded email lands in their inbox in seconds</li>
       <li>Click <strong>Calendar</strong> → drag a card from <strong>Unscheduled</strong> onto a crew + day → click <strong>Confirm + email crew</strong></li>
@@ -1090,7 +1090,7 @@
       <div class="step-num purple">3</div>
       <div class="step-body">
         <strong>They land in the real dashboard</strong>
-        <p>The same Pipeline, Calendar, Jobs, and Library your own team uses — pre-seeded with realistic roofing data. A banner across the top marks it as a demo. This guest role is a <strong>read-only viewer</strong>: they can open every page, but nothing they click can write.</p>
+        <p>The same Requests, Calendar, Jobs, and Library your own team uses — pre-seeded with realistic roofing data. A banner across the top marks it as a demo. This guest role is a <strong>read-only viewer</strong>: they can open every page, but nothing they click can write.</p>
       </div>
     </li>
     <li>
@@ -1128,8 +1128,8 @@
     <li>
       <div class="step-num purple">4</div>
       <div class="step-body">
-        <strong>Pipeline — their own call is sitting there</strong>
-        <p>Click <strong>Pipeline</strong>. Their call becomes a lead or an appointment within moments — refresh if it's not there instantly.</p>
+        <strong>Requests — their own call is sitting there</strong>
+        <p>Click <strong>Requests</strong>. Their call becomes a lead or an appointment within moments — refresh if it's not there instantly.</p>
       </div>
     </li>
     <li>
@@ -1150,7 +1150,7 @@
       <div class="step-num purple">7</div>
       <div class="step-body">
         <strong>Jobs → Invoice — the payoff</strong>
-        <p>Open that job and click the <strong>Invoice</strong> tab to show the line items (view only — the guest cannot generate or send anything). This is a draft the client can email to their customer, with no online payment option; Stripe links in <span class="url">/admin/invoices</span> are only for Luxor billing the client.</p>
+        <p>Open that job and choose <strong>Money → Invoice</strong> to show the line items (view only — the guest cannot generate or send anything). This is a draft the client can email to their customer, with no online payment option; Stripe links in <span class="url">/admin/invoices</span> are only for Luxor billing the client.</p>
       </div>
     </li>
   </ol>
@@ -1434,7 +1434,7 @@
   </ol>
 
   <div class="highlight">
-    <strong>Intake fields, starter kits and the Library:</strong> the chosen industry also defines the <strong>intake fields</strong> the AI collects on a call (for example a unit number, insurance, or pet details) — they appear as labelled rows on the Pipeline request card. In the client's <strong>Library</strong>, a <strong>“Load starter kit”</strong> button seeds example materials, labor rates and the trade's <strong>Work catalog</strong> (standard problems and solutions); starter items carry a “Starter — review price” flag until someone edits them, and are never treated as final pricing without review. The <strong>Work catalog</strong> is its own Library tab, shown only for jobs-module industries.
+    <strong>Intake fields, starter kits and the Library:</strong> the chosen industry also defines the <strong>intake fields</strong> the AI collects on a call (for example a unit number, insurance, or pet details) — they appear as labelled rows on the Requests request card. In the client's <strong>Library</strong>, a <strong>“Load starter kit”</strong> button seeds example materials, labor rates and the trade's <strong>Work catalog</strong> (standard problems and solutions); starter items carry a “Starter — review price” flag until someone edits them, and are never treated as final pricing without review. The <strong>Work catalog</strong> is its own Library tab, shown only for jobs-module industries.
   </div>
 
   <div class="highlight">
@@ -1481,7 +1481,7 @@ superadmin: false</code>
       <div class="step-body">
         <strong>Tell them they can add their own team — you don't have to</strong>
         <p>Any account with the <strong>Owner</strong> role can open the top-level <strong>Team</strong> page and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it is raised in <strong>Admin → Clients → Edit</strong> (that client's Config page → <em>Subscription &amp; Billing</em> → <strong>Seat limit</strong>). Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
-        <p><strong>Which role?</strong> The ⓘ next to <em>Role</em> on the Team page explains each one. <strong>Owner</strong> — everything, including Team and Settings. <strong>Staff</strong> — the office and the field. <strong>Crew</strong> (field industries only) — the Field screen, time clock, photos, notes and findings; no Pipeline, prices or invoices. <strong>Viewer</strong> — look only. A <em>Title</em> (Technician, Foreman…) is a label and changes no access. Put people on a crew from the Team page's <strong>Crew</strong> column or from <strong>Library → Crews → ＋ Add member</strong>; confirming a job on the Calendar emails the crew's address and every member. <strong>Disable</strong> signs someone out, blocks sign-in and frees their seat (Enable undoes it).</p>
+        <p><strong>Which role?</strong> The ⓘ next to <em>Role</em> on the Team page explains each one. <strong>Owner</strong> — everything, including Team and Settings. <strong>Staff</strong> — the office and the field. <strong>Crew</strong> (field industries only) — the Field screen, time clock, photos, notes and findings; no Requests, prices or invoices. <strong>Viewer</strong> — look only. A <em>Title</em> (Technician, Foreman…) is a label and changes no access. Put people on a crew from the Team page's <strong>Crew</strong> column or from <strong>Library → Crews → ＋ Add member</strong>; confirming a job on the Calendar emails the crew's address and every member. <strong>Disable</strong> signs someone out, blocks sign-in and frees their seat (Enable undoes it).</p>
       </div>
     </li>
   </ol>
@@ -1579,7 +1579,7 @@ superadmin: false</code>
   </div>
 
   <div class="highlight">
-    <strong>Request review &amp; decline (T-113):</strong> in <strong>Pipeline</strong> or <strong>Calls</strong>, open a new request to get one “Review request” card: caller, what they want, intake rows, the AI’s call summary, a “missing information” prompt (with an optional AI call-back to collect it), and the recording. <strong>Confirm</strong> books it (and offers “Create job” with the details pre-filled — jobs are never created automatically); <strong>Decline &amp; notify</strong> sends the customer a polite, neutral email with a reason you pick. A decision is final and never sends twice. <em>Not yet tested on a live phone/email by the owner — run it once before you demo it.</em>
+    <strong>Request review &amp; decline (T-113):</strong> in <strong>Requests</strong> or <strong>Calls</strong>, open a new request to get one “Review request” card: caller, what they want, intake rows, the AI’s call summary, a “missing information” prompt (with an optional AI call-back to collect it), and the recording. <strong>Confirm</strong> books it (and offers “Create job” with the details pre-filled — jobs are never created automatically); <strong>Decline &amp; notify</strong> sends the customer a polite, neutral email with a reason you pick. A decision is final and never sends twice. <em>Not yet tested on a live phone/email by the owner — run it once before you demo it.</em>
   </div>
 
   <hr>

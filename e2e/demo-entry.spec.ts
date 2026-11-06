@@ -30,7 +30,7 @@ test("the old roofing link opens the one-field self-led demo; the sample app is 
   await app.click();
   await expect(page).toHaveURL(/\/company\/pipeline/);
   await expect(page.getByTestId("demo-tour")).toContainText("read-only");
-  await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Requests", exact: true })).toBeVisible();
   const profile = await page.request.get("/api/auth/profile");
   expect(profile.ok()).toBe(true);
   const user = (await profile.json()).profile;

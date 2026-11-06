@@ -77,21 +77,26 @@ describe("job detail page structure", () => {
     expect(screen.queryByRole("button", { name: /Next:/ })).toBeNull();
     fireEvent.click(screen.getByText("Materials (0)"));
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-    fireEvent.click(screen.getByText(/② Quote/));
+    fireEvent.click(screen.getByTestId("job-group-money"));
+    fireEvent.click(screen.getByTestId("job-tab-quote"));
     expect(screen.queryByRole("button", { name: "Mark accepted" })).toBeNull();
-    fireEvent.click(screen.getByText(/③ Report/));
+    fireEvent.click(screen.getByTestId("job-group-report"));
     expect(await screen.findByText(/No prices included/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Mail report" })).toBeNull();
   });
-  it("has plain record tabs on the left and the four numbered workflow tabs on the right — no Issues tab", async () => {
+  it("groups all existing panels into Work, Money and Report, keeping statuses", async () => {
     await openPage();
-    await waitFor(() => expect(tabs().some((t) => t.includes("Accepted"))).toBe(true)); // the Quote pill learns its status without opening the tab
-    const all = tabs();
-    expect(all[0]).toBe("Activity (2)");
-    expect(all.slice(1, 4)).toEqual(["Photos", "Materials (0)", "Labor (0)"]);
-    expect(all.slice(4).map((t) => t.replace(/\s*✓|\s*Accepted/g, ""))).toEqual(["① Findings", "② Quote", "③ Report", "④ Invoice"]);
-    expect(all.some((t) => /^Issues/.test(t))).toBe(false);
-    expect(all[4]).toContain("✓"); // findings are done
+    expect(within(screen.getByRole("tablist", {name:"Job groups"})).getAllByRole("tab").map(el=>el.textContent)).toEqual(["Work","Money","Report"]);
+    const work = tabs();
+    expect(work.slice(0,4)).toEqual(["Activity (2)","Photos","Materials (0)","Labor (0)"]);
+    expect(work[4]).toContain("Findings");
+    expect(work[4]).toContain("✓");
+    fireEvent.click(screen.getByTestId("job-group-money"));
+    await waitFor(() => expect(tabs().some(t=>t.includes("Accepted"))).toBe(true));
+    expect(tabs().map(t=>t.replace(/\s*✓|\s*Accepted/g,""))).toEqual(["Quote","Invoice"]);
+    fireEvent.click(screen.getByTestId("job-group-report"));
+    expect(screen.getByTestId("job-group-report").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("link",{name:"Open field screen"}).getAttribute("href")).toBe("/company/field?jobId=J-1");
   });
 
   it("the header has ONE primary action: Mark work complete (office-only) at the Work step, and no Generate buttons", async () => {
@@ -117,8 +122,7 @@ describe("job detail page structure", () => {
 
   it("Findings carries what the crew reported, and the locked-quote note shows on the record tabs", async () => {
     await openPage();
-    await waitFor(() => expect(tabs().some((t) => t.includes("Accepted"))).toBe(true));
-    fireEvent.click(screen.getByText(/① Findings/));
+    fireEvent.click(screen.getByTestId("job-tab-findings"));
     const crew = await screen.findByRole("region", { name: /Reported by crew/ });
     expect(within(crew).getByText(/Ponding water after rain/)).toBeTruthy();
     expect(screen.getByRole("article", { name: "Finding 1" })).toBeTruthy();
@@ -131,8 +135,9 @@ describe("job detail page structure", () => {
     job = { ...baseJob, status: "complete" };
     await openPage();
     fireEvent.click(screen.getByText("Next: Report", { exact: false }));
-    expect(tabs().some((t) => t.startsWith("③ Report"))).toBe(true);
-    fireEvent.click(screen.getByText(/④ Invoice/));
+    expect(screen.getByTestId("job-group-report").getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByTestId("job-group-money"));
+    fireEvent.click(screen.getByTestId("job-tab-invoice"));
     expect(await screen.findByText("Create invoice")).toBeTruthy();
     expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false);
   });

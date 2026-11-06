@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 import { api, must } from "../scripts/e2e/lib.cjs";
 import { test, expect, settle, expectHealthy, shot } from "./fixtures";
 
@@ -13,7 +14,7 @@ test("findings show the saved quote price and open its only price editor", async
   const price = page.getByRole("textbox", { name: "Unit price", exact: true }).first();
   await price.fill("125"); await price.blur();
   await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/quote?businessId=${businessId}`), "saved quote").quote.lines[0].unitPrice).toBe(125);
-  await page.getByTestId("job-tab-findings").click();
+  await openJobPanel(page, "findings");
   await expect(page.getByTestId("finding-price").first()).toContainText("On the quote: $125.00");
   await page.getByTestId("finding-price").first().scrollIntoViewIfNeeded(); await shot(page, "findings-quote-price");
   await expectHealthy(page);

@@ -36,6 +36,11 @@ export interface InvoiceHistoryRecord {
 /** A past inspection / work order from the source system, shown read-only on the customer page. */
 export interface JobHistoryRecord {
   id: string;
+  /** Legacy records without a kind are inspections. */
+  kind?: "inspection" | "work-order";
+  description?: string;
+  dealId?: string;
+  type?: string;
   source: HistorySource;
   sourceId: string;
   customerId?: string;

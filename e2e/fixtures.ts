@@ -104,3 +104,18 @@ export async function shot(page: Page, name: string, testInfo: TestInfo = test.i
   await page.screenshot({ path, fullPage: true, scale: "css" });
   return path;
 }
+
+/** Job panels are nested under Work, Money and Report (T-344). */
+export async function openJobPanel(page: import("@playwright/test").Page, panel: string) {
+  const group = panel === "report" ? "report" : ["quote", "invoice"].includes(panel) ? "money" : "work";
+  await page.getByTestId(`job-group-${group}`).click();
+  if (panel !== "report") await page.getByTestId(`job-tab-${panel}`).click();
+}
+
+/** Help is the one menu destination for the Guide and Feedback. */
+export async function openHelp(page: import("@playwright/test").Page) {
+  const help = page.getByRole("link", { name: "Help", exact: true }).filter({ visible: true });
+  if (!(await help.count())) await page.getByRole("button", { name: "Open menu" }).click();
+  await help.click();
+  await expect(page.getByRole("navigation", { name: "Help sections" })).toBeVisible();
+}

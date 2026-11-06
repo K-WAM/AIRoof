@@ -8,7 +8,6 @@ import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Toggle } from "@/components/ui/Toggle";
-import { TeamPanel } from "./TeamPanel";
 import { NoticesPanel } from "./NoticesPanel";
 import { GettingPaidPanel } from "./GettingPaidPanel";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
@@ -338,7 +337,6 @@ export default function CompanySettingsPage() {
                 </div>}
               </div>
             </section>}
-            {canManageTeam && <TeamPanel businessId={businessId} />}
             <p>For services, FAQs, agent voice, or other setup changes, contact <a href="mailto:connect@luxordev.com">connect@luxordev.com</a>.</p>
           </section>
         </fieldset>

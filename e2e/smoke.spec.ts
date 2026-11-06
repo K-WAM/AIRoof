@@ -94,6 +94,8 @@ test.describe("industry gating", () => {
       await page.setViewportSize({ width: 1280, height: 720 });
       await page.goto(path);
       await settle(page);
+      await expect(page.getByRole("link", { name: "Help", exact: true })).toBeInViewport();
+      await page.getByRole("link", { name: "Help", exact: true }).click();
       await expect(page.getByRole("button", { name: "Send feedback" })).toBeInViewport();
     }
   });

@@ -1,3 +1,4 @@
+import { openHelp } from "./fixtures";
 import { expect, test } from "./fixtures";
 
 // Owner, 2026-11-05: "when I hit Feedback while on Calendar it would show random floating text" — the phone menu stayed
@@ -14,6 +15,7 @@ for (const path of ["/company/calendar", "/company/dashboard"]) {
       await menu.click();
       await expect(page.locator("#company-mobile-nav")).toBeVisible();
     }
+    await openHelp(page);
     await page.getByRole("button", { name: "Send feedback" }).first().click();
     await expect(page.getByRole("dialog", { name: /Send feedback/ })).toBeVisible();
     if (phone) {

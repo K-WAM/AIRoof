@@ -88,4 +88,17 @@ export function mapMaterials(rows) { const seen = new Set(); return rows.filter(
 /** @param {Array<Record<string,string>>} rows @param {string} tz */
 export function mapInvoiceHistory(rows,tz) { return rows.map(r => ({id:historyId(r["Invoice ID"],r),sourceInvoiceId:r["Invoice ID"],issuedAt:parseUsDate(r.Date,tz),workName:r.Name,billTo:r["Bill To"],amount:parseMoney(r.Amount),tax:parseMoney(r.Tax),credits:parseMoney(r.Credits),amountDue:parseMoney(r["Amt Due"]),...(r.Paid ? {paidAt:parseUsDate(r.Paid,tz)} : {}),voided:r.Voided === "Yes",status:r.Status,source:"jobba"})); }
 /** @param {Array<Record<string,string>>} rows @param {string} tz */
-export function mapInspections(rows,tz) { return rows.map(r => ({id:historyId(r.ID,r),sourceId:r.ID,customerName:r.Customer,property:r.Property,address:r.Address,city:r.City,state:r.State,zip:r.Zip,status:r.Status,jobType:r["Job Type"],createdBy:r["Created By"],...(r.Due ? {dueAt:parseUsDate(r.Due,tz)} : {}),source:"jobba"})); }
+export function mapInspections(rows,tz) { return rows.map(r => ({id:historyId(r.ID,r),kind:"inspection",sourceId:r.ID,customerName:r.Customer,property:r.Property,address:r.Address,city:r.City,state:r.State,zip:r.Zip,status:r.Status,jobType:r["Job Type"],createdBy:r["Created By"],...(r.Due ? {dueAt:parseUsDate(r.Due,tz)} : {}),source:"jobba"})); }
+
+/** Work orders share history, but have a separate id namespace, including blank source IDs. */
+export function mapServices(rows, tz) {
+  return rows.map(r => ({
+    id: historyId(r["WO ID"], r).replace(/^jobba-/, "jobba-wo-"),
+    sourceId: r["WO ID"]?.trim() || "", kind: "work-order", source: "jobba",
+    customerName: r.Customer || "", property: r.Property || "", address: r.Address || "",
+    city: r.City || "", state: r.State || "", zip: r.Zip || "", status: r.Status || "",
+    jobType: r["Job Type"] || "", createdBy: r["Created By"] || "",
+    description: r.Description || "", dealId: r["Deal ID"] || "", type: r.Type || "",
+    ...(r.Due?.trim() ? { dueAt: parseUsDate(r.Due, tz) } : {}),
+  }));
+}

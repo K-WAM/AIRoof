@@ -1,3 +1,4 @@
+import { openJobPanel } from "./fixtures";
 // The customer story as a person clicks through it: a phone call books an inspection -> the office sees the call and the
 // request -> confirms it (customer email captured) -> creates the job -> walks the job tabs -> documents.
 // The call itself is simulated through the real ElevenLabs webhooks (scripts/e2e/lib.cjs simulateCall).
@@ -91,8 +92,8 @@ test("the API scenario finishes the job: field note, photos, quote, report, invo
   await page.goto(`/company/jobs/${result.ctx.jobId}`);
   await settle(page);
   await expect(page.getByText(/Invoiced|Paid/i).first()).toBeVisible();
-  for (const tab of [/^Activity/, /^Photos/, /^Materials/, /^Labor/, /Findings/, /Quote/, /Report/, /Invoice/]) {
-    await page.getByRole("tab", { name: tab }).first().click(); // T-161: job sections are tabs now
+  for (const tab of ["timeline", "photos", "materials", "labor", "findings", "quote", "report", "invoice"]) {
+    await openJobPanel(page, tab); // T-161: job sections are tabs now
     await settle(page, 500);
     await shot(page, `job-tab-${String(tab).replace(/[^a-z]/gi, "")}`);
     const wide = await overflowingElements(page);

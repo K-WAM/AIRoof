@@ -7,7 +7,7 @@ test("public sample pages load, show readable records and offer no office or fie
   const page = await as("viewer");
   await openSampleFallback(page);
   await page.getByRole("button", { name: "Open Sample App", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Requests", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^(Add|New|Quick add)$/ })).toHaveCount(0);
   await expect(page.getByTestId("demo-tour")).toContainText("Your live call appears in the guided demo");
   const foreign = await page.request.get("/api/businesses/demo-roofing/calls");

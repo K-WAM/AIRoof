@@ -1,3 +1,4 @@
+import { openHelp } from "./fixtures";
 import { api, db, must, readDoc } from "../scripts/e2e/lib.cjs";
 import { test, expect, settle, shot } from "./fixtures";
 
@@ -7,7 +8,8 @@ test("feedback stays above the calendar", async ({ as }, testInfo) => {
   await settle(page);
   await expect(page.getByText("Casey Sample").filter({ visible: true }).first()).toBeVisible();
   if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("button", { name: "Send feedback" }).filter({ visible: true }).click();
+  await openHelp(page);
+    await page.getByRole("button", { name: "Send feedback" }).filter({ visible: true }).click();
   const dialog = page.getByRole("dialog", { name: "Send feedback to Luxor" });
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate((el) => {
@@ -64,5 +66,11 @@ test("other business has no showcase access", async ({ as }) => {
   expect((await other.get("/api/company/finance")).status).toBe(404);
   expect((await other.get("/api/company/payroll?periodStart=2026-11-01&periodEnd=2026-11-07")).status).toBe(404);
   const page = await as("emptyOwner"); await page.goto("/company/dashboard"); await settle(page);
-  await expect(page.getByRole("link", { name: "Finances" })).toHaveCount(0); await expect(page.getByRole("link", { name: "Payroll" })).toHaveCount(0);
+  // "Finances" in the menu is the Invoices screen for a business with billing; the showcase-only
+  // routes must not be linked from the menu, nor from the Finances section switch on /company/billing.
+  await expect(page.locator('a[href^="/company/finances"]')).toHaveCount(0);
+  await expect(page.locator('a[href^="/company/payroll"]')).toHaveCount(0);
+  await page.goto("/company/billing"); await settle(page);
+  await expect(page.locator('a[href^="/company/finances"]')).toHaveCount(0);
+  await expect(page.locator('a[href^="/company/payroll"]')).toHaveCount(0);
 });

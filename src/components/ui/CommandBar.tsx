@@ -91,7 +91,7 @@ export function CommandBar({ header = false }: { header?: boolean }) {
   const { isEnabled, vocab } = useBusinessModules();
   const hasCalls = isEnabled("calls");
   const hasJobs = isEnabled("jobs");
-  const searchName = `Search calls, requests, ${hasJobs ? vocab.jobNounPlural.toLowerCase() : "bookings"} and ${vocab.customerNounPlural.toLowerCase()}`;
+  const searchName = `Search requests, calls, ${hasJobs ? vocab.jobNounPlural.toLowerCase() : "bookings"} and ${vocab.customerNounPlural.toLowerCase()}`;
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { decodeCsvBuffer, parseCsv, parseMoney, parseUsDate, matchKey, mapCustomers, mapProperties, mapMaterials, mapInvoiceHistory, mapInspections } from "../../../../scripts/lib/jobba-import.mjs";
+import { decodeCsvBuffer, parseCsv, parseMoney, parseUsDate, matchKey, mapCustomers, mapProperties, mapMaterials, mapInvoiceHistory, mapInspections, mapServices } from "../../../../scripts/lib/jobba-import.mjs";
 it("strips BOM", () => expect(decodeCsvBuffer(Buffer.from([239,187,191,65]))).toBe("A"));
 it("parses quoted comma", () => expect(parseCsv('Name,Status\r\n"A, B",Yes')[0].Name).toBe("A, B"));
 it("parses quoted newline", () => expect(parseCsv('Name\n"A\nB"')[0].Name).toBe("A\nB"));
@@ -20,4 +20,20 @@ it("gives rows with a blank Jobba ID their own stable id instead of one shared \
   expect(b.id).not.toBe(a.id);
   expect(again.map(r => r.id)).toEqual([a.id, b.id]);
   expect(mapInvoiceHistory([{"Invoice ID":"","Bill To":"Seagrass"}], "America/New_York")[0].id).toMatch(/^jobba-noid-/);
+});
+
+it("maps multi-line work orders in a namespace distinct from inspections", () => {
+  const rows = parseCsv('WO ID,Deal ID,Customer,Description,Due,Type,Status,Job Type\n42,70,Sample School,"Repair flashing\nCheck seal",11/4/26,Service,Done,Repair');
+  expect(mapServices(rows, "America/New_York")[0]).toMatchObject({id:"jobba-wo-42",kind:"work-order",description:"Repair flashing\nCheck seal",dealId:"70",type:"Service",customerName:"Sample School",dueAt:Date.UTC(2026,10,4,17)});
+  expect(mapInspections([{ID:"42"}], "America/New_York")[0]).toMatchObject({id:"jobba-42",kind:"inspection"});
+});
+it("preserves missing WO IDs with stable distinct IDs and leaves unmatched customers unmatched", () => {
+  const rows = [{"WO ID":"",Customer:"Invented Unmatched",Description:"First"},{"WO ID":" ",Customer:"Invented Unmatched",Description:"Second"}];
+  const mapped = mapServices(rows, "America/New_York");
+  expect(mapped[0].id).toMatch(/^jobba-wo-noid-/);
+  expect(mapped[1].id).not.toBe(mapped[0].id);
+  expect(mapServices(rows, "America/New_York")).toEqual(mapped);
+  const customers = new Map([[matchKey({name:"Sample School"}), "C-1"]]);
+  expect(customers.get(matchKey({name:mapped[0].customerName}))).toBeUndefined();
+  expect(mapped[0]).not.toHaveProperty("customerId");
 });
