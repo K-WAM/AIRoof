@@ -8,6 +8,16 @@ const history = (extra: Partial<InvoiceHistoryRecord> = {}): InvoiceHistoryRecor
 const row = (extra: Partial<FinanceRow> = {}): FinanceRow => ({invoiceNo:"1",customer:"Acme",issuedAt:now,total:1,balance:1,status:"unpaid",source:"jobba",...extra});
 const invoice = (extra: Partial<JobInvoice> = {}): JobInvoice => ({invoiceId:"i",businessId:"b",jobId:"j",billTo:{name:"Acme"},status:"sent",labor:[],materials:[],other:[{lineId:"1",description:"work",amount:10}],hideMaterials:false,taxRate:0,laborSubtotal:0,materialSubtotal:0,otherSubtotal:10,subtotal:10,taxAmount:0,total:10,createdAt:now,updatedAt:now,createdBy:"x",...extra});
 describe("finance summary", () => {
+  it("counts imported payments without subtracting credits from invoice totals", () => {
+    const rows = rowsFromHistory([
+      history({ sourceInvoiceId: "paid", amount: 100, tax: 10, credits: 110, amountDue: 0 }),
+      history({ sourceInvoiceId: "partial", amount: 100, tax: 10, credits: 40, amountDue: 70 }),
+      history({ sourceInvoiceId: "unpaid", amount: 100, tax: 10, amountDue: 110 }),
+      history({ sourceInvoiceId: "void", amount: 100, voided: true }),
+    ]);
+    expect(rows.map(r => [r.total, r.balance, r.status])).toEqual([[110, 0, "paid"], [110, 70, "partly_paid"], [110, 110, "unpaid"]]);
+    expect(summarizeFinances(rows, {}, now).totals).toMatchObject({ invoiced: 330, collected: 150, outstanding: 180 });
+  });
   it("adds cents exactly", () => expect(summarizeFinances([row({total:.1,balance:.1}),row({total:.2,balance:.2})],{},now).totals.invoiced).toBe(.3));
   it("skips voided history", () => expect(rowsFromHistory([history({voided:true})])).toHaveLength(0));
   it("classifies partial payments", () => expect(rowsFromHistory([history({amountDue:.5})])[0].status).toBe("partly_paid"));
@@ -22,6 +32,7 @@ describe("finance summary", () => {
 });
 
 describe("company attribution (T-317)", () => {
+  it("retains an app invoice customer link", () => { expect(rowsFromInvoices([invoice({ customerId: "C-EXAMPLE" })])[0].customerId).toBe("C-EXAMPLE"); });
   it("keeps the matched customerId on imported history rows", () => {
     expect(rowsFromHistory([history({ customerId: "C-1" })])[0].customerId).toBe("C-1");
   });

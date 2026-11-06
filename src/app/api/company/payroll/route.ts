@@ -37,5 +37,6 @@ export async function GET(req: NextRequest) {
   for (const member of members.docs) { const crew = names.get(member.data().crewId as string); if (crew) crews[`uid:${member.id}`] = crew; }
   const rows = punches.docs.map((doc) => ({ ...doc.data(), punchId: doc.id }) as Punch);
   const days = foldPunches(rows, Date.now(), snap.data()?.timezone || "America/New_York");
-  return jsonWithCache({ ...summarizePayroll(days, { periodStart: periodStart!, periodEnd: periodEnd!, crews }), capped: punches.size >= 5000 }, "semiStatic");
+  const superseded = new Set(rows.map((p) => p.supersedes).filter(Boolean));
+  return jsonWithCache({ timezone: snap.data()?.timezone || "America/New_York", ...summarizePayroll(days, { periodStart: periodStart!, periodEnd: periodEnd!, crews }), days, punches: rows.filter((p) => !superseded.has(p.punchId)).map(({ workerKey, dayKey, type, at, jobId }) => ({ workerKey, dayKey, type, at, jobId })), capped: punches.size >= 5000 }, "semiStatic");
 }

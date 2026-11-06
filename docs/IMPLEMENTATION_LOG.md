@@ -2698,3 +2698,24 @@ logos.
 - Shared display-only grouping keeps first-seen category order and finding order within each category. Blank categories use Findings. Standard/classic app and print documents and emailed HTML print one heading with numbered Problem / Corrective Action / inspector notes. Explicit compact preferences remain supported; stored findings are untouched.
 - Evidence: 10 grouping tests passed; related run 433 passed with one deposit cold-import timeout, isolated deposit retry 10/10. TypeScript and changed-file eslint passed. Both browser sizes passed grouping across report/quote/invoice, print and captured emails. Read desktop and 375px app/print screenshots. Final batch gates are recorded in REVIEW-rd-polish.md.
 - Removed no data or controls. Shortened repeated document headings without another navigation step.
+T-335: Correct imported invoice totals; 27 finance unit tests passed. Browser and final gates pending in review handoff. No removals.
+
+T-336 WIP: Finance filters and navigation; 4 focused desktop/phone checks passed before final styling. Final verification pending.
+
+T-337 WIP: Payroll period inputs and preliminary timesheet/sample. Dedicated browser checks stalled; sample and detail need review.
+
+T-338 WIP: Separate company brands in shell and add Luxor mark; inspected desktop 1280 and phone finance screenshots. 1440 and SVG checks pending.
+
+T-339 WIP: Feedback stays visible in desktop footer and is disabled in View as. Owner, staff, crew and superadmin Preview opened it on desktop and phone; View as needs browser verification.
+
+T-337 final: Complete Mon-Sun sample timesheets, labeled person summaries and inline punches/jobs/hours. Weekly overtime uses summarizePayroll (40-hour threshold). Unit sample test passed; desktop and 375px example checks passed; both screenshots read. No removals.
+
+T-340: Fill imported customer identity/list/search fields and add a guarded missing-fields-only backfill. Latest invoice/inspection activity, else import time; no overwrites. Emulator import: 191 customers; repair dry/apply: 191 changes, next dry run: 0. Six derivation/CLI safety tests passed; API/browser verifies all 191 list IDs on desktop and phone. No production run or removals.
+
+T-336 final: Separate card and aging filters so card + aging + customer combine; verify toggles, removable chips, owing-row toggle and Clear all. Preserve app customer IDs and Preview context. Add the missing customer record route using the existing customer screen; show that record directly with an All customers return link. Bound invoices to five per page. Desktop/phone finance tests passed (6); phone screenshot read. No feature removals.
+
+T-338 final: Verify real SVG and detailed 1000px PNG artwork uploaded through the logo-library API. Use natural image sizing with caps, and a separate phone brand row so both logos remain readable. Keep a smaller Luxor mark on the brand attribution. Desktop 1280/1440 and phone 375 checks passed; all three screenshots read. No dependencies added or removals.
+
+T-339 final: Keep Feedback disabled with a visible, wrapping View as explanation instead of hiding it. Browser checks assert the control is disabled/in the viewport and the explanation does not overflow. Desktop/phone screenshots read; existing View as read-only, Exit and field-role checks passed. Auth/write guards unchanged. No removals.
+
+T-341: Map all 44 Jobba CSV files without client values; optional --setup projects clear-home data into existing crews, pricing, invoice due-day choices and finding categories. Preserve all 3,560 source rows with file/row numbers and retain existing reviewed values. Emulator repeat left setup content unchanged and Auth users at 16. Setup/term unit tests and desktop/phone import checks passed; screenshots read. Final focused run 25 passed/1 desktop-only skip; additional run 14 passed. Related tests covered 397 distinct cases after one isolated timeout retry. Audit: desktop 19/19; phone 18/19, with unchanged Settings height failure (5620 > 5500). Main at 1b7aed9 and branch call-to-cash each 12/12; throwaway worktree removed. No production access, dependencies, sends or feature removals. Final review: docs/REVIEW-rd-money.md.

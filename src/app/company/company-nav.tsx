@@ -36,7 +36,7 @@ const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 // onOpenFeedback: the shell owns the Feedback window so the phone menu can close first (a window opened from inside
 // the menu sheet left the menu showing underneath it — "floating text", owner 2026-11-05). Without it, the nav keeps
 // its own window (unchanged behaviour for any other caller).
-export function CompanyNav({ onOpenFeedback }: { onOpenFeedback?: () => void } = {}) {
+export function CompanyNav({ onOpenFeedback, feedbackPlacement = "all" }: { onOpenFeedback?: () => void; feedbackPlacement?: "all" | "exclude" | "only" } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
@@ -54,7 +54,7 @@ export function CompanyNav({ onOpenFeedback }: { onOpenFeedback?: () => void } =
     isLocked,
     vocab,
     showcase,
-  }).filter((link) => link.path !== "feedback" || (!loading && !!user && !user.viewAs));
+  }).filter((link) => (link.path !== "feedback" || (!loading && !!user)) && (feedbackPlacement === "all" || (feedbackPlacement === "only" ? link.path === "feedback" : link.path !== "feedback")));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
@@ -77,9 +77,9 @@ export function CompanyNav({ onOpenFeedback }: { onOpenFeedback?: () => void } =
                 );
               }
               return path === "feedback" ? (
-                <button key={path} type="button" className="company-nav-trigger" data-state={feedbackOpen ? "open" : undefined}
-                  onClick={() => (onOpenFeedback ? onOpenFeedback() : setFeedbackOpen(true))} aria-haspopup="dialog" aria-label="Send feedback">
-                  <Icon size={16} strokeWidth={1.75} />{label}
+                <button key={path} type="button" className="company-nav-trigger" style={{ whiteSpace: "normal", textAlign: "left", width: "100%" }} data-state={feedbackOpen ? "open" : undefined}
+                  disabled={!!user?.viewAs} title={user?.viewAs ? "Not available while viewing as someone else" : undefined} onClick={() => (onOpenFeedback ? onOpenFeedback() : setFeedbackOpen(true))} aria-haspopup="dialog" aria-label={user?.viewAs ? "Feedback — Not available while viewing as someone else" : "Send feedback"}>
+                  <Icon size={16} strokeWidth={1.75} style={{ flexShrink: 0 }} /><span style={{ minWidth: 0 }}>{label}{user?.viewAs && <small style={{ display: "block" }}>Not available while viewing as someone else</small>}</span>
                 </button>
               ) : (
                 <Link href={`${path}${suffix}`} key={path} aria-current={pathname === path ? "page" : undefined}>

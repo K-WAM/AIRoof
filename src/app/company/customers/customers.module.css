@@ -1,0 +1,3 @@
+.record :global(.customers-grid) { grid-template-columns: minmax(0, 1fr) !important; }
+.record :global(.customers-grid) > section:first-child { display: none; }
+.back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; color: var(--accent); }

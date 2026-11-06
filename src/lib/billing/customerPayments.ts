@@ -27,13 +27,14 @@ const DAY = 24 * 60 * 60 * 1000;
 // ── Payment settings (Settings → Getting paid) ─────────────────────────────────────────────────────────────────────
 
 export type BillingPrefs = NonNullable<BusinessConfig["billingPrefs"]>;
-export interface EffectiveBillingPrefs { payInstructions: string; payLink: string; remindersOn: boolean; dueDays: number }
+export interface EffectiveBillingPrefs { payInstructions: string; payLink: string; remindersOn: boolean; dueDays: number; importedTerms?: Array<{ name: string; dueDays: number }> }
 
 export function effectiveBillingPrefs(config: { billingPrefs?: BillingPrefs } | null | undefined): EffectiveBillingPrefs {
   const p = config?.billingPrefs ?? {};
   return {
     payInstructions: typeof p.payInstructions === "string" ? p.payInstructions : "",
     payLink: typeof p.payLink === "string" && isSafePayLink(p.payLink) ? p.payLink : "",
+    ...(Array.isArray(p.importedTerms) ? { importedTerms: p.importedTerms.filter((t): t is { name: string; dueDays: number } => !!t && typeof t.name === "string" && typeof t.dueDays === "number" && Number.isInteger(t.dueDays) && t.dueDays >= 0 && t.dueDays <= 120).map(t => ({ name: t.name, dueDays: t.dueDays })) } : {}),
     remindersOn: p.remindersOn !== false,
     dueDays: Number.isInteger(p.dueDays) && p.dueDays! >= 0 && p.dueDays! <= 120 ? p.dueDays! : 0,
   };

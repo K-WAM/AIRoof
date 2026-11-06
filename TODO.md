@@ -3259,3 +3259,16 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | T-331 | Codex | task/rd-polish / air-wt-rd-polish | review | Classic letterhead preview/print/email, owner Branding picker, company isolation; full classic scenario passed at both sizes. |
 | T-334 | Codex | task/rd-polish / air-wt-rd-polish | review | ElevenLabs-first config, folded legacy controls, Branding/View as shortcuts, prefilled editable invoice draft and phone layout; 31 unit tests and both browser sizes passed. |
 | T-342 | Codex | task/rd-polish / air-wt-rd-polish | review | Findings share one category heading and numbered entries in standard/classic app, print and email; fallback Findings, order and notes retained. Unit and both browser sizes passed; final batch evidence in REVIEW-rd-polish. |
+| T-335 | task/rd-money | review | Correct imported invoice totals, collected balances and due-date explanation verified. |
+
+| T-336 | task/rd-money | review | Combined filters, chips, toggles, direct record links and bounded invoice pages verified desktop/phone. |
+
+| T-337 | task/rd-money | review | Day-by-day payroll example and labeled person summaries verified on desktop and phone. |
+
+| T-338 | task/rd-money | review | SVG and 1000px PNG uploaded via logo-library API; 1280/1440/375 screenshots verified, with readable phone brand row. |
+
+| T-339 | task/rd-money | review | View as Feedback stays disabled with a readable note; desktop/phone and existing read-only/Exit checks passed. |
+
+| T-340 | task/rd-money | review | Imported customer list/search fields derived and repair verified locally: 191 repaired, then zero changes. |
+
+| T-341 | task/rd-money | review | Metadata-only mapping and additive setup importer proven on emulator; source rows retained, defaults/unsupported workflows remain owner choices. |

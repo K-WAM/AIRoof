@@ -45,6 +45,7 @@ export async function GET(req: NextRequest, { params }: Context): Promise<Respon
   const loaded = await load(req, jobId, businessId);
   if (!loaded.ok) return loaded.response;
   return jsonWithCache({
+    categories: loaded.catalog.categories ?? [],
     items: loaded.catalog.items.map(({ itemId, category, problem, solution, severity }) => ({ itemId, category, problem, solution, severity })),
     findings: (loaded.job.findings ?? []).map((f) => ({ findingId: f.findingId, itemId: f.itemId, category: f.category, problem: f.problem, note: f.note })),
   }, "noStore");
