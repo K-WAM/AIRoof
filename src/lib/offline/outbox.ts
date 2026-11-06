@@ -114,7 +114,7 @@ export async function fieldPost(url: string, init: RequestInit, audio?: Blob): P
   const owner = await fieldIdentity().catch(() => null);
   // Preserve the existing online superadmin flow without persisting preview data on the device.
   if (owner?.preview) {
-    if (navigator.onLine === false) throw new Error("Preview changes need a connection. Your entry has not been sent.");
+    if (typeof navigator !== "undefined" && navigator.onLine === false) throw new Error("Preview changes need a connection. Your entry has not been sent.");
     const body = { ...JSON.parse(String(init.body)), clientRequestId: crypto.randomUUID() };
     const response = await fetch(url, { ...init, body: JSON.stringify(body) });
     if (!response.ok) {

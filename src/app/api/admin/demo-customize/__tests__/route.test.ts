@@ -240,7 +240,7 @@ describe("demo-customize route", () => {
       contactEmail: "owner@example.com",
       configuredNumbers: ["+16892042643", "+16045550123"],
     });
-  });
+  }, 30_000); // Loads the full demo seed; slow on a busy CI runner (timed out at the 5 s default).
 
   describe("PATCH demo identity without reseeding", () => {
     function identityFirestore() {

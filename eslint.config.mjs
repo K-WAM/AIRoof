@@ -38,6 +38,10 @@ const config = [
   {
     ignores: [
       ".next/**",
+      // Local-only, git-ignored: harness build output, debug scripts and client files (CI never sees them).
+      ".next-*/**",
+      ".e2e/**",
+      "client-resources/**",
       "node_modules/**",
       "next-env.d.ts",
       "graphify-out/**",
@@ -50,6 +54,8 @@ const config = [
       // Operational Node scripts (seed/provision/pitch-deck), not app code — they
       // are legitimately CommonJS/console-driven and shouldn't fail an app lint.
       "scripts/**",
+      // Sales/handout render helpers (docs/sales/render.cjs): CommonJS tooling, not app code.
+      "docs/**",
     ],
   },
 ];
