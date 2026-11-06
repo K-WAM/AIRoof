@@ -2664,3 +2664,5 @@ logos.
 - **Docs:** Roof Doctors data-gaps doc (Claude Docs, private) https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw.
 
 T-335: Correct imported invoice totals; 27 finance unit tests passed. Browser and final gates pending in review handoff. No removals.
+
+T-336 WIP: Finance filters and navigation; 4 focused desktop/phone checks passed before final styling. Final verification pending.

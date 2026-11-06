@@ -34,7 +34,7 @@ describe("finance gate", () => {
     const body = await (await GET(req())).json();
     expect(body.rows).toHaveLength(1);
     expect(body.rows[0]).toMatchObject({ source: "jobba", companyId: "rcu" });
-    expect(body.rows[0]).not.toHaveProperty("customerId");
+    expect(body.rows[0].customerId).toBe("C-1");
     expect(body.companies).toEqual(expect.arrayContaining([expect.objectContaining({ id: "rcu", shortName: "RCU" })]));
   });
 });

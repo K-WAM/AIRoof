@@ -49,11 +49,10 @@ export async function GET(req: NextRequest) {
   const rows = [...historyRows, ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
   // Multi-company: every row carries its effective company. Imported history has no job/company of its own, so it
   // follows the customer it matched (only the referenced customers are read). Single-company: strip every new field
-  // so the response is byte-for-byte today's shape.
+  // while retaining matched customer IDs for navigation.
   const rowsForResponse = rows.map((r) => {
     const copy = { ...r };
     const fromCustomer = copy.customerId ? historyCompanies[copy.customerId] : undefined;
-    delete copy.customerId;
     if (!multi) { delete copy.companyId; return copy; }
     return { ...copy, companyId: effectiveCompanyId(biz, copy.companyId ?? fromCustomer) ?? undefined };
   });
@@ -101,3 +100,4 @@ async function historyCustomerCompanies(
   }
   return out;
 }
+
