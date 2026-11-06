@@ -59,12 +59,12 @@ export function validateEmailSending(input: unknown): EmailSendingValidation {
   if (value.mode !== "luxor") {
     if (fields.ownDomain !== undefined) {
       if (typeof fields.ownDomain !== "string") {
-        errors.ownDomain = "Enter a domain such as roofdoctorsfl.com.";
+        errors.ownDomain = "Enter a domain such as yourcompany.com.";
       } else {
         const domain = fields.ownDomain.trim().toLowerCase();
         if (domain) {
           if (domain.length > DOMAIN_MAX || !DOMAIN_PATTERN.test(domain)) {
-            errors.ownDomain = "Enter a plain domain such as roofdoctorsfl.com (no https:// or paths).";
+            errors.ownDomain = "Enter a plain domain such as yourcompany.com (no https:// or paths).";
           } else {
             value.ownDomain = domain;
           }

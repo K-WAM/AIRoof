@@ -1045,7 +1045,7 @@ export default function AdminBusinessConfigPage({
                   <>
                     <div className="field">
                       <label htmlFor="emailOwnDomain">Domain</label>
-                      <input id="emailOwnDomain" name="emailOwnDomain" defaultValue={biz.emailSending?.ownDomain ?? ""} placeholder="roofdoctorsfl.com" />
+                      <input id="emailOwnDomain" name="emailOwnDomain" defaultValue={biz.emailSending?.ownDomain ?? ""} placeholder="yourcompany.com" />
                     </div>
                     <div className="field">
                       <label htmlFor="emailDnsHost">Who manages their DNS</label>
@@ -1072,7 +1072,7 @@ export default function AdminBusinessConfigPage({
                     </div>
                     <div className="field">
                       <label htmlFor="emailDnsContactEmail">DNS contact email</label>
-                      <input id="emailDnsContactEmail" name="emailDnsContactEmail" type="email" maxLength={254} defaultValue={biz.emailSending?.dnsContactEmail ?? ""} placeholder="maria@roofdoctorsfl.com" />
+                      <input id="emailDnsContactEmail" name="emailDnsContactEmail" type="email" maxLength={254} defaultValue={biz.emailSending?.dnsContactEmail ?? ""} placeholder="maria@yourcompany.com" />
                     </div>
                     <div className="field full">
                       <label htmlFor="emailNotes">Notes</label>

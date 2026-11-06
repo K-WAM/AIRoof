@@ -4,25 +4,25 @@ import { validateEmailSending } from "./sendingSetup";
 describe("validateEmailSending", () => {
   it("trims fields and stores an own-domain setup", () => {
     const result = validateEmailSending({
-      senderName: "  Roof Doctors  ",
-      replyTo: "  hello@roofdoctorsfl.com ",
+      senderName: "  Example Roofing  ",
+      replyTo: "  hello@yourcompany.com ",
       mode: "own-domain",
-      ownDomain: "  RoofDoctorsFL.com ",
+      ownDomain: "  YourCompany.com ",
       dnsHost: "godaddy",
       dnsContactName: " Maria ",
-      dnsContactEmail: " maria@roofdoctorsfl.com ",
+      dnsContactEmail: " maria@yourcompany.com ",
       notes: "  Calls us before changing anything.  ",
     });
     expect(result).toEqual({
       valid: true,
       value: {
-        senderName: "Roof Doctors",
-        replyTo: "hello@roofdoctorsfl.com",
+        senderName: "Example Roofing",
+        replyTo: "hello@yourcompany.com",
         mode: "own-domain",
-        ownDomain: "roofdoctorsfl.com",
+        ownDomain: "yourcompany.com",
         dnsHost: "godaddy",
         dnsContactName: "Maria",
-        dnsContactEmail: "maria@roofdoctorsfl.com",
+        dnsContactEmail: "maria@yourcompany.com",
         notes: "Calls us before changing anything.",
       },
     });
@@ -31,31 +31,31 @@ describe("validateEmailSending", () => {
   it("drops every own-domain and DNS field when mode is luxor", () => {
     const result = validateEmailSending({
       mode: "luxor",
-      senderName: "Roof Doctors",
-      replyTo: "hello@roofdoctorsfl.com",
-      ownDomain: "roofdoctorsfl.com",
+      senderName: "Example Roofing",
+      replyTo: "hello@yourcompany.com",
+      ownDomain: "yourcompany.com",
       dnsHost: "cloudflare",
       dnsHostOther: "Our IT person",
       dnsContactName: "Maria",
-      dnsContactEmail: "maria@roofdoctorsfl.com",
+      dnsContactEmail: "maria@yourcompany.com",
       notes: "Keep the notes",
     });
     expect(result).toEqual({
       valid: true,
       value: {
         mode: "luxor",
-        senderName: "Roof Doctors",
-        replyTo: "hello@roofdoctorsfl.com",
+        senderName: "Example Roofing",
+        replyTo: "hello@yourcompany.com",
         notes: "Keep the notes",
       },
     });
   });
 
   it("keeps own-domain fields when no mode has been chosen yet", () => {
-    const result = validateEmailSending({ ownDomain: "roofdoctorsfl.com", dnsHost: "other", dnsHostOther: "Our IT person" });
+    const result = validateEmailSending({ ownDomain: "yourcompany.com", dnsHost: "other", dnsHostOther: "Our IT person" });
     expect(result).toEqual({
       valid: true,
-      value: { ownDomain: "roofdoctorsfl.com", dnsHost: "other", dnsHostOther: "Our IT person" },
+      value: { ownDomain: "yourcompany.com", dnsHost: "other", dnsHostOther: "Our IT person" },
     });
   });
 
@@ -78,20 +78,20 @@ describe("validateEmailSending", () => {
     { replyTo: "not-an-email" },
     { replyTo: "two words@example.com" },
     { dnsContactEmail: "maria@" },
-    { dnsContactEmail: "maria@roofdoctorsfl" },
+    { dnsContactEmail: "maria@yourcompany" },
   ])("rejects an invalid email address %j", (input) => {
     const result = validateEmailSending({ mode: "own-domain", ...input });
     expect(result.valid).toBe(false);
   });
 
   it.each([
-    "https://roofdoctorsfl.com",
-    "roofdoctorsfl.com/path",
-    "roofdoctorsfl",
-    "roof doctorsfl.com",
-    ".roofdoctorsfl.com",
-    "roofdoctorsfl.com.",
-    "-roofdoctorsfl.com",
+    "https://yourcompany.com",
+    "yourcompany.com/path",
+    "yourcompany",
+    "your company.com",
+    ".yourcompany.com",
+    "yourcompany.com.",
+    "-yourcompany.com",
   ])("rejects a domain that is not plain: %s", (ownDomain) => {
     const result = validateEmailSending({ mode: "own-domain", ownDomain });
     expect(result.valid).toBe(false);
@@ -99,8 +99,8 @@ describe("validateEmailSending", () => {
   });
 
   it("accepts a subdomain", () => {
-    const result = validateEmailSending({ mode: "own-domain", ownDomain: "mail.roofdoctorsfl.com" });
-    expect(result).toMatchObject({ valid: true, value: { ownDomain: "mail.roofdoctorsfl.com" } });
+    const result = validateEmailSending({ mode: "own-domain", ownDomain: "mail.yourcompany.com" });
+    expect(result).toMatchObject({ valid: true, value: { ownDomain: "mail.yourcompany.com" } });
   });
 
   it("rejects an unknown DNS host and an unknown mode", () => {

@@ -25,18 +25,18 @@ describe("PUT /api/admin/businesses/[businessId]/config — customer email detai
     mocks.getAdminFirestore.mockReset();
     mocks.verifySuperadmin.mockResolvedValue({ user: { uid: "superadmin" } });
     db = makeFakeDb();
-    db.__seed("businesses", "biz-1", { businessName: "Roof Doctors", industry: "roofing" });
+    db.__seed("businesses", "biz-1", { businessName: "Example Roofing", industry: "roofing" });
     mocks.getAdminFirestore.mockReturnValue(db);
   });
 
   it("stores the validated details and leaves other config alone", async () => {
     const response = await PUT(request({
-      businessName: "Roof Doctors",
+      businessName: "Example Roofing",
       emailSending: {
-        senderName: " Roof Doctors ",
-        replyTo: " hello@roofdoctorsfl.com ",
+        senderName: " Example Roofing ",
+        replyTo: " hello@yourcompany.com ",
         mode: "own-domain",
-        ownDomain: " RoofDoctorsFL.com ",
+        ownDomain: " YourCompany.com ",
         dnsHost: "cloudflare",
         dnsHostOther: "",
         notes: " Call first ",
@@ -45,13 +45,13 @@ describe("PUT /api/admin/businesses/[businessId]/config — customer email detai
 
     expect(response.status).toBe(200);
     expect(db.__peek("businesses", "biz-1")).toMatchObject({
-      businessName: "Roof Doctors",
+      businessName: "Example Roofing",
       industry: "roofing",
       emailSending: {
-        senderName: "Roof Doctors",
-        replyTo: "hello@roofdoctorsfl.com",
+        senderName: "Example Roofing",
+        replyTo: "hello@yourcompany.com",
         mode: "own-domain",
-        ownDomain: "roofdoctorsfl.com",
+        ownDomain: "yourcompany.com",
         dnsHost: "cloudflare",
         notes: "Call first",
       },
@@ -59,7 +59,7 @@ describe("PUT /api/admin/businesses/[businessId]/config — customer email detai
   });
 
   it("rejects invalid details with 400 before touching the database", async () => {
-    const response = await PUT(request({ emailSending: { mode: "own-domain", ownDomain: "roofdoctorsfl.com/path" } }), params);
+    const response = await PUT(request({ emailSending: { mode: "own-domain", ownDomain: "yourcompany.com/path" } }), params);
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ fieldErrors: { ownDomain: expect.any(String) } });
@@ -68,25 +68,25 @@ describe("PUT /api/admin/businesses/[businessId]/config — customer email detai
   });
 
   it("never wipes stored details when the body omits emailSending", async () => {
-    const stored = { senderName: "Roof Doctors", mode: "own-domain", ownDomain: "roofdoctorsfl.com", dnsHost: "other", dnsHostOther: "Our IT person" };
-    db.__seed("businesses", "biz-1", { businessName: "Roof Doctors", industry: "roofing", emailSending: stored });
+    const stored = { senderName: "Example Roofing", mode: "own-domain", ownDomain: "yourcompany.com", dnsHost: "other", dnsHostOther: "Our IT person" };
+    db.__seed("businesses", "biz-1", { businessName: "Example Roofing", industry: "roofing", emailSending: stored });
 
-    const response = await PUT(request({ businessName: "Roof Doctors FL" }), params);
+    const response = await PUT(request({ businessName: "Example Roofing FL" }), params);
 
     expect(response.status).toBe(200);
-    expect(db.__peek("businesses", "biz-1")).toMatchObject({ businessName: "Roof Doctors FL", emailSending: stored });
+    expect(db.__peek("businesses", "biz-1")).toMatchObject({ businessName: "Example Roofing FL", emailSending: stored });
   });
 
   it("clears own-domain fields when the client switches to a Luxor address", async () => {
     db.__seed("businesses", "biz-1", {
-      businessName: "Roof Doctors",
+      businessName: "Example Roofing",
       industry: "roofing",
-      emailSending: { mode: "own-domain", ownDomain: "roofdoctorsfl.com", dnsHost: "godaddy" },
+      emailSending: { mode: "own-domain", ownDomain: "yourcompany.com", dnsHost: "godaddy" },
     });
 
-    const response = await PUT(request({ emailSending: { mode: "luxor", senderName: "Roof Doctors" } }), params);
+    const response = await PUT(request({ emailSending: { mode: "luxor", senderName: "Example Roofing" } }), params);
 
     expect(response.status).toBe(200);
-    expect(db.__peek("businesses", "biz-1")?.emailSending).toEqual({ mode: "luxor", senderName: "Roof Doctors" });
+    expect(db.__peek("businesses", "biz-1")?.emailSending).toEqual({ mode: "luxor", senderName: "Example Roofing" });
   });
 });

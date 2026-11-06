@@ -19,7 +19,7 @@ import { POST } from "../route";
 
 const validBody = {
   businessId: "email-biz",
-  businessName: "Roof Doctors",
+  businessName: "Example Roofing",
   industry: "roofing",
   serviceArea: "Miami",
   businessHours: "Mon-Fri 8-5",
@@ -46,42 +46,42 @@ describe("POST /api/admin/businesses — customer email details", () => {
     const response = await POST(request({
       ...validBody,
       emailSending: {
-        senderName: "  Roof Doctors  ",
-        replyTo: " hello@roofdoctorsfl.com ",
+        senderName: "  Example Roofing  ",
+        replyTo: " hello@yourcompany.com ",
         mode: "own-domain",
-        ownDomain: " RoofDoctorsFL.com ",
+        ownDomain: " YourCompany.com ",
         dnsHost: "godaddy",
         dnsContactName: " Maria ",
-        dnsContactEmail: " maria@roofdoctorsfl.com ",
+        dnsContactEmail: " maria@yourcompany.com ",
       },
     }));
 
     expect(response.status).toBe(200);
     expect(db.__peek("businesses", "email-biz")?.emailSending).toEqual({
-      senderName: "Roof Doctors",
-      replyTo: "hello@roofdoctorsfl.com",
+      senderName: "Example Roofing",
+      replyTo: "hello@yourcompany.com",
       mode: "own-domain",
-      ownDomain: "roofdoctorsfl.com",
+      ownDomain: "yourcompany.com",
       dnsHost: "godaddy",
       dnsContactName: "Maria",
-      dnsContactEmail: "maria@roofdoctorsfl.com",
+      dnsContactEmail: "maria@yourcompany.com",
     });
   });
 
   it("clears own-domain fields when the Luxor address is chosen", async () => {
     const response = await POST(request({
       ...validBody,
-      emailSending: { mode: "luxor", senderName: "Roof Doctors", ownDomain: "roofdoctorsfl.com", dnsHost: "godaddy" },
+      emailSending: { mode: "luxor", senderName: "Example Roofing", ownDomain: "yourcompany.com", dnsHost: "godaddy" },
     }));
 
     expect(response.status).toBe(200);
-    expect(db.__peek("businesses", "email-biz")?.emailSending).toEqual({ mode: "luxor", senderName: "Roof Doctors" });
+    expect(db.__peek("businesses", "email-biz")?.emailSending).toEqual({ mode: "luxor", senderName: "Example Roofing" });
   });
 
   it("rejects invalid email sending details and creates nothing", async () => {
     const response = await POST(request({
       ...validBody,
-      emailSending: { mode: "own-domain", replyTo: "not-an-email", ownDomain: "https://roofdoctorsfl.com/path" },
+      emailSending: { mode: "own-domain", replyTo: "not-an-email", ownDomain: "https://yourcompany.com/path" },
     }));
 
     expect(response.status).toBe(400);
