@@ -20,7 +20,7 @@ Claude, on the owner's go:
 - [ ] Crews + RCU customer marks; ZIP fill from the inspection export where addresses match
 - [ ] Fallback screenshots of every demo step from production (Nov 10–12)
 
-After the review: T-313 phone alerts for crews, T-328 Alice on/off + hours, T-327 Settings length on a phone, T-320 RCU
+After the review: T-313 phone alerts for crews, T-328 Alice on/off + hours, T-329 speed pass, T-327 Settings length on a phone, T-320 RCU
 Stripe account, T-322 address lookup (Google key), T-324 confirm vs Demo Studio samples (booking gate).
 
 ## State 2026-11-05 late (Claude K0) - two companies + View as + address suggestions merged locally, awaiting push approval
