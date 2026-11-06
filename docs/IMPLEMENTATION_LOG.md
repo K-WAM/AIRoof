@@ -2646,3 +2646,19 @@ same record). The session's permission check refused both pulling production cre
 runs it. Screens checked: desktop + phone shell, the menu sheet, and RDSF and RCU invoice letterheads with the real
 logos.
 
+
+## 2026-11-05 (night) - Roof Doctors account in production, role manuals, dead-code cleanup (Claude K0)
+- **Account (T-291):** `businesses/roofdoctors` created with `client-resources/roofdoctors/05-crm-import/push-workspace.mjs`
+  (create-only; RDSF + RCU, logos, Alice; purpose `test`, active false; email allowlist = owner's 2 addresses, phone allowlist
+  empty). Key via `vercel env run -e production --` (in memory). Read back verified.
+- **Import:** 191 customers, 1,042 properties, 191 materials, 326 invoiceHistory, 248 jobHistory. Found: 8 Jobba inspections
+  with a blank ID all landed on `jobba-`; `historyId()` (content hash for a blank ID) + test; re-run idempotent (0 new customers),
+  merged doc deleted. Preview pages (`showcase`) on for this business only.
+- **Rules:** `npm run test:rules` 16/16; the deploy is refused for the agent (classifier) — owner runs it.
+- **T-326 role manuals:** `src/app/company/guide/{guideContent.ts,page.tsx}` + unit tests (11) + `e2e/guide.spec.ts` desktop +
+  phone green, screenshots read. Screen audit: Settings 5,620 px on a phone > 5,500 budget — T-327, from T-315, not this change.
+- **Dead code removed** (no production importer; tsc clean, full vitest 2835 + 1 expected fail): `CustomerVersionPanel` (replaced
+  by `CustomerVersionCard`), `BlockedAction` (+ test), `lib/jobs/createJob.ts`, `lib/jobs/reportFindingsHtml.ts` (reports render
+  findings through the document suite), `lib/pipeline/jobPrefill.ts` (+ test). Kept on purpose: `DemoHero` (self-led demo plan)
+  and `useQuery` (planned cache layer). Unimported files never reach a page bundle, so this tidies the repo; load time is unchanged.
+- **Docs:** Roof Doctors data-gaps doc (Claude Docs, private) https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw.

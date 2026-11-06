@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { copyCatalogFinding, validFindings, addFindingsToInvoice } from "../findings";
-import { reportFindingsHtml } from "../reportFindingsHtml";
 import type { JobInvoice } from "@/types/invoice";
 import type { WorkCatalogItem } from "@/types/workCatalog";
 
@@ -27,15 +26,6 @@ describe("job findings", () => {
     expect(validFindings([{ ...finding, problem: "<script>" }])).toBe(false);
     expect(validFindings([finding, finding])).toBe(false);
     expect(validFindings(Array.from({ length: 61 }, (_, i) => ({ ...finding, findingId: String(i) })))).toBe(false);
-  });
-  it("renders only included findings and escapes report text", () => {
-    const included = { ...copyCatalogFinding(item), problem: "Storm & wind", solution: "Repair & seal" };
-    const hidden = { ...copyCatalogFinding(item), includeInReport: false, problem: "Hidden" };
-    const html = reportFindingsHtml([included, hidden]);
-    expect(html).toContain("Issues found &amp; work performed / recommended");
-    expect(html).toContain("Storm &amp; wind");
-    expect(html).toContain("Repair &amp; seal");
-    expect(html).not.toContain("Hidden");
   });
   it("imports finding lines once, keeps crew rows and uses Library material price with shared totals", () => {
     const finding = copyCatalogFinding({ ...item, lines: [{ kind: "material", description: "Sealant", quantity: 2, unitPrice: 5 },

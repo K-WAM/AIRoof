@@ -263,8 +263,8 @@ export default function CalendarBoard() {
       .finally(() => setLoading(false));
   }, [businessId, modulesReady, apptMode]);
 
-  // A crew added via the global quick-add (e.g. from the BlockedAction card
-  // below) doesn't come from this page's own form — refetch in place instead
+  // A crew added via the global quick-add (e.g. from an "add a crew first"
+  // prompt) doesn't come from this page's own form — refetch in place instead
   // of requiring a reload to see it show up as a schedulable row.
   useQuickAddRefresh("crew", () => {
     if (!businessId) return;

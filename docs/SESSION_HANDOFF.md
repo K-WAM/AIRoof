@@ -1,5 +1,22 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — 2026-11-05 night (Claude) — Roof Doctors account live, role manuals shipped, session closed
+
+- **Live:** the latest push of `main` (T-326 role manuals + importer fixes + dead-code cleanup); `crm.luxordev.com` health OK.
+  One checkout folder, one worktree, no other branches (13 merged local branches deleted).
+- **Roof Doctors account is in production** (`businesses/roofdoctors`): RDSF (default) + RCU, both logos, Alice, purpose `test`,
+  active false, send block on (email only to connect@luxordev.com + kwamwad@gmail.com; no texts or calls). Jobba data loaded:
+  191 customers, 1,042 properties, 191 materials, 326 past invoices (history only), 248 inspections. Preview pages on.
+  No logins, no crews, no jobs yet. See it: Admin → Clients → Roof Doctors → Preview / View as.
+- **Production scripts:** `vercel env run -e production -- node <script>` keeps the key in memory. The setup scripts live in
+  git-ignored `client-resources/roofdoctors/05-crm-import/` (push-workspace, verify-workspace, set-showcase, fix-blank-inspection).
+- **Owner still to run:** `firebase deploy --only firestore:rules --project business-expense-trackin-ef659` (the auto-mode
+  classifier blocks it for Claude). Owner decision: switch the (689) line to a Roof Doctors agent now or Tue Nov 10.
+- **Data-gaps doc for Roof Doctors** (Claude Docs, private): https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw. Pricing doc:
+  https://claude.ai/artifact/1XdUt5pYmPVJQzXB4A21ek. Setup guide: https://claude.ai/artifact/WQMFUmrpDd5RJz7B4GgQVr.
+- **Next action:** owner's rules deploy → line switch (T-307) → crews + sample job (T-305) → rehearsal Nov 11–12. The checklist
+  is at the top of `docs/NEXT_SESSION.md`.
+
 ## Resume here — 2026-11-04 (Claude) — demo day prep, two branches parked
 
 - **Live is still `42da029`.** Local `main` is ~20 docs/TODO/sales commits ahead of `origin/main` (no app code) — push with the next

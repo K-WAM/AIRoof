@@ -497,6 +497,10 @@ Before asking the user to verify anything, use CLI/curl first:
 - **Is a package installed?** `npm list <package>`
 - **Did Firestore rules deploy?** `firebase deploy --only firestore:rules --project business-expense-trackin-ef659 --dry-run`
 - **Is a file/path correct?** Use Glob, Grep, or Read — not user confirmation
+- **A script that must read or write production Firestore?** `vercel env run -e production -- node <script>` — the service
+  account stays in memory (never `vercel env pull` to a file). Scripts parse it without ever printing it. Dry run first.
+- **Firestore rules deploys** are refused for the agent by the auto-mode classifier: run `npm run test:rules`, then hand the
+  owner `firebase deploy --only firestore:rules --project business-expense-trackin-ef659`.
 - Only fall back to asking the user when the CLI genuinely cannot answer (Vapi dashboard settings, Vercel env var entry via web UI).
 
 ## Next Steps

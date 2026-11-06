@@ -44,8 +44,8 @@ export function useQuickAdd(): QuickAddContextValue {
  * and the signed-in user's role actually allow) and the matching create form
  * — reusing the exact endpoints their home pages already use, so nothing
  * about validation or persistence is duplicated. `useQuickAdd().open(kind)`
- * jumps straight to one form, skipping the picker — that's what a
- * `BlockedAction` card calls so "add a crew first" resolves in place instead
+ * jumps straight to one form, skipping the picker — that's what an
+ * "add a crew first" prompt calls so it resolves in place instead
  * of navigating away and back.
  */
 export function QuickAddProvider({ children }: { children: ReactNode }) {

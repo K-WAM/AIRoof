@@ -1,10 +1,27 @@
-## Roof Doctors account (2026-11-05, night)
-- Prepared, not yet in production. The owner runs (dry run first):
-  `vercel env pull .env.production.local --environment=production --yes`, then
-  `node client-resources/roofdoctors/05-crm-import/push-workspace.mjs`, then `... --apply --confirm roofdoctors`, then deletes
-  `.env.production.local`. This creates the account with RDSF + RCU, both logos, Alice as the agent name and the send block on
-  (email only to the owner's two addresses, no texts or calls). Next: import dry run -> owner OK -> apply; showcase jobs;
-  demo line switch Tue Nov 10; owner login on an email alias.
+## Roof Doctors — checklist to Fri Nov 13, 10 a.m. (updated 2026-11-05 night)
+
+Done: account in production with their Jobba data and logos (T-291), preview pages on, role manuals in the Guide (T-326),
+data-gaps doc, everything pushed and deployed.
+
+Owner:
+- [ ] Deploy the security rules: `firebase deploy --only firestore:rules --project business-expense-trackin-ef659`
+- [ ] Decide when the (689) 204-2643 line becomes Roof Doctors' own Alice: now, or Tue Nov 10 (other demos use the Canada
+      (778) 907-9769 line meanwhile)
+- [ ] Click through Admin → Clients → Roof Doctors → Preview, then View as → Admin / Office staff / Supervisor / Inspector
+- [ ] Send Claude their crew names and their RCU customers (municipal + school), or enter them (Library → Crews; Customers →
+      Company: RCU)
+- [ ] Share the data-gaps doc with Michael if wanted; ask for their Jobba contacts export (phones + emails)
+- [ ] Rehearse Nov 11–12 with a live call (give your own email so the confirmation arrives); freeze Thu 6 p.m.
+
+Claude, on the owner's go:
+- [ ] T-307: duplicate the live Alice agent for Roof Doctors, point it at `roofdoctors`, move (689) to it, owner test call;
+      record `previousRouting` so it returns to demo-roofing after the review
+- [ ] T-305: one complete sample job (request → inspection → findings → proposal → deposit → notes → final invoice → payment)
+- [ ] Crews + RCU customer marks; ZIP fill from the inspection export where addresses match
+- [ ] Fallback screenshots of every demo step from production (Nov 10–12)
+
+After the review: T-313 phone alerts for crews, T-328 Alice on/off + hours, T-327 Settings length on a phone, T-320 RCU
+Stripe account, T-322 address lookup (Google key), T-324 confirm vs Demo Studio samples (booking gate).
 
 ## State 2026-11-05 late (Claude K0) - two companies + View as + address suggestions merged locally, awaiting push approval
 
