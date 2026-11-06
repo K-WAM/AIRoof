@@ -18,7 +18,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
-import { CompanyBrand } from "@/components/companies/CompanyBrand";
+import { CompanyBrand, OtherCompanyBrand } from "@/components/companies/CompanyBrand";
 import { BootstrapProvider, useBootstrap } from "@/contexts/BootstrapContext";
 import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
@@ -233,6 +233,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <BusinessBrand />
           {!crewOnly && <CommandBar header />}
           {!crewOnly && <MobileNewButton />}
+          <OtherCompanyBrand business={bootstrap?.business} />
             <button
               type="button"
               className="mobile-menu-btn"

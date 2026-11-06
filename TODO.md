@@ -3254,3 +3254,5 @@ medium, K3 Deepseek); menu proposals: `docs/mockups/simpler-menus.html`.** Statu
 | T-336 | task/rd-money | in progress | Finance interactions implemented; final verification pending. |
 
 | T-337 | task/rd-money | in progress | Payroll detail and sample require verification and completion. |
+
+| T-338 | task/rd-money | in progress | Header changed; 1440 and SVG verification pending. |

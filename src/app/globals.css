@@ -3805,8 +3805,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 :root { --z-modal: 2147483647; }
 .modal-overlay, .sheet-backdrop { z-index: var(--z-modal); }
 @keyframes k2-mic-pulse { from { opacity: 1; } to { opacity: .65; } }
-.k2-finance-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 700px) { .k2-finance-kpis section { padding: 12px 8px; } .k2-finance-kpis strong { font-size: clamp(14px, 4vw, 20px); overflow-wrap: anywhere; } }
+.k2-finance-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 700px) { .k2-finance-kpis button { padding: 12px 8px; } .k2-finance-kpis strong { font-size: clamp(14px, 4vw, 20px); overflow-wrap: anywhere; } }
 /* === end K2 === */
 
 /* 2026-11-05: phone menu. The sheet is a scrolling flex column; without this its children shrank to fit and the nav list
@@ -3849,3 +3849,12 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 /* Two companies on a phone: Menu shows as its icon (aria-label "Open menu" stays) so both logos get the room. */
 .company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) > span { display: none; }
 .company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) { width: 44px; min-width: 44px; height: 44px; padding: 0; flex: none; }
+
+/* T-338: the two companies have separate places in the shell. */
+.company-sidebar .company-brand--multi .company-brand-logo { width: 100%; height: 76px; max-width: 190px; max-height: none; object-fit: contain; object-position: left center; }
+.company-brand-powered img { display: inline-block; width: 20px; height: auto; vertical-align: middle; }
+.company-brand-other { margin-left: auto; flex: none; display: flex; align-items: center; }
+.company-brand-other img { width: auto; max-width: 140px; height: 48px; object-fit: contain; }
+@media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-logo { width: auto; max-width: 110px; height: 38px; object-fit: contain; } .company-brand-other img { max-width: 85px; height: 38px; } }
+
+@media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-powered { display: none; } }
