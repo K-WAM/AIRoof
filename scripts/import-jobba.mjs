@@ -18,7 +18,13 @@ const stopwords = new Set(["the", "inc", "llc", "corp", "co", "company", "and", 
 function searchTokens(name) { const tokens = []; for (const word of normalizeName(name).split(" ").filter(w => w && !stopwords.has(w))) { for (let len = word.length < 2 ? word.length : 2; len <= Math.min(word.length,12); len++) { const token = word.slice(0,len); if (!tokens.includes(token) && tokens.length < 250) tokens.push(token); } } return tokens; }
 async function main() {
   if (process.env.FIRESTORE_EMULATOR_HOST) admin.initializeApp({projectId:process.env.GCLOUD_PROJECT || "demo-e2e"});
-  else admin.initializeApp({credential:admin.credential.cert(JSON.parse(readFileSync(join(root,"firebase-service-account.json"),"utf8")))});
+  else {
+    // Production: `vercel env run -e production -- node scripts/import-jobba.mjs ...` keeps the key in memory (no file on
+    // disk); a local firebase-service-account.json still works. A parse error never prints the value (it would quote it).
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || readFileSync(join(root,"firebase-service-account.json"),"utf8");
+    let account; try { account = JSON.parse(raw); } catch { throw new Error("The service account JSON could not be parsed (value not shown)."); }
+    admin.initializeApp({credential:admin.credential.cert(account)});
+  }
   const db = admin.firestore(), biz = db.collection("businesses").doc(business), snap = await biz.get();
   if (!snap.exists) throw new Error("Business document does not exist.");
   // Owner rule (2026-11-04): use their data, never contact anyone with it. No write until the workspace's evaluation
