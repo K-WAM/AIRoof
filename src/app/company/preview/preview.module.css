@@ -85,3 +85,13 @@
   .total strong { font-size: 23px; }
   .footer { align-items: flex-start; flex-wrap: wrap; }
 }
+
+.payrollPeople { display: grid; gap: 16px; }
+.payrollPerson { border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
+.payrollPersonButton { display: flex; flex-wrap: wrap; gap: 10px 24px; width: 100%; border: 0; background: transparent; text-align: left; color: inherit; font: inherit; cursor: pointer; padding: 8px 0; }
+.payrollPersonButton strong { color: var(--accent); }
+.timesheet { margin-top: 16px; }
+.timesheetDay { border-top: 1px solid var(--border); padding: 12px 0; }
+.timesheetDay h3 { font-size: 14px; margin: 0 0 8px; }
+.timesheetDay p { margin: 6px 0; }
+@media (max-width: 700px) { .payrollPersonButton { flex-direction: column; gap: 8px; } }

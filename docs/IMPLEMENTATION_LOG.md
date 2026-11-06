@@ -2672,3 +2672,5 @@ T-337 WIP: Payroll period inputs and preliminary timesheet/sample. Dedicated bro
 T-338 WIP: Separate company brands in shell and add Luxor mark; inspected desktop 1280 and phone finance screenshots. 1440 and SVG checks pending.
 
 T-339 WIP: Feedback stays visible in desktop footer and is disabled in View as. Owner, staff, crew and superadmin Preview opened it on desktop and phone; View as needs browser verification.
+
+T-337 final: Complete Mon-Sun sample timesheets, labeled person summaries and inline punches/jobs/hours. Weekly overtime uses summarizePayroll (40-hour threshold). Unit sample test passed; desktop and 375px example checks passed; both screenshots read. No removals.
