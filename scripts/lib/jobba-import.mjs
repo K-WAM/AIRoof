@@ -8,10 +8,21 @@ export function historyId(sourceId, row) {
   return id ? `jobba-${id}` : `jobba-noid-${createHash("sha1").update(JSON.stringify(row)).digest("hex").slice(0, 12)}`;
 }
 
+// Windows-1252 by hand: Node 20's TextDecoder("windows-1252") decodes as Latin-1, turning 0x80-0x9F (curly quotes,
+// dashes, the euro sign) into control characters; Node 22+ follows the WHATWG table. Same result on every Node.
+const CP1252_HIGH = [0x20AC, 0x81, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D, 0x017D, 0x8F,
+  0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D, 0x017E, 0x0178];
+/** @param {Uint8Array} bytes */
+function decodeWindows1252(bytes) {
+  let out = "";
+  for (const b of bytes) out += String.fromCharCode(b >= 0x80 && b <= 0x9F ? CP1252_HIGH[b - 0x80] : b);
+  return out;
+}
+
 /** @param {Uint8Array} buffer */
 export function decodeCsvBuffer(buffer) {
   let text = new TextDecoder("utf-8").decode(buffer);
-  if (text.includes("\uFFFD")) text = new TextDecoder("windows-1252").decode(buffer);
+  if (text.includes("\uFFFD")) text = decodeWindows1252(buffer);
   return text.replace(/^\uFEFF/, "");
 }
 /** @param {string} text @returns {Array<Record<string,string>>} */
