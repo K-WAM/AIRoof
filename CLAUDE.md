@@ -485,6 +485,25 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - Roof Doctors data-gaps doc (private Claude Doc): https://claude.ai/artifact/YCn7Rpq8r4y6zfSav4boiw — keep adding gaps found in
   their data; the named working copy lives in git-ignored `client-resources/roofdoctors/07-review/`.
 
+## Client onboarding portal, staff directory, vendors, sample data (2026-11-07) Key Files
+
+- Onboarding portal (T-355..T-360): contract `src/types/onboarding.ts`; the five forms are DATA in `src/lib/onboarding/forms.ts`
+  (texting/Twilio A2P, payments/Stripe info, team, company, documents) read by ONE renderer (`src/components/onboarding/OnboardingForm.tsx`)
+  and ONE validator (`src/lib/onboarding/validate.ts`) — never hardcode a question. Superadmin: `/admin/businesses/[id]/onboarding`
+  (+ "Onboarding" on the client list, `OnboardingStrip` on the Edit page). Client: `/o/<token>` swaps the token for the HttpOnly `onb`
+  cookie → `/onboarding`; public APIs under `/api/onboarding/**` read only that cookie (`src/lib/onboarding/link.ts`: sha256 lookup,
+  portal cross-check, per-link write budget). Server-only collections `clientOnboarding`, `clientOnboardingForms`, `clientOnboardingLinks`
+  (no rule matches = denied). EIN masked on every client read; full only via superadmin "Show full EIN" (audited). A client's seed
+  content lives in git-ignored `client-resources/<client>/08-onboarding/`, loaded by `scripts/seed-onboarding-portal.mjs` (dry run first).
+- Provenance (owner rule 2026-11-06: never mix Luxor-made demo data with the client's): `src/types/provenance.ts`
+  (`origin: "client" | "luxor-sample"`), `StaffMember.crewProvenance` for a guess on a real record, `<ExampleTag/>` on samples,
+  superadmin Edit → Sample data (`/api/admin/businesses/[id]/sample-data`, dry run → typed confirm, audited; `src/lib/sampleData/scan.ts`).
+- Staff directory (`businesses/{id}/staff`, `src/types/staff.ts`, `/api/company/staff`): people with or without a login; grants nothing,
+  sends nothing, no seat. Team page "Your team" roster merges it with logins; Library → Crews lists staff per crew. Vendors:
+  `businesses/{id}/vendors`, `/api/company/vendors`, Library → Vendors ("Suppliers" where crews are called Vendors).
+  Import from a Jobba export: `scripts/import-staff-vendors.mjs` (dry run by default; roofdoctors/e2e-* only).
+- Finances menu (T-354): `moneyNavLinks` puts the Finances overview first when the viewer can see it (imported history lives there).
+
 ## Screen Clarity Rule (read before touching any company screen)
 
 **Owner's standard (2026-10-04): `docs/ZERO-TRAINING-UX-STANDARD.md`** — a first-time user of any role (admin, office

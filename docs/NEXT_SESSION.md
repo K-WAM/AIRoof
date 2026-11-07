@@ -1,16 +1,32 @@
-## RUNNING NOW — 2026-11-06 night (Claude L0): Roof Doctors onboarding portal + owner's screen feedback
+## Start here — state 2026-11-07 (Claude) — onboarding portal + the owner's screen feedback, released
 
-Owner's feedback list → TODO.md section "Roof Doctors — onboarding portal + owner's screen feedback" (T-354..T-376). T-354
-(Finances menu opened the empty Invoices tab) is fixed on main (`59107ec`, not pushed). Four workers, prompts in
-docs/WORKER_QUEUE.md section L, logs + prompts in the session scratchpad:
-- L1 Codex GPT-6.1 Sol medium — onboarding portal — `D:/Apps/air-wt-rd-onboarding` (task/rd-onboarding), session 01a1b36c-d251-7d13-a779-d3e4e8689c18
-- L2 Codex GPT-6.1 Terra medium — screen polish + Finances chart — `D:/Apps/air-wt-rd-shell` (task/rd-shell), session 01a1b36c-d249-7bc1-b9d5-cb36445f84d6
-- L3 Claude Sonnet agent — staff directory, Team roster, Crews, Vendors, sample data — `D:/Apps/air-wt-rd-people` (task/rd-people)
-- L4 DeepSeek V4 Flash high (Kilo) — staff + vendor import script — `D:/Apps/air-wt-rd-import` (task/rd-import)
-Claude after the merges: wire SampleDataPanel into config/page.tsx; run L1's e2e spec + the full suite on the merged tree; import
-staff + vendors to production (dry run → apply); seed the portal from client-resources/roofdoctors/08-onboarding/portal-seed.json;
-add the new staff/vendor gaps to the data-gaps Claude Doc; owner approves the push. Remove the four worktrees after merging
-(delete each node_modules junction first).
+**Released:** see the top of docs/SESSION_HANDOFF.md for the pushed commit and the deploy check. Single checkout, no worktrees.
+Owner's 2026-11-06 list = TODO.md section "Roof Doctors — onboarding portal + owner's screen feedback" (T-354..T-376).
+
+What changed (details: docs/IMPLEMENTATION_LOG.md 2026-11-07):
+- Finances: the menu opens the Finances overview (their Jobba history) first; default window = last 12 months; monthly chart that
+  follows the filters (click a month to filter); one request on load.
+- Superadmin → Clients → Roof Doctors → **Onboarding**: progress steps, the RFI checklist, five forms (text messages / Twilio,
+  online payments / Stripe info, team and crews, company and booking details, documents and workflow), "What we found in their
+  data", a private client link (/o/<token>, 60 days, rotate / turn off). Their portal is seeded (6 steps, 18 items, 6 sections);
+  **no client link yet** — create it on the portal page when you want to send it.
+- Shell: Send feedback under Help in the menu (View as shows a no-send preview with "reply within 24 hours"); + Add top right;
+  View as shows the viewed role; Help tabs show the selection; logos (RCU measured, not distorted; bigger Luxor mark); search
+  labels on one line; bigger RDSF/RCU switch on customers; the pay-online preview uses their company and a real customer.
+- Team page "Your team": 15 real staff from their Jobba contacts (no logins, no invites); Library → Crews lists staff per crew
+  (6 guessed memberships tagged "Example"); Library → Vendors (11 manufacturers). Admin → client Edit → **Sample data** lists
+  and removes every Luxor-made record in one step.
+- Nobody can be emailed from the Roof Doctors account except the owner's two addresses (audit in the log).
+
+Owner, before the Nov 11 rehearsal:
+- [ ] Open Admin → Clients → Roof Doctors → Onboarding: check the steps, checklist and data review; create the client link when ready.
+- [ ] Decide: RCU logo cropped (today) or full logo with tagline; the pink SVG stays out unless you say so.
+- [ ] Optional: Stripe setup fee per company (portal Settings) — the payments page says "confirmed with you first" without it.
+- [ ] Go/no-go on T-376: a few sample jobs at their real properties, tagged "Example", so Jobs and Calendar aren't empty.
+- [ ] Earlier list still open: default payment term (Settings → Getting paid), archive fake clients, "Customer emails" panel,
+      DeepSeek top-up ($4.68 left, shared with live call sorting), rehearse on the live account Nov 11, freeze Thu 6 p.m.
+
+Next build: T-376 (on the owner's go), T-351 + T-352 branded client emails, T-375 printable guidebook, T-350 sales docs.
 
 ## Start here — state 2026-11-06 night (Claude) — Roof Doctors release + follow-up live, session closed
 

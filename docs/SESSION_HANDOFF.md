@@ -1,5 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — 2026-11-07 (Claude) — onboarding portal + owner's screen feedback released
+
+- **Released:** main pushed to origin with the owner's go ("merge commit push, update docs, and confirm"); Vercel deploy +
+  production checks are recorded at the top of docs/NEXT_SESSION.md. Single checkout; the four worker worktrees were removed.
+- **Built** (owner's 2026-11-06 list, TODO.md T-354..T-376): Finances menu opens the overview (T-354; their data was never lost),
+  12-month default + monthly chart; superadmin onboarding portal + private client link + five forms (T-355..T-360); shell polish
+  (feedback in the menu with a View-as preview, + Add top right, View-as role, Help tabs/logo, logos, search label, customer
+  company switch, pay-online preview) (T-361..T-369); staff directory + Team roster + crews + Vendors + Sample data (T-370..T-372);
+  coding-standards folder organized (T-373).
+- **Workers:** L1 Codex Sol, L2 Codex Terra→Sol (one resume after a too-strict file list), L3 Claude Sonnet agent, L4 DeepSeek via
+  Kilo ($0.03; needs the message BEFORE `-f` and a no-chained-shell rule). The full Playwright run on the merged tree found one real
+  bug (Team form vs a deleted crew) and 8 outdated specs; all fixed and re-run green.
+- **Production writes on roofdoctors (dry run first):** 15 staff + 11 vendors imported (client data; 6 crew guesses marked
+  luxor-sample); onboarding portal seeded (no client link yet). Email audit: only the owner's two addresses can receive mail from
+  this account; no texts/calls; the only new email is the portal's submission note to connect@luxordev.com.
+- **Owner next:** open the Onboarding page and create the client link when ready; RCU logo choice; optional Stripe setup fee;
+  go/no-go on T-376 sample jobs; the Nov 11 rehearsal list in docs/NEXT_SESSION.md.
+
 ## Resume here — 2026-11-06 (Claude) — Roof Doctors release live, production data loaded, session closed
 
 - **Live:** `main` = `6fcdfdb` on crm.luxordev.com, CI green, health OK. Two pushes today: `712344a` (full release; merged-tree

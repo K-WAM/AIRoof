@@ -2894,3 +2894,53 @@ Files changed (including the shared verification artifacts in this entry's commi
 - src/components/companies/CompanyToggle.tsx
 - src/components/ui/FeedbackForm.tsx
 - src/components/ui/__tests__/FeedbackForm.test.tsx
+
+## 2026-11-07 - Claude (L0 integrator) - onboarding portal + owner's screen feedback (T-354..T-374)
+
+- Owner's list (2026-11-06 night, viewing Roof Doctors as Owner) -> TODO.md section "Roof Doctors - onboarding portal + owner's
+  screen feedback". Built by four workers in parallel (prompts: docs/WORKER_QUEUE.md section L), merged here:
+  L1 Codex GPT-6.1 Sol (onboarding portal, T-355..T-359), L2 Codex GPT-6.1 Terra then Sol (screens + Finances chart, T-361..T-369),
+  L3 Claude Sonnet agent (staff directory, Team roster, Crews, Vendors, sample data, T-370..T-372), L4 DeepSeek V4 Flash via Kilo
+  (staff + vendor import script; cost $0.03 of the shared DeepSeek balance, $4.68 left).
+- T-354 (Claude): "Finances is empty" = since T-344 the Finances menu item opened the Invoices tab (app-sent invoices only: 0 for
+  Roof Doctors) while their 326 Jobba invoices sat on the Finances tab. Production data was intact (326 invoiceHistory rows).
+  moneyNavLinks now opens the Finances overview first; an empty Invoices tab links to it.
+- Claude fixes at merge: Sample data panel wired into the client Edit page; audit action union gains the onboarding and
+  sample-data actions; owner Help guide follows T-354; onboarding admin checklist decluttered (note inside Edit item), no
+  "Not scheduled" line on undated steps, 28 px Luxor mark on client pages, duplicate "Online payments" heading renamed;
+  e2e/rd-people.spec.ts added (Team roster, Vendors search, staff on crews, Sample data panel).
+- Contracts committed first: src/types/onboarding.ts, src/lib/onboarding/forms.ts (the five forms as data, wording by Claude),
+  src/types/provenance.ts, src/types/staff.ts, src/types/vendor.ts; public/luxor-mark.png (trimmed mark).
+- Production (owner asked for the data; dry runs first, guard ON): scripts/import-staff-vendors.mjs on roofdoctors created 15 staff
+  (Jobba company contacts; "Power Board" display account skipped; 5 crew leads from Crews.csv; 6 crew guesses marked luxor-sample)
+  and 11 vendors; re-run = 0 creates/0 fills. scripts/seed-onboarding-portal.mjs wrote clientOnboarding/roofdoctors (6 steps, 3 done;
+  18 checklist items, 6 received; 6 data-review sections; seed file git-ignored in client-resources/roofdoctors/08-onboarding/).
+  No client link created (the owner creates and sends it).
+- Email audit (owner asked): every email goes through sendEmail (src/lib/comms/send.ts is the only Resend user), which requires a
+  businessId and applies the evaluation guard (exact-address allowlist, fails closed). roofdoctors allowlist = the owner's 2
+  addresses; phone allowlist empty; SMS_ENABLED unset; 0 logins; 0 app invoices; crews carry no email. New code sends one thing:
+  the onboarding "<client> sent: <form>" note to connect@luxordev.com. Staff/vendor code sends nothing.
+- Data-gaps Claude Doc: 5 new gap rows (staff emails/phones/languages, crew members unknown, crew named after one person but led by
+  another, "Power Board" non-person contact, vendor ZIPs) + the crew ask under "What we need from you".
+- T-373: D:/Apps/0 - Coding Standards & Specs reorganized by a Claude Sonnet agent (numbered category folders, README task table,
+  4 merged guides with "Key rules" summaries, charts reference, link fixes; originals in _archive/originals; not a git repo).
+- Gates on the merged tree (bcff79b + fixes): tsc 0; eslint 0 on the 103 changed files; vitest 383 files / 3,085 passed + 1 expected
+  fail; next build OK; e2e:call 12/12; onboarding + rd-people specs 10/10 (desktop + 375 px, screenshots read); L2's own run: 87
+  browser checks, both 20-screen audits, RCU logo rendered 2.584 = natural 2.584, Finances 1 request on load / 0 on filter change.
+- Full Playwright run on the merged tree (one worker): stopped at 488/502 by Claude's 2-hour timeout; 31 failures, triaged:
+  REAL BUG (fixed): the Team form's people prefill carried the crewId of a crew deleted since, which is not among the crew
+  options, so every draft save failed with "Choose one of the listed options" on a row whose menu showed "No crew". prefill.ts now
+  prefills active crews only, and validate.ts clears an unknown crew instead of refusing (new unit tests for both).
+  TEST DATA (fixed): rd-people's sample staff used the shared "Sample crew", which other specs rename/delete; they now have their own
+  l3-crew in the L3 seed block. OUTDATED ASSERTIONS (updated to the intended behaviour): phone feedback flows looked for Send feedback
+  on the Help page (it is in the menu now; new e2e helper openFeedback), "View as keeps Feedback disabled" (now a no-send preview:
+  asserts the preview note, the 24-hour line, "(preview - not sent)" and zero POSTs), the Money switch order (Finances first), and
+  role-matrix treating /company/billing as a forbidden route for owners (Money tabs are one group). FLAKY (passed on retry):
+  doc-photos, role-matrix proOfficeAdmin. ENVIRONMENT: role-matrix proFrontDesk on phone stuck at "Loading..." two hours into the
+  run (dev server under memory pressure); re-run below.
+- Finances default window: last 12 months (was 90 days). Production check: with 90 days the aging card showed $0 for 61-90 and 90+
+  days while $34,382 and $190,576 were that late across their history, and the chart filled 4 of 12 months.
+- Re-run after the fixes (harness reseeded): the 12 affected spec files (feedback-overlay, rd-menu, rd-money-header,
+  rd-money-payroll-feedback, roofdoctors-screens, role-matrix, rd-people, onboarding-portal, rd-shell-polish, rd-money, smoke,
+  view-as) on desktop + phone + iPhone: 225 passed, 0 failed, 0 retries (cut at 225/234 by a 50-minute timeout), then the iPhone
+  smoke spec to completion: 37 passed, 1 skipped. Unit: onboarding + finances + nav 76 passed; tsc 0; eslint 0 on changed files.
