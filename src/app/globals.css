@@ -3829,7 +3829,7 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 
 /* T-316: shared compact company selector; all callers hide it for a single company. */
 .company-toggle { display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-start; max-width: 100%; }
-.company-toggle .button { min-height: 44px; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.company-toggle .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-tint, color-mix(in srgb, var(--accent) 10%, var(--surface))); }
 .company-toggle img { height: 26px; max-height: 26px; max-width: none; width: auto; object-fit: contain; flex: none; }
 .company-toggle__label { font-size: 13px; font-weight: 600; color: var(--text); }
