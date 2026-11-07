@@ -1,5 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
+import type { FinanceRow } from "@/types/finance";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 
 export interface PaymentsPreviewInvoice {
@@ -13,12 +19,6 @@ export interface PaymentsPreviewInvoice {
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-const SAMPLE_DEPOSITS = [
-  { date: "Oct 3", label: "Acme Property Group", amount: 4800 },
-  { date: "Oct 17", label: "12 Palm Court", amount: 2150 },
-  { date: "Oct 31", label: "Northside Plaza", amount: 3600 },
-];
-
 const headStyle = {
   fontSize: 13,
   fontWeight: 700,
@@ -29,14 +29,50 @@ const headStyle = {
 };
 
 export function PaymentsPreview({ invoices }: { invoices: PaymentsPreviewInvoice[] }) {
-  const showcase = (useBootstrap().data?.business as { showcase?: { payments?: boolean } } | undefined)?.showcase;
+  const business = useBootstrap().data?.business;
+  const showcase = business?.showcase;
+  const { user } = useAuth();
+  const businessId = useBusinessId();
+  const preview = useSearchParams()?.get("preview");
+  const { isEnabled } = useBusinessModules();
+  const [opened, setOpened] = useState(false);
+  const canReadFinance = showcase?.finances === true && (user?.role === "owner" || (!!user?.superadmin && !!preview));
+  const sourceKey = `${businessId}:${canReadFinance}`;
+  const currentKey = useRef(sourceKey); currentKey.current = sourceKey;
+  const requested = useRef(new Set<string>());
+  const [source, setSource] = useState<{key: string; number: string; amount: number; name: string} | null>(null);
+  const hasCustomers = isEnabled("library");
+  useEffect(() => {
+    if (!opened || showcase?.payments !== true || !user || requested.current.has(sourceKey)) return;
+    requested.current.add(sourceKey);
+    async function load() {
+      let invoice: FinanceRow | undefined;
+      if (canReadFinance) {
+        try {
+          const res = await fetch(`/api/company/finance?${new URLSearchParams({businessId})}`);
+          if (res.ok) {
+            const data = await res.json();
+            invoice = (data.rows as FinanceRow[] | undefined)?.filter(r => r.source === "jobba").sort((a,b) => b.issuedAt-a.issuedAt)[0];
+          }
+        } catch { /* The inert preview can still show the customer's name. */ }
+      }
+      let name = "Your customer";
+      if (!invoice && hasCustomers) {
+        try {
+          const res = await fetch(`/api/company/customers?${new URLSearchParams({businessId})}`);
+          if (res.ok) name = (await res.json()).customers?.[0]?.name || name;
+        } catch { /* Keep the neutral customer label on a read failure. */ }
+      }
+      if (currentKey.current === sourceKey) setSource({key:sourceKey, number:invoice?.invoiceNo || "Preview", amount:invoice?.total ?? 0, name:invoice?.customer || name});
+    }
+    void load();
+  }, [opened, sourceKey, businessId, canReadFinance, hasCustomers, showcase?.payments, user]);
   if (showcase?.payments !== true) return null;
-
+  const issuer = business?.companies?.find(c => c.isDefault) ?? business?.companies?.[0];
+  const issuerName = issuer?.name || business?.businessName || "Your business";
+  const issuerLogo = issuer?.logoUrl || business?.logoUrl;
   const sent = invoices.filter((invoice) => invoice.status === "sent");
-  const firstSent = sent[0];
-  const payPage = firstSent
-    ? { number: firstSent.invoiceId, amount: firstSent.balance, name: firstSent.customer }
-    : { number: "INV-1042", amount: 1450, name: "Acme Property Group" };
+  const payPage = source?.key === sourceKey ? source : {number:"Preview", amount:0, name:"Your customer"};
 
   const paidCount = invoices.filter((invoice) => invoice.status === "paid").length;
   const partlyPaidCount = sent.filter((invoice) => invoice.balance < invoice.total).length;
@@ -63,7 +99,7 @@ export function PaymentsPreview({ invoices }: { invoices: PaymentsPreviewInvoice
           Preview
         </span>
       </div>
-      <details>
+      <details onToggle={e => { if (e.currentTarget.open) setOpened(true); }}>
         <summary
           style={{
             padding: "10px 16px",
@@ -80,11 +116,16 @@ export function PaymentsPreview({ invoices }: { invoices: PaymentsPreviewInvoice
           <div>
             <h3 style={headStyle}>What your customer sees</h3>
             <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 420 }}>
-              <p style={{ margin: 0, fontSize: 11.5, color: "#94a3b8" }}>Bill to</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {issuerLogo && <img src={issuerLogo} alt={`${issuerName} logo`} style={{height:36,width:"auto",maxWidth:160,objectFit:"contain"}} />}
+                <strong>{issuerName}</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--text-muted)" }}>Bill to</p>
               <p style={{ margin: "2px 0 12px", fontSize: 14, fontWeight: 600 }}>{payPage.name}</p>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: 13, marginBottom: 12 }}>
                 <span>Invoice {payPage.number}</span>
-                <strong>{usd(payPage.amount)} due</strong>
+                <strong>{usd(payPage.amount)} invoice total</strong>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 <button
@@ -130,15 +171,9 @@ export function PaymentsPreview({ invoices }: { invoices: PaymentsPreviewInvoice
               Deposits to your bank <span style={{ fontWeight: 400, color: "#94a3b8", fontSize: 11.5 }}>Sample</span>
             </h4>
             <div style={{ display: "grid", gap: 6 }}>
-              {SAMPLE_DEPOSITS.map((deposit) => (
-                <div
-                  key={`${deposit.date}-${deposit.label}`}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 12.5 }}
-                >
-                  <span>Sample · {deposit.date} · {deposit.label}</span>
-                  <strong style={{ whiteSpace: "nowrap" }}>{usd(deposit.amount)}</strong>
-                </div>
-              ))}
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,padding:"10px",background:"var(--surface-muted)",borderRadius:8,fontSize:13}}>
+                <span>Deposit: 50% of {usd(payPage.amount)}</span><strong>{usd(payPage.amount / 2)}</strong>
+              </div>
             </div>
           </div>
 

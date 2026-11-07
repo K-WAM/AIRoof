@@ -23,26 +23,27 @@ describe("Help and feedback",()=>{
     state.user.superadmin=true;render(<AdminNav/>);expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();
   });
   it("the company menu has one Help destination and preserves Preview",()=>{
-    state.search="preview=e2e-roofpros";render(<CompanyNav/>);
+    state.search="preview=e2e-roofpros";render(<CompanyNav onOpenFeedback={vi.fn()}/>);
     expect(screen.getByRole("link",{name:"Help"})).toHaveAttribute("href","/company/guide?preview=e2e-roofpros");
-    expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();
+    expect(screen.getByRole("button",{name:"Send feedback"})).toBeVisible();
     for(const label of ["Calls","Pipeline","Payroll","Billing","Team","Field"])expect(screen.queryByRole("link",{name:label})).toBeNull();
   });
-  it("client feedback opens from Help",()=>{
-    const open=vi.fn();render(<CompanySectionNav onOpenFeedback={open}/>);
+  it("client feedback opens directly from the menu on any screen",()=>{
+    state.pathname="/company/dashboard"; const open=vi.fn();render(<CompanyNav onOpenFeedback={open}/>);
     fireEvent.click(screen.getByRole("button",{name:"Send feedback"}));expect(open).toHaveBeenCalledOnce();
   });
-  it("View as keeps feedback visible and disabled with an explanation",()=>{
-    state.user.viewAs={uid:"sample"};render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);
-    expect(screen.getByRole("button",{name:/Send feedback/})).toBeDisabled();
-    expect(screen.getByText("Not available while viewing as someone else")).toBeVisible();
+  it("View as keeps feedback visible and enabled for the preview sheet",()=>{
+    state.user.viewAs={label:"Owner"};render(<CompanyNav onOpenFeedback={vi.fn()}/>);
+    expect(screen.getByRole("button",{name:/Send feedback/})).toBeEnabled();
   });
   it("superadmin feedback still needs Preview, and never flashes while loading",()=>{
-    state.user.superadmin=true;const view=render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);
+    state.user.superadmin=true;const view=render(<CompanyNav onOpenFeedback={vi.fn()}/>);
     expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();view.unmount();
-    state.search="preview=e2e-roofpros";const preview=render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);expect(screen.getByRole("button",{name:"Send feedback"})).toBeVisible();preview.unmount();
-    state.loading=true;render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();
+    state.search="preview=e2e-roofpros";const preview=render(<CompanyNav onOpenFeedback={vi.fn()}/>);expect(screen.getByRole("button",{name:"Send feedback"})).toBeVisible();preview.unmount();
+    state.loading=true;render(<CompanyNav onOpenFeedback={vi.fn()}/>);expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();
   });
+  it("Crew keeps feedback in the menu",()=>{state.user.role="crew";render(<CompanyNav onOpenFeedback={vi.fn()}/>);expect(screen.getByRole("button",{name:"Send feedback"})).toBeEnabled();});
+  it("Help has no self-linking section switch",()=>{render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);expect(screen.queryByRole("navigation",{name:"Help sections"})).toBeNull();expect(screen.queryByRole("link",{name:"Guide"})).toBeNull();});
   it("Calls marks Requests active and offers the top switch",()=>{
     state.pathname="/company/calls";render(<><CompanyNav/><CompanySectionNav onOpenFeedback={vi.fn()}/></>);
     expect(screen.getAllByRole("link",{name:"Requests"})[0]).toHaveAttribute("aria-current","page");

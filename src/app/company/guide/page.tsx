@@ -37,15 +37,18 @@ export default function GuidePage() {
   const guide = guideFor(role, context);
   const screens = screensFor(role, context);
   const businessName = business?.businessName ?? "Your business";
+  const guideLogo = (business?.companies?.length ?? 0) > 1
+    ? (business?.companies?.find(c => c.isDefault) ?? business?.companies?.[0])?.logoUrl
+    : business?.logoUrl;
   const href = (path: string) => `${path}${path.includes("?") ? sfx.replace("?", "&") : sfx}`;
 
   return (
     <div className="guide-page">
       <style>{PRINT_CSS}</style>
       <header className="guide-brand">
-        {business?.logoUrl
+        {guideLogo
           // eslint-disable-next-line @next/next/no-img-element -- a tenant data: URL or remote logo, not a build asset
-          ? <img src={business.logoUrl} alt={`${businessName} logo`} className="guide-logo" />
+          ? <img src={guideLogo} alt={`${businessName} logo`} className="guide-logo" style={{ maxHeight: 48, width: "auto", objectFit: "contain" }} />
           : <span className="guide-initial" aria-hidden="true" style={business?.brandColor ? { background: business.brandColor } : undefined}>{businessName.charAt(0)}</span>}
         <div>
           <h1 className="page-title" style={{ margin: 0 }}>{businessName}</h1>
@@ -152,7 +155,7 @@ function defaultRole(
 // One printed page: the guide card only, no app chrome, no buttons.
 const PRINT_CSS = `
 .guide-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
-.guide-logo { height: 52px; max-width: 180px; object-fit: contain; }
+.guide-logo { height: 48px; width: auto; object-fit: contain; }
 .guide-initial { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; background: var(--accent); }
 .guide-actions { margin-left: auto; display: flex; gap: 8px; }
 .guide-card { max-width: 760px; }

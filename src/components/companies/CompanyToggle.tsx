@@ -1,4 +1,5 @@
 "use client";
+import { Check } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import type { BootstrapCompany } from "@/types/company";
 
@@ -34,7 +35,7 @@ export function CompanyToggle({ companies, value, onChange, readOnly, disabled, 
     {companies.map((c, i) => <button key={c.id} type="button" className="button small ghost" role="radio" aria-checked={c.id === selected.id} tabIndex={c.id === selected.id ? 0 : -1} disabled={disabled} onKeyDown={e => keyDown(e, i)} onClick={() => { if (c.id !== selected.id) onChange?.(c.id); }}>
       {/* Inline library data URIs do not benefit from image optimization. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {c.logoUrl && <img src={c.logoUrl} alt="" />}<span>{c.shortName}</span>
+      {c.logoUrl && <img src={c.logoUrl} alt="" />}<span>{c.shortName}</span><Check size={15} aria-hidden="true" style={{ visibility: c.id === selected.id ? "visible" : "hidden" }} />
     </button>)}
     </div>
   </div>;

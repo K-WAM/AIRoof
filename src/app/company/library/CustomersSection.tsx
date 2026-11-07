@@ -317,7 +317,7 @@ function CustomerDetail({
       <div className="panel-body">
         {error && <p role="alert" style={{ color: "var(--danger)", marginTop: 0, fontSize: 13 }}>{error}</p>}
 
-        <CompanyToggle companies={companies} value={draft.companyId} disabled={saving || !canEditCompany} onChange={companyId => setDraft(d => ({ ...d, companyId }))} />
+        {(companies?.length ?? 0) >= 2 && <div style={{ marginBottom: 24 }}><CompanyToggle label="Company" companies={companies} value={draft.companyId} disabled={saving || !canEditCompany} onChange={companyId => setDraft(d => ({ ...d, companyId }))} /></div>}
 
         {/* Who is it? asked first, because it changes the words below (owner: most customers are schools). */}
         <div className="form-grid">

@@ -1564,9 +1564,11 @@ a.metric:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  width: 34px;
+  width: auto;
+  min-width: 10ch;
   flex-shrink: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .cmd-type--lead     { color: #1e40af; }
@@ -1667,10 +1669,12 @@ a.metric:hover {
   border-right: 0;
 }
 
-.segment[aria-pressed="true"] {
+.segment[aria-pressed="true"],
+.segment[aria-selected="true"] {
   background: var(--accent);
   color: #ffffff;
 }
+.segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .search-input {
   width: min(320px, 100%);
@@ -3824,12 +3828,12 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 }
 
 /* T-316: shared compact company selector; all callers hide it for a single company. */
-.company-toggle { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; max-width: 100%; }
-.company-toggle .button { min-height: var(--control-h); gap: var(--sp-1); }
-.company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); }
-.company-toggle img { height: 20px; max-height: 20px; max-width: 40px; width: auto; object-fit: contain; }
-.company-toggle__label { font-size: 13px; color: var(--text-muted); }
-.company-toggle > [role="radiogroup"] { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.company-toggle { display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-start; max-width: 100%; }
+.company-toggle .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-tint, color-mix(in srgb, var(--accent) 10%, var(--surface))); }
+.company-toggle img { height: 26px; max-height: 26px; max-width: none; width: auto; object-fit: contain; flex: none; }
+.company-toggle__label { font-size: 13px; font-weight: 600; color: var(--text); }
+.company-toggle > [role="radiogroup"] { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* A draft document's small issuer label; the menu changes THIS document only. */
 .document-company-control { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
@@ -3839,56 +3843,39 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .company-issuer__menu button { background: none; border: 0; border-radius: 6px; padding: 8px 10px; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
 .company-issuer__menu button:hover, .company-issuer__menu button:focus-visible { background: var(--surface-2, #f1f5f9); }
 
-/* Two companies (Roof Doctors: RDSF + RCU, owner 2026-11-05): both logos side by side, large enough to read and
-   sharp, "Powered by Luxor" under them, on the sidebar and on the phone header. One-company brands are unchanged. */
+/* T-338 header logos: height-driven artwork keeps its natural proportions. */
 .company-brand--multi { width: 100%; }
-.company-brand-lockup { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; }
-.company-brand-logos { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.company-brand-logos .company-brand-logo { flex: 1 1 0; min-width: 0; width: 0; height: 44px; max-width: 100%; max-height: none; object-fit: contain; object-position: left center; }
-.company-brand-lockup .company-brand-powered { line-height: 1; }
-.company-topbar .company-brand--multi { width: auto; flex: 0 1 176px; min-width: 0; }
-.company-topbar .company-brand-lockup { gap: 3px; }
-.company-topbar .company-brand--multi .company-brand-logos { gap: 8px; }
-.company-topbar .company-brand--multi .company-brand-logo { height: 30px; }
-.company-topbar .company-brand--multi .company-brand-powered { display: block; font-size: 9px; }
-/* Two companies on a phone: Menu shows as its icon (aria-label "Open menu" stays) so both logos get the room. */
-.company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) > span { display: none; }
-.company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) { width: 44px; min-width: 44px; height: 44px; padding: 0; flex: none; }
-
-/* T-338: the two companies have separate places in the shell. */
-.company-sidebar .company-brand--multi .company-brand-logo { width: 100%; height: 76px; max-width: 190px; max-height: none; object-fit: contain; object-position: left center; }
-.company-brand-powered img { display: inline-block; width: 20px; height: auto; vertical-align: middle; }
-.company-brand-other { margin-left: auto; flex: none; display: flex; align-items: center; }
-.company-brand-other img { width: auto; max-width: 140px; height: 48px; object-fit: contain; }
-@media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-logo { width: auto; max-width: 110px; height: 38px; object-fit: contain; } .company-brand-other img { max-width: 85px; height: 38px; } }
-
-@media (max-width: 700px) { .company-topbar .company-brand--multi .company-brand-powered { display: none; } }
-
-/* Give two brands their own phone row so wide artwork stays readable beside the controls. */
-.company-sidebar .company-brand--multi .company-brand-logo { width: auto; height: auto; max-width: 190px; max-height: 76px; }
-.company-brand-other img { width: auto; height: auto; max-width: 140px; max-height: 48px; }
-@media (max-width: 700px) {
+.company-brand-lockup { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; min-width: 0; }
+.company-sidebar .company-brand--multi .company-brand-logo { height: 64px; width: auto; max-width: none; max-height: none; object-fit: contain; flex: none; }
+.company-brand-powered { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; line-height: 1.2; }
+.company-brand-powered img { display: inline-block; height: 28px; width: auto; max-width: none; object-fit: contain; flex: none; }
+.company-brand-other { display: flex; align-items: center; flex: none; margin-left: 0; }
+.company-brand-other img { display: block; height: 54px; width: auto; max-width: none; max-height: none; object-fit: contain; flex: none; }
+.company-topbar .company-brand-powered img { height: 20px; width: auto; }
+@media (max-width: 900px) {
   .company-topbar:has(.company-brand--multi) { flex-wrap: wrap; }
-  .company-topbar .company-brand--multi { order: 0; flex: 1 1 calc(50% - 8px); margin-right: 0; }
-  .company-topbar:has(.company-brand--multi) .company-brand-other { order: 1; flex: 1 1 calc(50% - 8px); margin-left: 0; justify-content: flex-end; }
-  .company-topbar .company-brand--multi .company-brand-logo,
-  .company-topbar .company-brand-other img { width: auto; height: auto; max-width: 150px; max-height: 48px; }
-  .company-topbar .company-brand--multi .company-brand-powered { display: flex; align-items: center; gap: 4px; font-size: 9px; }
-  .company-topbar .company-brand--multi .company-brand-powered img { width: 12px; height: auto; }
+  .company-topbar .company-brand--multi { order: 0; flex: 1 1 calc(50% - 8px); margin-right: 0; min-width: 0; }
+  .company-topbar .company-brand-lockup { align-items: flex-start; gap: 4px; }
+  .company-topbar .company-brand--multi .company-brand-logo { height: 40px; width: auto; max-width: none; max-height: none; object-fit: contain; flex: none; }
+  .company-topbar:has(.company-brand--multi) .company-brand-other { order: 1; flex: 1 1 calc(50% - 8px); justify-content: flex-end; }
+  .company-topbar .company-brand-other img { height: 40px; width: auto; max-width: none; max-height: none; object-fit: contain; flex: none; }
+  .company-topbar .company-brand--multi .company-brand-powered { display: flex; font-size: 12px; white-space: nowrap; }
   .company-topbar:has(.company-brand--multi) > .cmd-header-icon,
   .company-topbar:has(.company-brand--multi) > .mobile-menu-btn { order: 2; }
   .company-topbar:has(.company-brand--multi) > .cmd-header-icon { margin-left: auto; }
+  .company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) > span { display: none; }
+  .company-topbar:has(.company-brand--multi) .mobile-menu-btn:not(.mobile-new-btn) { width: 44px; min-width: 44px; height: 44px; padding: 0; flex: none; }
 }
 
-/* Owner feedback 2026-11-06 (two-company header): a readable Luxor mark, "Powered by Luxor" centred under the main
-   logo in the sidebar, and the second company's logo large enough to read at the right of the top bar on desktop. */
-.company-brand-powered img { width: 28px; }
-.company-brand-powered { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
-.company-sidebar .company-brand--multi .company-brand-lockup { align-items: center; text-align: center; }
-.company-sidebar .company-brand--multi .company-brand-logo { object-position: center; margin: 0 auto; }
-@media (min-width: 701px) {
-  .company-brand-other img { max-width: 230px; max-height: 64px; }
+
+/* === L2 shell === */
+.company-topbar-spacer { flex: 1; }
+.company-desktop-add { flex: none; }
+.company-desktop-add .quickadd-trigger { margin: 0; min-height: 44px; }
+@media (max-width: 900px) {
+  .company-desktop-add, .company-topbar-spacer { display: none; }
 }
+/* === end L2 === */
 
 /* === L3 people === */
 .example-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; cursor: help; vertical-align: middle; }

@@ -11,6 +11,8 @@ const authState = vi.hoisted(() => ({
       businessId?: string;
       role?: string;
       superadmin?: boolean;
+      displayName?: string;
+      viewAs?: {label:string};
     },
     loading: false,
     idToken: null as string | null,
@@ -20,6 +22,8 @@ const authState = vi.hoisted(() => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState.value,
 }));
+
+vi.mock("@/contexts/BootstrapContext", () => ({ useBootstrap: () => ({data:{business:{businessName:"Acme"}}}) }));
 
 const searchState = vi.hoisted(() => ({ value: "" }));
 vi.mock("next/navigation", () => ({
@@ -55,11 +59,8 @@ describe("FeedbackForm (T-114)", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Send feedback to Luxor")).toBeInTheDocument();
-    expect(screen.getByText(/goes to the Luxor team — not to your own company/)).toBeInTheDocument();
-    expect(screen.getByText("We'll reply to")).toBeInTheDocument();
-    expect(screen.getByText("client@acme.com")).toBeInTheDocument();
-    // The old misleading "From <email>" row is gone.
-    expect(screen.queryByText("From")).not.toBeInTheDocument();
+    expect(screen.getByText("Goes straight to Luxor support. We reply within 24 hours.")).toBeInTheDocument();
+    expect(screen.getByText("From: client@acme.com · Acme")).toBeInTheDocument();
 
     expect(screen.getByLabelText(/Category/)).toBeInTheDocument();
     expect(screen.getByLabelText("Message")).toBeInTheDocument();
@@ -78,7 +79,7 @@ describe("FeedbackForm (T-114)", () => {
     expect(send).not.toBeDisabled();
   });
 
-  it("shows the 'Thanks — we read every message' success state", async () => {
+  it("shows the 24 hour reply success state", async () => {
     authState.value = { user: clientUser, loading: false, idToken: null };
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ok: true })));
     render(<FeedbackForm open onClose={() => {}} />);
@@ -87,7 +88,7 @@ describe("FeedbackForm (T-114)", () => {
     fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/we read every message/)).toBeInTheDocument()
+      expect(screen.getByText("Sent. Luxor will reply within 24 hours.")).toBeInTheDocument()
     );
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
   });
@@ -123,6 +124,18 @@ describe("FeedbackForm (T-114)", () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body).toMatchObject({ businessId: "demo-roofing", message: "Testing the form", page: "/" });
     searchState.value = "";
+  });
+
+  it("shows the viewed identity and simulates success without sending", () => {
+    authState.value = { user: {...clientUser, displayName:"Actual owner", viewAs:{label:"Dominic — Office staff"}}, loading:false, idToken:null };
+    const request = vi.fn(); vi.stubGlobal("fetch", request);
+    render(<FeedbackForm open onClose={() => {}} />);
+    expect(screen.getByText("From: Dominic — Office staff · Acme")).toBeVisible();
+    expect(screen.getByText(/Nothing is sent/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Message"), {target:{value:"Preview message"}});
+    fireEvent.click(screen.getByRole("button", {name:/^send$/i}));
+    expect(screen.getByText(/Sent. Luxor will reply within 24 hours.*preview — not sent/)).toBeVisible();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("renders nothing before the auth profile resolves", () => {

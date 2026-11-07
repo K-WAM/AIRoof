@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
 import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Menu, Plus, X } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -204,7 +203,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   }
 
   // The same words as the Team page's Type (Admin / Office staff / Inspector / Technician / View only), not "crew"/"staff".
-  const roleLabel = user.superadmin
+  const roleLabel = user.viewAs
+    ? user.viewAs.label.split(" — ").at(-1)!.trim().toUpperCase()
+    : user.superadmin
     ? "Superadmin"
     : userTypeDef(userTypeOf({ role: (user.role ?? "viewer") as TeamRole, trade: user.trade as TradeTitle | undefined })).label;
   const preview = searchParams?.get("preview");
@@ -216,14 +217,12 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       <aside className="company-sidebar">
         <BusinessBrand />
         <div className="company-sidebar-nav">
-          <CompanyNav helpPlacement="exclude" />
+          <CompanyNav onOpenFeedback={openFeedback} />
         </div>
         <div className="company-sidebar-footer">
-          <CompanyNav helpPlacement="only" />
-          {!crewOnly && <QuickAddButton />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
-            <span className="user-email">{user.email}</span>
+            <span className="user-email">{user.viewAs ? bootstrap?.business.businessName || user.viewAs.businessName : user.email}</span>
           </div>
           <button className="logout-btn" style={{ width: "100%" }} onClick={handleLogout}>Sign out</button>
         </div>
@@ -234,6 +233,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <header className="company-topbar">
           <BusinessBrand />
           {!crewOnly && <CommandBar header />}
+          <div className="company-topbar-spacer" />
+          {!crewOnly && <div className="company-desktop-add"><QuickAddButton /></div>}
           {!crewOnly && <MobileNewButton />}
           <OtherCompanyBrand business={bootstrap?.business} />
             <button
@@ -251,11 +252,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
         <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
           <div className="mobile-nav-sheet" id="company-mobile-nav">
-            <CompanyNav />
+            <CompanyNav onOpenFeedback={openFeedback} />
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
-              <span className="user-email">{user.email}</span>
+              <span className="user-email">{user.viewAs ? bootstrap?.business.businessName || user.viewAs.businessName : user.email}</span>
             </div>
             <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
           </div>

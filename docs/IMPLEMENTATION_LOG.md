@@ -2811,3 +2811,86 @@ Integrator: run this spec and inspect screenshots on the merged tree; run the
 merge-batch build/regression gates. Real phone audio and real inbox delivery
 are outside harness coverage. T-360 client-specific data-review/progress seeding
 and TODO.md review-state updates remain with Claude; TODO.md was not edited.
+
+## 2026-11-07 - Stream L2 (screens)
+
+Completed T-361 through T-369 in D:/Apps/air-wt-rd-shell, task/rd-shell. The initial WIP is completed by the focused commits below. No push, merge, deployment, dependency install or live service call was made. TODO.md remains owned by the integrator.
+
+- T-361: Send feedback directly under Help in desktop and phone menus, including Crew. The compact sheet shows the profile name and bootstrap business, focuses Message, keeps Category, states the 24-hour reply promise, and simulates View as success without any request.
+- T-362: Desktop search, flexible space, Add and second brand appear in that order. The sidebar footer contains role/sign-out. Phone New and the existing quick-add provider/keyboard behavior are retained; Crew-only logins have no Add/New.
+- T-363: View as badges use the label's type part in uppercase, with the business below. Real-user labels are retained.
+- T-364: Selected aria-selected segments share the selected styling and a visible focus ring. Help has no self-linking Guide switch, keeps its printable/print/question actions, and shows the default company's logo (or the existing single-business/initial fallback). Help and Job phone screenshots were read.
+- T-365: CompanyBrand uses the supplied trimmed Luxor mark. Consolidated the layered header rules into fixed-height, intrinsic-width artwork with no flex stretch. Sidebar powered mark is 28px with 12px text; the header mark is 20px. No company artwork file was changed.
+- T-366: Search labels use intrinsic width, a 10ch minimum and nowrap. The current search returns Request, Job, Booking and Customer; the shared class was also exercised with Invoice and Patient text at 375px. No search contract was extended.
+- T-367: Company is a separate labelled field, with >=44px options, 26px logos, an accent tint/border/check for selection and 24px before Who is it. Single-company businesses omit the switch and its wrapper.
+- T-368: The inert payments preview shows the default issuer and lazily reads the latest imported invoice when the role may read Finances, otherwise the first customer or Your customer. The full historical amount is labelled invoice total (it may already be paid). Deposit examples carry no invented customer names; all payment buttons remain disabled.
+- T-369: One new SVG monthly chart uses shared cents-based finance calculations, paired teal/purple bars, dollar-k gridlines, responsive labels, an inline legend, hover/focus values, keyboard month selection, active highlighting, an accessible data table and reduced-motion support. Company/date windows are fetched once; customer/status/aging/month filters are local. Date edits after a month selection preserve the other displayed bound. The month formatter is reused across rows.
+
+Validation:
+- npx tsc --noEmit passed on the final source tree.
+- ESLint passed on the changed TypeScript/TSX files. seed.cjs is ignored by the repository ESLint config; node --check and the local seed both passed.
+- Related unit coverage: 43 distinct tests passed across 8 files (42 before the final date regression, plus the new regression). An initial fork-worker startup timeout was retried with one worker; the final payments and finance tests passed with a thread worker. No assertions were removed to obtain a pass.
+- npm run e2e:call: 12/12 local call-to-cash steps passed.
+- rd-shell-polish + existing smoke + existing View as + screen audit, desktop and phone: 87 passed, 1 expected skip (the desktop-only Feedback viewport assertion on phone). Both full 20-screen audits passed.
+- After the isolated date-bound fix: the finance scenario and finance-only screen audit passed on both projects, 4/4, without repeating the full green suite. The full HTML report was retained; regression output is in .e2e/l2-finance-regression.
+- Read the L2 desktop and 375px screenshots, including selected-month totals/list, the Help and Job tabs, feedback and preview success, search, company field and payments, plus the changed screens in the single-company audits. Screenshots: test-results/screens/{desktop,phone}/l2-*.png and audit-*.png.
+- The harness and its verified orphan supervisor were stopped. An earlier interrupted Playwright child runner was identified by command line and stopped before the final full run.
+
+RCU measurements (local invented SVG fixture with the reported 1000x387 aspect ratio, natural ratio 2.5839793; original CSS replayed for the before comparison):
+- 1440px: before 165.359375x63.984375 (2.5843712); after 139.53125x54 (2.5839120).
+- 1024px: before 165.359375x63.984375 (2.5843712); after 139.53125x54 (2.5839120).
+- 375px: before 124.015625x47.984375 (2.5845002); after 103.34375x40 (2.5835938).
+No distortion was reproduced beyond subpixel rounding. These are local fixture measurements, not a production-browser claim.
+
+Finances endpoint measurements (local next dev, indicative rather than a production benchmark):
+- Before: warm load 1554ms at the default 1280px viewport, 2 /api/company/finance requests (Strict Mode); status added 1 request and customer added 1 request.
+- Final targeted run: warm chart-ready load 1246ms at 1440px and 2144ms at 375px, 1 finance request each. Status/customer/month changes added 0 requests; changing the date window added exactly 1.
+- Timings varied under shared-machine load (the preceding full-run phone sample was 3986ms). Final finance-only audit first-content measurements were 948ms desktop and 984ms phone, with 2 distinct API URLs including bootstrap.
+
+Replaced/removed UI: the old disabled Help-section feedback control, its self-linking Guide pill, the hard-coded Acme/invoice/deposit examples, redundant layered logo overrides and the old reply-to display styling. No files were deleted. New seed records/artwork are fictional, local only, and confined to the L2 shell block.
+
+Updated existing assertions: src/app/__tests__/nav-feedback.test.tsx; src/components/ui/__tests__/FeedbackForm.test.tsx; src/app/company/billing/PaymentsPreview.test.tsx; e2e/view-as.spec.ts; e2e/fixtures.ts (Help helper assertion). New coverage: src/app/company/finances/page.test.tsx and e2e/rd-shell-polish.spec.ts.
+
+Limits: the harness does not test real phone audio, real inbox delivery, production Firebase quotas/indexes or next build. Worker rules leave the production build and merged-tree gates to the integrator.
+
+Commits:
+- 4d0a1f2 T-361 WIP: Move feedback into company navigation
+- 636fdee T-361: Complete feedback sheet and preview behavior
+- 3d6202c T-362: Move desktop Add into the top bar
+- c99118d T-363: Show the viewed role and business in the shell
+- 00116ac T-364: Complete Help logo and tab clarity
+- 65a6512 T-366: Keep search type labels on one line
+- 90d5b7c T-367: Clarify the customer company field
+- 4cd1843 T-365: Preserve logo proportions and use the trimmed Luxor mark
+- 4a15147 T-368: Use business data in the inert payments preview
+- bb8c6e7 T-369: Add monthly finance bars and filter returned rows locally
+- 85532f0 T-367: Keep company choice contents spaced and aligned
+- f3ba3b7 T-369: Keep chart text proportional across screen sizes
+- 2680b18 T-368: Label historical preview amounts as invoice totals
+- 1e4cbf5 T-364: Update Help browser navigation coverage
+- b2e0741 T-363: Update View as browser assertions
+- fd46e92 T-369: Preserve visible dates when editing a month selection
+
+Files changed (including the shared verification artifacts in this entry's commit):
+- docs/IMPLEMENTATION_LOG.md
+- e2e/fixtures.ts
+- e2e/rd-shell-polish.spec.ts
+- e2e/view-as.spec.ts
+- scripts/e2e/seed.cjs
+- src/app/__tests__/nav-feedback.test.tsx
+- src/app/company/CompanySectionNav.tsx
+- src/app/company/billing/PaymentsPreview.test.tsx
+- src/app/company/billing/PaymentsPreview.tsx
+- src/app/company/company-nav.tsx
+- src/app/company/finances/MonthlyChart.tsx
+- src/app/company/finances/finances.module.css
+- src/app/company/finances/page.test.tsx
+- src/app/company/finances/page.tsx
+- src/app/company/guide/page.tsx
+- src/app/company/layout.tsx
+- src/app/company/library/CustomersSection.tsx
+- src/app/globals.css
+- src/components/companies/CompanyBrand.tsx
+- src/components/companies/CompanyToggle.tsx
+- src/components/ui/FeedbackForm.tsx
+- src/components/ui/__tests__/FeedbackForm.test.tsx

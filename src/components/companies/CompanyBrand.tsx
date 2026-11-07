@@ -13,14 +13,14 @@ export function CompanyBrand({ business }: { business?: CompanyBootstrap["busine
     const primary = companies.find(c => c.isDefault) ?? companies[0];
     return <div className="company-brand company-brand--multi"><div className="company-brand-lockup">
       {primary.logoUrl ? <img src={primary.logoUrl} alt={`${primary.name} logo`} className="company-brand-logo company-brand-logo--business" style={lightSurfaceLogo} /> : <span className="company-brand-name">{primary.shortName}</span>}
-      <span className="company-brand-powered"><Image src="/logo.png" alt="" width={20} height={16} /> Powered by Luxor</span><span className="sr-only">{name}</span>
+      <span className="company-brand-powered"><Image src="/luxor-mark.png" alt="" width={149} height={128} /> Powered by Luxor</span><span className="sr-only">{name}</span>
     </div></div>;
   }
   return <div className="company-brand">
     {logoUrl ? (
       <img src={logoUrl} alt={`${name} logo`} className="company-brand-logo company-brand-logo--business" style={lightSurfaceLogo} />
-    ) : <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />}
-    <span className="company-brand-text"><span className="company-brand-name">{name}</span><span className="company-brand-powered"><Image src="/logo.png" alt="" width={20} height={16} /> Powered by Luxor</span></span>
+    ) : <Image src="/luxor-mark.png" alt="Luxor AI" width={149} height={128} priority className="company-brand-logo" />}
+    <span className="company-brand-text"><span className="company-brand-name">{name}</span><span className="company-brand-powered"><Image src="/luxor-mark.png" alt="" width={149} height={128} /> Powered by Luxor</span></span>
   </div>;
 }
 

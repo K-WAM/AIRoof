@@ -1,0 +1,64 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { StrictMode } from "react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { summarizeFinances } from "@/lib/finance/summary";
+import type { FinanceRow } from "@/types/finance";
+import FinancesPage from "./page";
+import { monthLabel, monthRange } from "./MonthlyChart";
+vi.mock("next/navigation",()=>({useRouter:()=>({push:vi.fn()}),useSearchParams:()=>new URLSearchParams()}));
+vi.mock("@/contexts/AuthContext",()=>({useAuth:()=>({user:{uid:"owner",role:"owner"}})}));
+vi.mock("@/hooks/useBusinessId",()=>({useBusinessId:()=>"sample"}));
+vi.mock("@/contexts/BootstrapContext",()=>({useBootstrap:()=>({data:{business:{timezone:"UTC"}}})}));
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+const now=Date.now();
+const month=new Date(now).toISOString().slice(0,7);
+const previous=new Date(new Date(now).getFullYear(),new Date(now).getMonth()-1,15,12).getTime();
+const rows:FinanceRow[]=[{invoiceNo:"NEW",customer:"School",source:"jobba",issuedAt:now-86400000,total:1000,balance:1000,status:"unpaid",companyId:"a"},{invoiceNo:"OLD",customer:"Homeowner",source:"jobba",issuedAt:previous,total:500,balance:0,status:"paid",companyId:"b"}];
+beforeEach(()=>{vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({...summarizeFinances(rows,{},now,30,"UTC"),companies:[{id:"a",shortName:"RDSF"},{id:"b",shortName:"RCU"}]}))));});
+it("fetches once in StrictMode and applies status, customer and month locally",async()=>{
+ render(<StrictMode><FinancesPage/></StrictMode>);
+ const button=await screen.findByRole("button",{name:new RegExp(`${monthLabel(month,true)}: invoiced`)});
+ expect(fetch).toHaveBeenCalledTimes(1);
+ fireEvent.click(button);
+ expect(button).toHaveAttribute("aria-pressed","true");
+ expect(screen.getByText("1 invoices / Page 1 of 1")).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"Filters"}));
+ expect(screen.getByLabelText("From")).toHaveValue(monthRange(month).from);
+ expect(screen.getByLabelText("To")).toHaveValue(monthRange(month).to);
+ fireEvent.click(button);
+ expect(screen.getByText("2 invoices / Page 1 of 1")).toBeVisible();
+ fireEvent.change(screen.getByLabelText(/^Status/),{target:{value:"paid"}});
+ expect(screen.getByText("1 invoices / Page 1 of 1")).toBeVisible();
+ expect(screen.getByRole("table",{name:"Invoiced and collected by month"})).toHaveTextContent("$500");
+ fireEvent.change(screen.getByLabelText("Customer"),{target:{value:"School"}});
+ expect(screen.getByText("No invoices in this period")).toBeVisible();
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("fetches a new company or date window without sending local filters to the API",async()=>{
+ render(<FinancesPage/>);await screen.findByRole("heading",{name:"Invoiced and collected by month"});
+ fireEvent.click(screen.getByRole("button",{name:/^RCU$/}));
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
+ await screen.findByRole("heading",{name:"Invoiced and collected by month"});
+ fireEvent.click(screen.getByRole("button",{name:"Filters"}));
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:"2025-01-01"}});
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));
+ await screen.findByRole("heading",{name:"Invoiced and collected by month"});
+ fireEvent.change(screen.getByLabelText("To"),{target:{value:"2025-10-31"}});
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(4));
+ await screen.findByRole("heading",{name:"Invoiced and collected by month"});
+ expect(screen.getByText(/12 months ending October 2025/)).toBeVisible();
+ expect(String(vi.mocked(fetch).mock.calls[1][0])).toContain("company=b");
+ expect(String(vi.mocked(fetch).mock.calls[3][0])).toContain("to=2025-10-31");
+});
+it("keeps the visible opposite date bound when editing a selected month",async()=>{
+ render(<FinancesPage/>);const monthButton=await screen.findByRole("button",{name:new RegExp(`${monthLabel(month,true)}: invoiced`)});
+ fireEvent.click(monthButton);fireEvent.click(screen.getByRole("button",{name:"Filters"}));
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:`${month}-02`}});
+ expect(screen.getByLabelText("To")).toHaveValue(monthRange(month).to);
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
+ expect(String(vi.mocked(fetch).mock.calls[1][0])).toContain(`to=${monthRange(month).to}`);
+});
+it("uses complete calendar month boundaries including leap years",()=>{expect(monthRange("2024-02")).toEqual({from:"2024-02-01",to:"2024-02-29"});});
+

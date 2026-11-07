@@ -32,7 +32,7 @@ const MODULE_OF: Record<string, CompanyModule> = {
 const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 
 // The Help destination shares the desktop footer and phone menu model.
-export function CompanyNav({ helpPlacement = "all" }: { helpPlacement?: "all" | "exclude" | "only" } = {}) {
+export function CompanyNav({ helpPlacement = "all", onOpenFeedback }: { helpPlacement?: "all" | "exclude" | "only"; onOpenFeedback?: () => void } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
@@ -77,6 +77,7 @@ export function CompanyNav({ helpPlacement = "all" }: { helpPlacement?: "all" | 
                 </Link>
               );
             })}
+            {group === "Help" && onOpenFeedback && user && (!user.superadmin || preview || user.viewAs) && <button type="button" className="company-nav-trigger" onClick={onOpenFeedback}><MessageSquareText size={16} strokeWidth={1.75} />Send feedback</button>}
           </div>
         );
       })}
