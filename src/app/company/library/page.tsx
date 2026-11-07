@@ -16,6 +16,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 const CrewsSection = dynamic(() => import("./CrewsSection").then(m => m.CrewsSection), { ssr: false, loading: () => <PanelSkeleton /> });
+const VendorsSection = dynamic(() => import("./VendorsSection").then(m => m.VendorsSection), { ssr: false, loading: () => <PanelSkeleton /> });
 const CompaniesSection = dynamic(() => import("./CompaniesSection").then(m => m.CompaniesSection), { ssr: false, loading: () => <PanelSkeleton /> });
 const LogosSection = dynamic(() => import("./LogosSection").then(m => m.LogosSection), { ssr: false, loading: () => <PanelSkeleton /> });
 const DocumentStyleSection = dynamic(() => import("./DocumentStyleSection").then(m => m.DocumentStyleSection), { ssr: false, loading: () => <PanelSkeleton /> });
@@ -32,7 +33,7 @@ import {
 
 // Customers are NOT a Library tab (2026-09-28): they have their own page in the nav (/company/customers) rendering the
 // same CustomersSection, and two screens doing one job is exactly the clutter the owner asked us to remove.
-type Section = "pricing" | "crews" | "documents" | "branding" | "work-catalog";
+type Section = "pricing" | "crews" | "documents" | "branding" | "work-catalog" | "vendors";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
@@ -45,13 +46,13 @@ export default function LibraryPage() {
   const router = useRouter();
   const initialSection = searchParams?.get("section");
   const [pickedSection, setSection] = useState<Section>(
-    initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "branding" || initialSection === "work-catalog"
+    initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "branding" || initialSection === "work-catalog" || initialSection === "vendors"
       ? initialSection
       : isEnabled("jobs") ? "work-catalog" : hasPricing ? "pricing" : "crews"
   );
   // The first pick is made before the industry loads (modules fail open), so it can name a tab this industry hides —
   // which left dental/care homes on a blank Library. Fall back to the first tab that is actually shown.
-  const visibleSections = (["work-catalog", "pricing", "crews", "branding", "documents"] as Section[])
+  const visibleSections = (["work-catalog", "pricing", "crews", "vendors", "branding", "documents"] as Section[])
     .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")));
   const section: Section = visibleSections.includes(pickedSection) ? pickedSection : visibleSections[0];
   // An old "Library → Customers" link lands on the Customers page (same list, its own nav item).
@@ -226,6 +227,8 @@ export default function LibraryPage() {
                   ? "Prices & rates"
                   : s === "crews"
                     ? `${vocab.resourceNounPlural} (${crews.length})`
+                    : s === "vendors"
+                    ? (vocab.resourceNoun === "Vendor" ? "Suppliers" : "Vendors")
                     : s === "documents"
                       ? `Documents (${library.documents?.length ?? 0})`
                       : s === "work-catalog"
@@ -240,6 +243,7 @@ export default function LibraryPage() {
         <PricingSection library={library} onSave={saveLibrary} onLoadExamples={loadStarterKit} loadingKit={loadingKit} readOnly={readOnly} />
       )}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} people={crewPeople} setPeople={setCrewPeople} readOnly={readOnly} />}
+      {section === "vendors" && <VendorsSection businessId={businessId} readOnly={readOnly} />}
       {section === "documents" && <><LettersSection readOnly={readOnly} /><DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} /></>}
       {section === "branding" && <><LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />{businessId && <DocumentStyleSection businessId={businessId} readOnly={readOnly} />}<CompaniesSection logos={logos} /></>}
       {section === "work-catalog" && isEnabled("jobs") && (

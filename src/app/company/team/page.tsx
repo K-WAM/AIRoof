@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFormat } from "@/hooks/useFormat";
@@ -11,6 +11,10 @@ import type { Crew } from "@/types/library";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Modal } from "@/components/ui/Modal";
+import type { StaffMember } from "@/types/staff";
+import { buildRoster, type RosterRow } from "./roster";
+import { TeamRoster } from "./TeamRoster";
+import { StaffSheet } from "./StaffSheet";
 
 /** Titles the five types don't cover (Foreman, Installer…) stay visible, so changing a type never hides them. */
 const TYPE_TITLES: ReadonlySet<TradeTitle> = new Set(["office", "inspector", "technician"]);
@@ -44,6 +48,9 @@ export default function TeamPage() {
   const [userType, setUserType] = useState<UserType>("office");
   const [crewId, setCrewId] = useState("");
   const [crews, setCrews] = useState<Crew[]>([]);
+  // T-371b: people without a login (businesses/{id}/staff). Loaded together with the logins, shown in "Your team".
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const { isEnabled } = useBusinessModules();
   // Crews, Inspectors and Technicians only exist where there is field work (the "jobs" module).
   const hasField = isEnabled("jobs");
@@ -57,8 +64,13 @@ export default function TeamPage() {
     if (!businessId || !canManage) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/company/team?businessId=${encodeURIComponent(businessId)}`);
+      const [response, staffResponse] = await Promise.all([
+        fetch(`/api/company/team?businessId=${encodeURIComponent(businessId)}`),
+        fetch(`/api/company/staff?businessId=${encodeURIComponent(businessId)}`).catch(() => null),
+      ]);
       const data = await response.json();
+      const staffData = staffResponse?.ok ? await staffResponse.json().catch(() => ({})) : {};
+      setStaff(Array.isArray(staffData.staff) ? staffData.staff : []);
       if (!response.ok) throw new Error(data.error ?? "Could not load the team");
       setMembers(data.members ?? []);
       setSeatLimit(data.seatLimit ?? null);
@@ -71,6 +83,21 @@ export default function TeamPage() {
   }, [businessId, canManage]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  const roster = useMemo(() => buildRoster(members, staff, crews), [members, staff, crews]);
+  // The current empty state stays for a business with no staff and nobody but the owner.
+  const showRoster = !loading && roster.length > 0 && (staff.some((person) => person.active) || members.some((member) => member.uid !== user?.uid));
+
+  // "Invite to the app" from a staff row: open the existing invite form, filled in. It sends nothing by itself.
+  function startInvite(person: StaffMember) {
+    const wanted = typeOptions.find((type) => type.id === person.userType)?.id ?? "office";
+    setName(person.name);
+    setEmail(person.email ?? "");
+    setUserType(wanted);
+    setCrewId(hasField && CREW_MEMBER_ROLES.has(userTypeDef(wanted).role) && crews.some((crew) => crew.crewId === person.crewId) ? person.crewId ?? "" : "");
+    setEditingStaff(null);
+    setInviteOpen(true);
+  }
+  function openRow(row: RosterRow) { if (row.staff) setEditingStaff(row.staff); }
   useEffect(() => {
     if (!businessId || !canManage) return;
     fetch(`/api/company/crews?businessId=${encodeURIComponent(businessId)}`)
@@ -162,6 +189,9 @@ export default function TeamPage() {
         </dl>
       </Modal>
       {message && <p role="status">{message}</p>}
+      {showRoster && <TeamRoster rows={roster} canEdit={canManage} onOpen={openRow} />}
+      {editingStaff && businessId && <StaffSheet key={editingStaff.staffId} staff={editingStaff} crews={crews} typeOptions={typeOptions} businessId={businessId}
+        readOnly={!!user?.viewAs} onClose={() => setEditingStaff(null)} onSaved={refresh} onInvite={startInvite} />}
       <div className="team-filters" aria-label="Member status">
         {(["Active", "Invited", "Disabled"] as const).map((status) =>
           <button type="button" key={status} className="button" aria-pressed={filter === status} onClick={() => setFilter(status)}>

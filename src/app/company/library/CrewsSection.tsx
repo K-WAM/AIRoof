@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Pencil, Plus, Trash2, Users, X } from "lucide-react";
@@ -8,6 +8,9 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { staffOnCrew } from "@/lib/staff/crewMembers";
+import type { StaffMember } from "@/types/staff";
 import { TRADE_TITLE_LABEL, TEAM_ROLE_LABEL, type TradeTitle } from "@/types/team";
 import type { Crew, CrewPerson } from "@/types/library";
 
@@ -20,6 +23,18 @@ type Draft = { name: string; email: string; phone: string; active: boolean; kind
 function personLabel(person: CrewPerson): string {
   const title = person.trade && person.trade in TRADE_TITLE_LABEL ? TRADE_TITLE_LABEL[person.trade as TradeTitle] : TEAM_ROLE_LABEL[person.role];
   return `${person.name} · ${title}`;
+}
+
+/** A person on a crew who has no login (T-371c): read-only, "No login", "Lead" first, "Example" when the crew is a guess. */
+function StaffChip({ person }: { person: StaffMember }) {
+  return (
+    <span className="tag crew-staff-row">
+      {person.name}{person.position ? ` · ${person.position}` : ""}
+      {person.crewLead && <span className="tag success">Lead</span>}
+      <span className="tag">No login</span>
+      {person.crewProvenance?.origin === "luxor-sample" && <ExampleTag />}
+    </span>
+  );
 }
 
 // Library → Crews (T-148). A crew is a Calendar row; its members are team members whose `crewId` points at it (one
@@ -54,6 +69,17 @@ export function CrewsSection({
   const [savingEdit, setSavingEdit] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // T-371c: people on a crew who have no login (read-only here; the Team page edits them). One extra request.
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  useEffect(() => {
+    if (!businessId || !showMembers) return;
+    let cancelled = false;
+    fetch(`/api/company/staff?businessId=${encodeURIComponent(businessId)}`)
+      .then((response) => (response.ok ? response.json() : { staff: [] }))
+      .then((data) => { if (!cancelled) setStaff(Array.isArray(data.staff) ? data.staff : []); })
+      .catch(() => { if (!cancelled) setStaff([]); });
+    return () => { cancelled = true; };
+  }, [businessId, showMembers]);
   const activeCount = crews.filter((crew) => crew.active !== false).length;
   const activeInspectors = crews.filter((crew) => crew.active !== false && crew.kind === "inspector");
   const orderedCrews = [...crews.filter((crew) => crew.kind === "inspector"), ...crews.filter((crew) => crew.kind !== "inspector")];
@@ -190,6 +216,7 @@ export function CrewsSection({
         <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
           {orderedCrews.map((c, index) => {
             const members = people.filter((person) => person.crewId === c.crewId);
+            const noLogin = staffOnCrew(c.crewId, staff, people);
             const candidates = people.filter((person) => person.crewId !== c.crewId);
             const isEditing = editing?.crewId === c.crewId;
             const inactive = c.active === false;
@@ -254,7 +281,8 @@ export function CrewsSection({
 
                 {showMembers && (
                   <div style={{ marginTop: 10, paddingLeft: 30, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }} aria-label={`${c.name} members`}>
-                    {members.length === 0 && <span style={{ fontSize: 12, color: "#94a3b8" }}>No members yet.</span>}
+                    {members.length === 0 && noLogin.length === 0 && <span style={{ fontSize: 12, color: "#94a3b8" }}>No members yet.</span>}
+                    {noLogin.filter((person) => person.crewLead).map((person) => <StaffChip key={person.staffId} person={person} />)}
                     {members.map((person) => (
                       <span key={person.uid} className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         {personLabel(person)}
@@ -270,6 +298,10 @@ export function CrewsSection({
                         )}
                       </span>
                     ))}
+                    {noLogin.filter((person) => !person.crewLead).map((person) => <StaffChip key={person.staffId} person={person} />)}
+                    {noLogin.length > 0 && canManageMembers && (
+                      <Link href={`/company/team${preview ? `?preview=${preview}` : ""}`} style={{ fontSize: 12 }}>Change on the Team page</Link>
+                    )}
                     {canManageMembers && (
                       candidates.length > 0 ? (
                         <select

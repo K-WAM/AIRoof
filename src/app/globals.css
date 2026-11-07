@@ -3889,3 +3889,46 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 @media (min-width: 701px) {
   .company-brand-other img { max-width: 230px; max-height: 64px; }
 }
+
+/* === L3 people === */
+.example-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; cursor: help; vertical-align: middle; }
+.team-people { margin-bottom: var(--sp-4, 16px); }
+.team-roster-head, .team-roster-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-3, 12px); align-items: center; }
+.team-roster-head { padding: 8px var(--sp-4, 16px); font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+.team-roster-list { list-style: none; margin: 0; padding: 0; }
+.team-roster-list li + li { border-top: 1px solid var(--border); }
+.team-roster-row { width: 100%; min-height: 56px; padding: 10px var(--sp-4, 16px); text-align: left; background: transparent; border: 0; font: inherit; color: inherit; }
+.team-roster-row--button { cursor: pointer; }
+.team-roster-row--button:hover, .team-roster-row--button:focus-visible { background: var(--surface); }
+.team-roster-cell { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.team-roster-cell--name { display: flex; flex-direction: column; gap: 2px; }
+.team-roster-sub { font-size: 12px; color: var(--text-muted); }
+.team-roster-cell .tag { margin-left: 6px; }
+.team-roster-note { margin: 0; padding: 10px var(--sp-4, 16px); font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); }
+.staff-sheet { display: grid; gap: var(--sp-3, 12px); }
+.staff-sheet-example { margin: 0; font-size: 13px; }
+.staff-sheet-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2, 8px); }
+.staff-sheet-actions .button { min-height: 44px; }
+.crew-staff-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.crew-staff-row a { font-size: 12px; }
+.vendors-toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-2, 8px); align-items: center; margin-bottom: var(--sp-3, 12px); }
+.vendors-toolbar input[type='search'] { flex: 1 1 220px; min-width: 0; min-height: 44px; }
+.vendors-toolbar label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; }
+.vendor-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2, 8px); }
+.vendor-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2, 8px) var(--sp-3, 12px); min-width: 0; padding: 10px 14px; background: #f8fafc; border-radius: 8px; }
+.vendor-row--inactive { opacity: 0.7; }
+.vendor-row__main { flex: 1 1 220px; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.vendor-row__line { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.vendor-row__line a { display: inline-block; min-height: 24px; }
+.vendor-row .button { min-height: 44px; }
+.vendor-sheet { display: grid; gap: var(--sp-3, 12px); }
+.vendor-sheet textarea { min-height: 96px; }
+.sample-data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sample-data-table th, .sample-data-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.sample-data-table td:not(:first-child), .sample-data-table th:not(:first-child) { text-align: right; }
+@media (max-width: 700px) {
+  .team-roster-head { display: none; }
+  .team-roster-row { grid-template-columns: 1fr; gap: 6px; padding: 12px var(--sp-3, 12px); }
+  .team-roster-cell[data-label]::before { content: attr(data-label) ': '; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+}
+/* === end L3 === */

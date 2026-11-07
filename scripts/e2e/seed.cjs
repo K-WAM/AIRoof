@@ -176,6 +176,20 @@ async function seed({ reset = false } = {}) {
   }
   /* end T-316 */
 
+  /* L3 people: invented staff + vendors on the roofing tenant, some marked luxor-sample (never real client data). */
+  {
+    const roofing = db.collection("businesses").doc(TENANTS.roofing.id);
+    const at = Date.now();
+    const clientProv = { origin: "client", source: "e2e:seed", addedAt: at };
+    const sampleProv = { origin: "luxor-sample", source: "e2e:seed", note: "Crew membership guessed for the demo", addedAt: at };
+    await roofing.collection("staff").doc("l3-staff-1").set({ staffId: "l3-staff-1", name: "Taylor Foreman", position: "Foreman", userType: "foreman", email: "taylor.foreman@roofing.e2e.test", mobile: "+19545550111", language: "es", crewId: "k2-crew", crewLead: true, crewProvenance: sampleProv, active: true, provenance: clientProv, createdAt: at, updatedAt: at });
+    await roofing.collection("staff").doc("l3-staff-2").set({ staffId: "l3-staff-2", name: "Morgan Estimator", position: "Estimator", userType: "office", email: "morgan.estimator@roofing.e2e.test", active: true, provenance: clientProv, createdAt: at, updatedAt: at });
+    await roofing.collection("staff").doc("l3-staff-3").set({ staffId: "l3-staff-3", name: "Riley Roofer", position: "Roofer", userType: "technician", crewId: "k2-crew", crewProvenance: sampleProv, active: true, provenance: sampleProv, createdAt: at, updatedAt: at });
+    await roofing.collection("vendors").doc("l3-vendor-1").set({ vendorId: "l3-vendor-1", name: "Example Shingle Co", type: "Manufacturer", city: "Parsippany", state: "NJ", phone: "+19735550142", contactName: "Sam Rep", active: true, provenance: clientProv, createdAt: at, updatedAt: at });
+    await roofing.collection("vendors").doc("l3-vendor-2").set({ vendorId: "l3-vendor-2", name: "Sample Supply House", type: "Supplier", city: "Fort Lauderdale", state: "FL", phone: "+19545550177", active: true, provenance: sampleProv, createdAt: at, updatedAt: at });
+  }
+  /* end L3 people */
+
 
   return { tenants: Object.keys(TENANTS).length, accounts: Object.keys(ACCOUNTS).length };
 }

@@ -2766,3 +2766,12 @@ T-341: Map all 44 Jobba CSV files without client values; optional --setup projec
 - Checks: tsc clean; eslint clean on the test file (the repo config ignores scripts/*.mjs); 17/17 vitest.
 - Removals: none. The production run is left to the integrator.
 
+## 2026-11-07 - Stream L3 (people + vendors)
+
+- T-371a: staff directory (businesses/{id}/staff, server-only). GET /api/company/staff (owner full; staff and view-only get no email/mobile), POST (owner), PATCH /[staffId] (owner; an owner's crew choice sets crewProvenance to client data and drops crewLead; provenance and linkedUid never change). No PATH_RULES entry was needed: crews have none, so staff and vendors are shared (no product), same as crews.
+- T-371b: Team page "Your team (N)" roster, logins plus staff without a login merged by linkedUid then normalizeName; owner edits a staff row in a Sheet; "Invite to the app" only opens the existing invite form prefilled.
+- T-371c: Library Crews lists staff without a login under each crew (No login chip, Lead first, Example tag on a guessed crew).
+- T-370: vendors store + API (owner/staff write, view-only reads) and a Library Vendors tab (Suppliers where the industry calls crews Vendors).
+- T-372: ExampleTag, GET/DELETE /api/admin/businesses/[id]/sample-data (DELETE is a dry run unless ?apply=1&confirm=<id>; writes one adminAuditEvents row), SampleDataPanel (not yet wired into config/page.tsx).
+- Checks: tsc clean; eslint clean on changed files; vitest for staff, vendors, sample-data, team page, route-guards. No browser run (integrator runs it on the merged tree).
+- Not done: nothing sets StaffMember.linkedUid when an invite is accepted (the roster merges by name instead); the audit action "sample_data.removed" is not in the AdminAuditEvent union in src/types/index.ts (the row is written untyped).
