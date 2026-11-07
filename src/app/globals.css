@@ -3891,3 +3891,12 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 @media (min-width: 701px) {
   .company-brand-other img { max-width: 230px; max-height: 64px; }
 }
+
+/* === L2 shell === */
+.company-topbar-spacer { flex: 1; }
+.company-desktop-add { flex: none; }
+.company-desktop-add .quickadd-trigger { margin: 0; min-height: 44px; }
+@media (max-width: 900px) {
+  .company-desktop-add, .company-topbar-spacer { display: none; }
+}
+/* === end L2 === */
