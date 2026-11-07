@@ -1,3 +1,17 @@
+## RUNNING NOW — 2026-11-06 night (Claude L0): Roof Doctors onboarding portal + owner's screen feedback
+
+Owner's feedback list → TODO.md section "Roof Doctors — onboarding portal + owner's screen feedback" (T-354..T-376). T-354
+(Finances menu opened the empty Invoices tab) is fixed on main (`59107ec`, not pushed). Four workers, prompts in
+docs/WORKER_QUEUE.md section L, logs + prompts in the session scratchpad:
+- L1 Codex GPT-6.1 Sol medium — onboarding portal — `D:/Apps/air-wt-rd-onboarding` (task/rd-onboarding), session 01a1b36c-d251-7d13-a779-d3e4e8689c18
+- L2 Codex GPT-6.1 Terra medium — screen polish + Finances chart — `D:/Apps/air-wt-rd-shell` (task/rd-shell), session 01a1b36c-d249-7bc1-b9d5-cb36445f84d6
+- L3 Claude Sonnet agent — staff directory, Team roster, Crews, Vendors, sample data — `D:/Apps/air-wt-rd-people` (task/rd-people)
+- L4 DeepSeek V4 Flash high (Kilo) — staff + vendor import script — `D:/Apps/air-wt-rd-import` (task/rd-import)
+Claude after the merges: wire SampleDataPanel into config/page.tsx; run L1's e2e spec + the full suite on the merged tree; import
+staff + vendors to production (dry run → apply); seed the portal from client-resources/roofdoctors/08-onboarding/portal-seed.json;
+add the new staff/vendor gaps to the data-gaps Claude Doc; owner approves the push. Remove the four worktrees after merging
+(delete each node_modules junction first).
+
 ## Start here — state 2026-11-06 night (Claude) — Roof Doctors release + follow-up live, session closed
 
 **Live:** `main` = `6fcdfdb` on crm.luxordev.com (CI green). Single checkout folder, no worktrees, no extra branches.
