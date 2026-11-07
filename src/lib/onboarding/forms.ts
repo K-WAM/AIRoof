@@ -222,7 +222,7 @@ const PAYMENTS: OnboardingFormDefinition = {
     },
     {
       id: "online",
-      title: "Online payments",
+      title: "Starting online payments",
       fields: [
         { id: "wantOnline", type: "radio", label: "Do you want customers to pay online?", required: true, options: [
           { value: "all", label: "Yes, for every company" },

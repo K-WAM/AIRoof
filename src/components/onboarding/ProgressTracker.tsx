@@ -7,7 +7,8 @@ export function ProgressTracker({ steps, nextMeetingLabel, onComplete }: { steps
     <div className={s.row}><h2>Your progress</h2><span className={s.pill}>{done} / {steps.length} complete</span></div>
     <div className={s.steps}>{steps.map((step, i) => <article className={`${s.step} ${step.status === "done" ? s.done : step.status === "current" ? s.current : ""}`} key={step.id}>
       <span className={s.circle} aria-hidden="true">{step.status === "done" ? "✓" : i + 1}</span>
-      <span className={s.date}>{step.date ? new Date(`${step.date}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "Not scheduled"}{step.timeLabel ? ` · ${step.timeLabel}` : ""}</span>
+      {/* An undated step shows no date line: "Not scheduled" on every card was noise (owner review, 2026-11-06). */}
+      {step.date ? <span className={s.date}>{new Date(`${step.date}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}{step.timeLabel ? ` · ${step.timeLabel}` : ""}</span> : <span className={s.date} aria-hidden="true">&nbsp;</span>}
       <strong>{step.title}</strong><p>{step.detail}</p>
       <span className={s.status}>{step.status === "done" ? "COMPLETED" : step.status === "current" ? "IN PROGRESS" : "UPCOMING"}</span>
       {onComplete && <label className={s.choice}><input type="checkbox" checked={step.status === "done"} onChange={e => onComplete(step.id, e.target.checked)} />Mark complete</label>}

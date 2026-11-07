@@ -12,7 +12,7 @@
 .header, .row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .header { margin-bottom: 32px; }
 .logo { max-width: min(220px, 60vw); height: 56px; object-fit: contain; object-position: left; }
-.luxor { height: 20px; width: auto; max-width: 72px; object-fit: contain; vertical-align: middle; }
+.luxor { height: 28px; width: auto; max-width: 96px; object-fit: contain; vertical-align: middle; margin-left: 4px; }
 .section { margin-top: 36px; }
 .card { padding: 24px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
