@@ -2975,3 +2975,10 @@ Files changed (including the shared verification artifacts in this entry's commi
   field-role redirect race in the spec) and are filed as T-380.
 - Also filed for the owner, not built: T-378 feedback inbox (P1-P3 priority with colour; decide PostHog Support vs our own
   first), T-379 weather on the Calendar (was only a plan doc).
+- Released `164c971` (Vercel `ai-roof-o4ak6a1g5` Ready on crm.luxordev.com, CI run 42366499710 green, health OK). Production
+  seed on roofdoctors: dry run, `--apply --confirm=roofdoctors`, read back. The read-back showed labor at the generic $85: the
+  builder read `name` but Library labor rates are `{ role, rate }` (pre-existing; last session's $95 fallback had hidden it).
+  Fixed (reads `role`, test fixture now uses the Library shape) and re-seeded with `--replace`: Roof Mechanic / Service Roofer
+  $95 from their Library, materials from their catalog, 7 jobs + 1 booking + 2 requests, job counter 1006, 10 linked real
+  customers unchanged. Flashing cement resolves to the first catalog match (Matrix 201, $162.90), not their most-used one; the
+  quote is editable in the demo.

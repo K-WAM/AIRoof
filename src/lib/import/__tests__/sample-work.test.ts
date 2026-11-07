@@ -44,7 +44,7 @@ const materials = [
   { name: "Pourable Sealer Kit", unitPrice: 210, unit: "each" }, { name: "Downspout Elbow", unitPrice: 14.9, unit: "each" },
   { name: "Disposal Fee", unitPrice: 25, unit: "each" },
 ];
-const laborRates = [{ name: "Foreman", rate: 88 }, { name: "Roof Mechanic", rate: 82 }, { name: "Service Roofer", rate: 80 }];
+const laborRates = [{ role: "Foreman", rate: 88 }, { role: "Roof Mechanic", rate: 82 }, { role: "Service Roofer", rate: 80 }]; // the Library shape (LibraryLaborRate)
 const categories = ["Broken Tiles", "Clogged Scupper / Drain", "Pitch Pan Sealant", "Other"];
 const companies = [{ id: "co-main", isDefault: true }, { id: "co-second" }];
 const jobIds = ["J-1000", "J-1001", "J-1002", "J-1003", "J-1004", "J-1005", "J-1006"];

@@ -96,7 +96,9 @@ const norm = (s) => String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, 
 
 function catalog(materials, laborRates) {
   const byName = new Map((materials ?? []).filter((m) => m && m.name).map((m) => [norm(m.name), m]));
-  const rates = new Map((laborRates ?? []).filter((r) => r && r.name).map((r) => [norm(r.name), r]));
+  // Library labor rates are { role, rate } (src/types/library.ts LibraryLaborRate); `name` is accepted too.
+  const rateName = (r) => String(r?.role ?? r?.name ?? "");
+  const rates = new Map((laborRates ?? []).filter((r) => r && rateName(r)).map((r) => [norm(rateName(r)), { ...r, name: rateName(r) }]));
   // Generic keywords only: a client's own item names and prices are read from its catalog at seed time and never live
   // in this repo (client data stays in git-ignored client-resources/). Exact label first, then the first catalog entry
   // whose name contains the keyword, else the generic label at a stand-in price.
@@ -217,7 +219,7 @@ const empty = () => ({ timeline: [], materials: [], labor: [], issues: [], invoi
  * @param {Array<{crewId:string,name?:string,active?:boolean,kind?:string}>} input.crews
  * @param {Array<{customerId:string,name:string,address?:string,properties?:Array<object>,workOrders?:number}>} input.customers
  * @param {Array<{name:string,unitPrice?:number,unit?:string}>} [input.materials]
- * @param {Array<{name:string,rate?:number}>} [input.laborRates]
+ * @param {Array<{role?:string,name?:string,rate?:number}>} [input.laborRates]  Library shape is { role, rate }
  * @param {string[]} [input.categories]  finding categories (Library)
  * @param {Array<{id:string,isDefault?:boolean}>} [input.companies]  billingCompanies; 2+ = jobs carry a companyId
  * @param {string[]} input.jobIds  ids for the 7 sample jobs, in order (the writer hands these out from jobCounter)

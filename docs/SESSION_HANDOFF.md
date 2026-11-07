@@ -1,5 +1,24 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — 2026-11-07 morning (Claude) — T-376 sample work released and seeded on Roof Doctors
+
+- **Released:** `164c971` pushed (with the earlier docs commit `26cfef3`); Vercel `ai-roof-o4ak6a1g5` Ready on crm.luxordev.com;
+  CI green (run 42366499710). A follow-up commit fixes the seed's labor-rate lookup (Library rates are `{ role, rate }`) and
+  updates these docs.
+- **Production write on roofdoctors (dry run first, then `--apply --confirm=roofdoctors`, then `--replace` after the labor fix):**
+  7 sample jobs J-1000..J-1006, 1 booking, 2 requests, all luxor-sample; job counter 1006; 10 linked real customers unchanged
+  (read back). Remove: Admin → Clients → Roof Doctors → Edit → Sample data.
+- **Found and fixed by the full browser run:** jobs made from a request missing from an open Calendar (delta cursor now trails
+  60 s); a property listed twice in the job form's address list; the header-search Example tag cut off at 375 px; a fragile
+  sample-work spec. Real client names/prices that had been written into a unit test and the builder were replaced with made-up
+  data and generic keywords before commit.
+- **Test status:** full run stopped at 392/514 (dev server out of memory); fresh-harness re-run of every failed file + all 153
+  not-yet-run tests: desktop 39/39, phone 115 passed / 3 skipped, iPhone 46 passed / 6 failed (role-matrix; already-deployed
+  code, filed as T-380). demo-live 2/2 with no retries after the Calendar fix; e2e:call 12/12.
+- **Filed for the owner, not built:** T-378 feedback inbox (P1–P3 with colour; PostHog Support is free and may cover it — try
+  first), T-379 weather on the Calendar, T-380 iPhone/Safari clean-up.
+- **Owner next:** look at the sample work on the live account; the Nov 11 rehearsal list in docs/NEXT_SESSION.md.
+
 ## Resume here — 2026-11-07 (Claude) — onboarding portal + owner's screen feedback released
 
 - **Released:** main pushed to origin with the owner's go ("merge commit push, update docs, and confirm"); Vercel deploy +

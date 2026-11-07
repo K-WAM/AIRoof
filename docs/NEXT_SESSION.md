@@ -1,3 +1,31 @@
+## Start here — state 2026-11-07 morning (Claude) — T-376 sample work live on Roof Doctors
+
+**Live:** `main` = `164c971` (+ a follow-up script/docs commit) on crm.luxordev.com — Vercel deploy `ai-roof-o4ak6a1g5` Ready,
+GitHub CI green (run 42366499710), health OK.
+
+**Roof Doctors now has sample work** (all tagged "Example", removable in one step: Admin → Clients → Roof Doctors → Edit →
+Sample data → Remove all samples): J-1000..J-1006 at 7 of their real properties (a leak repair in progress with EN + ES crew
+notes, an inspection with 3 priced findings ready to quote under RCU, a finished gutter job ready to invoice, upcoming visits Mon
+Nov 9 – Wed Nov 11, one unscheduled), a phone booking waiting for confirmation, an urgent and a normal request. Prices come from
+their own Library (Roof Mechanic $95, their tile/mortar/sealer items). Read back from production: 7 + 1 + 2 sample records, job
+counter 1006, none of the 10 linked real customers changed.
+
+Also fixed tonight: a job made from a request now appears on an already-open Calendar (it could stay off until reload); the job
+form no longer lists a property twice; Example tag in header search. Filed, not built: T-378 feedback inbox with P1–P3 priority
+(decide PostHog Support vs our own first), T-379 weather on the Calendar, T-380 iPhone/Safari clean-up (no broken screens).
+
+Owner, before the Nov 11 rehearsal:
+- [ ] Open Roof Doctors and look at Jobs, Calendar (week of Nov 9), Requests and Dashboard with the sample work in place.
+- [ ] Onboarding page: check it and create Michael's client link when ready.
+- [ ] Decide the RCU logo (cropped today, or full logo with tagline).
+- [ ] Default payment term (Settings → Getting paid); archive the fake clients; "Customer emails" panel.
+- [ ] Top up DeepSeek ($4.68 left, shared with live call sorting).
+- [ ] Optional: Stripe setup fee per company; mark their one-person inspector row as Inspector (Library → Crews).
+- [ ] Rehearse Nov 11 on the live account; freeze Thu Nov 12, 6 p.m.
+
+Next (Claude): T-377 refresh the sample work Thu Nov 12 after 5 p.m. ET (`--replace`, dry run first) so the story lands on
+Fri Nov 13 and the rehearsal leftovers go; then T-351 + T-352 branded client emails, T-375 guidebook, T-350 sales docs.
+
 ## Start here — state 2026-11-07 (Claude) — onboarding portal + the owner's screen feedback, released
 
 **Live:** `main` = `6c05e09` on crm.luxordev.com and ai-roof.vercel.app — Vercel deploy `ai-roof-k76zzdxp4` Ready, GitHub CI
