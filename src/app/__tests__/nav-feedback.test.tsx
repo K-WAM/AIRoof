@@ -43,6 +43,7 @@ describe("Help and feedback",()=>{
     state.loading=true;render(<CompanyNav onOpenFeedback={vi.fn()}/>);expect(screen.queryByRole("button",{name:"Send feedback"})).toBeNull();
   });
   it("Crew keeps feedback in the menu",()=>{state.user.role="crew";render(<CompanyNav onOpenFeedback={vi.fn()}/>);expect(screen.getByRole("button",{name:"Send feedback"})).toBeEnabled();});
+  it("Help has no self-linking section switch",()=>{render(<CompanySectionNav onOpenFeedback={vi.fn()}/>);expect(screen.queryByRole("navigation",{name:"Help sections"})).toBeNull();expect(screen.queryByRole("link",{name:"Guide"})).toBeNull();});
   it("Calls marks Requests active and offers the top switch",()=>{
     state.pathname="/company/calls";render(<><CompanyNav/><CompanySectionNav onOpenFeedback={vi.fn()}/></>);
     expect(screen.getAllByRole("link",{name:"Requests"})[0]).toHaveAttribute("aria-current","page");

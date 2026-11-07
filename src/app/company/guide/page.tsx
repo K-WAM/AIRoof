@@ -155,7 +155,7 @@ function defaultRole(
 // One printed page: the guide card only, no app chrome, no buttons.
 const PRINT_CSS = `
 .guide-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
-.guide-logo { height: 52px; max-width: 180px; object-fit: contain; }
+.guide-logo { height: 48px; width: auto; object-fit: contain; }
 .guide-initial { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; background: var(--accent); }
 .guide-actions { margin-left: auto; display: flex; gap: 8px; }
 .guide-card { max-width: 760px; }
