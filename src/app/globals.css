@@ -1667,10 +1667,12 @@ a.metric:hover {
   border-right: 0;
 }
 
-.segment[aria-pressed="true"] {
+.segment[aria-pressed="true"],
+.segment[aria-selected="true"] {
   background: var(--accent);
   color: #ffffff;
 }
+.segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .search-input {
   width: min(320px, 100%);

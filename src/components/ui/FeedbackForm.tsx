@@ -6,6 +6,7 @@ import { useState, useRef } from "react";
 import { Send } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -35,6 +36,7 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
   const isQuestion = mode === "question";
   const { user } = useAuth();
   const businessId = useBusinessId();
+  const businessName = useBootstrap().data?.business.businessName || "Your business";
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<string>("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -66,6 +68,7 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
     const trimmed = message.trim();
     if (!trimmed || sending.current) return;
 
+    if (user?.viewAs) { setStatus("sent"); return; }
     sending.current = true;
     setStatus("sending");
     setErrorMessage("");
@@ -104,12 +107,12 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
       {status === "sent" ? (
         <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
           <p style={{ margin: "0 0 0.5rem", fontWeight: 600, color: "var(--accent)", fontSize: "0.95rem" }}>
-            {isQuestion ? "Question sent" : "Thanks — we read every message"}
+            {isQuestion ? "Question sent" : `Sent. Luxor will reply within 24 hours.${user.viewAs ? " (preview — not sent)" : ""}`}
           </p>
           <p style={{ margin: "0 0 16px", fontSize: "0.83rem", color: "var(--text-muted)" }}>
             {isQuestion
               ? `The Luxor team will answer by email at ${userEmail}.`
-              : `The Luxor team will reply to ${userEmail} if a response is needed.`}
+              : null}
           </p>
           <button type="button" className="button primary small" onClick={handleClose}>
             Done
@@ -117,15 +120,9 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
         </div>
       ) : (
         <>
-          <p style={{ margin: "0 0 14px", fontSize: "0.83rem", color: "var(--text-muted)" }}>
-            {isQuestion
-              ? "Stuck on something? Ask the Luxor team — the people who make this app."
-              : "This message goes to the Luxor team — not to your own company."}
-          </p>
-
+          {user.viewAs && <p>Preview: You&apos;re viewing as {user.viewAs.label}. This shows what they&apos;d see. Nothing is sent.</p>}
           <div style={{ marginBottom: 12 }}>
-            <span style={labelStyle}>We&apos;ll reply to</span>
-            <div style={readOnlyStyle}>{userEmail}</div>
+            <span style={labelStyle}>From: {user.viewAs?.label || user.displayName || userEmail} · {businessName}</span>
           </div>
 
           {!isQuestion && <div style={{ marginBottom: 12 }}>
@@ -206,6 +203,7 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
               {status === "sending" ? "Sending..." : "Send"}
             </button>
           </div>
+          <p style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Goes straight to Luxor support. We reply within 24 hours.</p>
         </>
       )}
     </Modal>
@@ -218,16 +216,6 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 600,
   color: "var(--text-muted)",
   marginBottom: 4,
-};
-
-const readOnlyStyle: React.CSSProperties = {
-  padding: "0.5rem 0.75rem",
-  background: "var(--surface-muted)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  fontSize: "0.85rem",
-  color: "var(--text-muted)",
-  overflowWrap: "anywhere",
 };
 
 const inputStyle: React.CSSProperties = {

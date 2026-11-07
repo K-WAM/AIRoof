@@ -219,7 +219,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <CompanyNav helpPlacement="exclude" />
         </div>
         <div className="company-sidebar-footer">
-          <CompanyNav helpPlacement="only" />
+          <CompanyNav helpPlacement="only" onOpenFeedback={openFeedback} />
           {!crewOnly && <QuickAddButton />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
@@ -251,7 +251,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
         <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
           <div className="mobile-nav-sheet" id="company-mobile-nav">
-            <CompanyNav />
+            <CompanyNav onOpenFeedback={openFeedback} />
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>

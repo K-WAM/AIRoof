@@ -2754,3 +2754,7 @@ T-341: Map all 44 Jobba CSV files without client values; optional --setup projec
   (5 crews, 3 labor rates, 6 payment terms, tax default, 115 finding categories), 791 work orders (787 linked to 98 customers,
   4 unmatched). Firestore rules deployed with the owner's OK (16/16 rules tests; live ruleset verified identical).
 - Not done: RCU_Transparent.svg not used (pink, different artwork from the brand); T-348 phone line parked by the owner.
+
+## 2026-11-07 - Stream L2 (screens)
+
+WIP: T-361 and T-364 started. Typecheck passed; eslint reported one existing unused import warning. Related tests failed because nav-feedback.test.tsx asserts the superseded Help-page feedback behavior and is outside the assigned scope. Browser verification not completed. No removals beyond the replaced Help feedback control and self-link. Remaining tasks are unstarted.
