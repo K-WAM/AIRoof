@@ -203,7 +203,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   }
 
   // The same words as the Team page's Type (Admin / Office staff / Inspector / Technician / View only), not "crew"/"staff".
-  const roleLabel = user.superadmin
+  const roleLabel = user.viewAs
+    ? user.viewAs.label.split(" — ").at(-1)!.trim().toUpperCase()
+    : user.superadmin
     ? "Superadmin"
     : userTypeDef(userTypeOf({ role: (user.role ?? "viewer") as TeamRole, trade: user.trade as TradeTitle | undefined })).label;
   const preview = searchParams?.get("preview");
@@ -220,7 +222,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <div className="company-sidebar-footer">
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
-            <span className="user-email">{user.email}</span>
+            <span className="user-email">{user.viewAs ? bootstrap?.business.businessName || user.viewAs.businessName : user.email}</span>
           </div>
           <button className="logout-btn" style={{ width: "100%" }} onClick={handleLogout}>Sign out</button>
         </div>
@@ -254,7 +256,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
-              <span className="user-email">{user.email}</span>
+              <span className="user-email">{user.viewAs ? bootstrap?.business.businessName || user.viewAs.businessName : user.email}</span>
             </div>
             <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
           </div>
