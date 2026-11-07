@@ -5,6 +5,7 @@ import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { OnboardingStrip } from "@/components/onboarding/OnboardingStrip";
 import { ViewAsMenu } from "@/components/admin/ViewAsMenu";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import type { LibraryLogo } from "@/types/library";
@@ -496,6 +497,7 @@ export default function AdminBusinessConfigPage({
         </a>
         </div>
       </header>
+      <OnboardingStrip businessId={businessId} />
 
       {/* T-185: one long page edits a whole client; a sticky chip row jumps to each section (same pattern as Settings). */}
       <nav className="settings-section-list config-section-nav" aria-label="Config sections">
