@@ -125,7 +125,7 @@ export function PaymentsPreview({ invoices }: { invoices: PaymentsPreviewInvoice
               <p style={{ margin: "2px 0 12px", fontSize: 14, fontWeight: 600 }}>{payPage.name}</p>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: 13, marginBottom: 12 }}>
                 <span>Invoice {payPage.number}</span>
-                <strong>{usd(payPage.amount)} due</strong>
+                <strong>{usd(payPage.amount)} invoice total</strong>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 <button

@@ -45,7 +45,7 @@ describe("PaymentsPreview", () => {
     await screen.findByText("Invoice H-2");
     expect(screen.getByText("Recent customer")).toBeInTheDocument();
     expect(screen.getByText("Default issuer")).toBeVisible();
-    expect(screen.getByText("$1,200.00 due")).toBeVisible();
+    expect(screen.getByText("$1,200.00 invoice total")).toBeVisible();
     openPreview();
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Payments by Stripe")).toBeInTheDocument();
