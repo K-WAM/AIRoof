@@ -3828,12 +3828,12 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 }
 
 /* T-316: shared compact company selector; all callers hide it for a single company. */
-.company-toggle { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; max-width: 100%; }
-.company-toggle .button { min-height: var(--control-h); gap: var(--sp-1); }
-.company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); }
-.company-toggle img { height: 20px; max-height: 20px; max-width: 40px; width: auto; object-fit: contain; }
-.company-toggle__label { font-size: 13px; color: var(--text-muted); }
-.company-toggle > [role="radiogroup"] { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.company-toggle { display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-start; max-width: 100%; }
+.company-toggle .button { min-height: 44px; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-tint, color-mix(in srgb, var(--accent) 10%, var(--surface))); }
+.company-toggle img { height: 26px; max-height: 26px; max-width: none; width: auto; object-fit: contain; flex: none; }
+.company-toggle__label { font-size: 13px; font-weight: 600; color: var(--text); }
+.company-toggle > [role="radiogroup"] { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* A draft document's small issuer label; the menu changes THIS document only. */
 .document-company-control { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
