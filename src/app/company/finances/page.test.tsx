@@ -42,12 +42,23 @@ it("fetches a new company or date window without sending local filters to the AP
  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
  await screen.findByRole("heading",{name:"Invoiced and collected by month"});
  fireEvent.click(screen.getByRole("button",{name:"Filters"}));
- fireEvent.change(screen.getByLabelText("To"),{target:{value:"2025-10-31"}});
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:"2025-01-01"}});
  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));
+ await screen.findByRole("heading",{name:"Invoiced and collected by month"});
+ fireEvent.change(screen.getByLabelText("To"),{target:{value:"2025-10-31"}});
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(4));
  await screen.findByRole("heading",{name:"Invoiced and collected by month"});
  expect(screen.getByText(/12 months ending October 2025/)).toBeVisible();
  expect(String(vi.mocked(fetch).mock.calls[1][0])).toContain("company=b");
- expect(String(vi.mocked(fetch).mock.calls[2][0])).toContain("to=2025-10-31");
+ expect(String(vi.mocked(fetch).mock.calls[3][0])).toContain("to=2025-10-31");
+});
+it("keeps the visible opposite date bound when editing a selected month",async()=>{
+ render(<FinancesPage/>);const monthButton=await screen.findByRole("button",{name:new RegExp(`${monthLabel(month,true)}: invoiced`)});
+ fireEvent.click(monthButton);fireEvent.click(screen.getByRole("button",{name:"Filters"}));
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:`${month}-02`}});
+ expect(screen.getByLabelText("To")).toHaveValue(monthRange(month).to);
+ await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
+ expect(String(vi.mocked(fetch).mock.calls[1][0])).toContain(`to=${monthRange(month).to}`);
 });
 it("uses complete calendar month boundaries including leap years",()=>{expect(monthRange("2024-02")).toEqual({from:"2024-02-01",to:"2024-02-29"});});
 
