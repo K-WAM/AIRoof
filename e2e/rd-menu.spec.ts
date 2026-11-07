@@ -1,4 +1,4 @@
-import { test, expect, expectHealthy, openJobPanel, openHelp, shot } from "./fixtures";
+import { test, expect, expectHealthy, openJobPanel, openFeedback, shot } from "./fixtures";
 
 for (const account of ["proOwner", "fieldCrew", "dentalOwner"] as const) {
   test(`${account}: calmer menu preserves role and industry`, async ({ as }, info) => {
@@ -13,9 +13,7 @@ for (const account of ["proOwner", "fieldCrew", "dentalOwner"] as const) {
     await expect(nav).toHaveText(expected);
     await expectHealthy(page);
     await shot(page, `menu-after-${account}`);
-    await openHelp(page);
-    await page.getByRole("button", { name: "Send feedback", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Send feedback to Luxor" })).toBeVisible();
+    await openFeedback(page);
     await expect(page.locator("#company-mobile-nav")).toHaveCount(0);
   });
 }
@@ -35,7 +33,7 @@ test("every old office URL remains reachable, with grouped switches", async ({ a
       await expect(page.getByText(/Failed to load this page|could not be loaded/i)).toHaveCount(0);
       await expect(page).toHaveURL(new RegExp(`/company/${path}$`));
       if (["pipeline", "calls"].includes(path)) await expect(page.getByRole("navigation", { name: "Requests sections" }).getByRole("link")).toHaveText(["Requests", "Calls"]);
-      if (["billing", "finances", "payroll"].includes(path)) await expect(page.getByRole("navigation", { name: "Money sections" }).getByRole("link")).toHaveText(["Invoices", "Finances", "Payroll"]);
+      if (["billing", "finances", "payroll"].includes(path)) await expect(page.getByRole("navigation", { name: "Money sections" }).getByRole("link")).toHaveText(["Finances", "Invoices", "Payroll"]); // T-354: the overview first
       if (["settings", "team"].includes(path)) await expect(page.getByRole("navigation", { name: "Account sections" }).getByRole("link")).toHaveText(["Settings", "Team"]);
       if (path === "settings") await expect(page.getByRole("link", { name: "Manage team", exact: true })).toHaveCount(0);
       await expectHealthy(page);

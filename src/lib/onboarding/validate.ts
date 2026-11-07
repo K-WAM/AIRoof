@@ -83,8 +83,11 @@ function parseField(f: OnboardingField, value: unknown, prefill: Prefill, mode: 
         if (!r.name.trim()) throw new Error("Enter a name for each person, or remove the empty row.");
         if (r.email) z.string().email().parse(r.email);
         if (r.appRole) choice(r.appRole, PEOPLE_ROLE_OPTIONS);
-        if (r.crewId) choice(r.crewId, (prefill["crews.options"] as OnboardingOption[]) ?? []);
-        return { ...r, name: r.name.trim(), ...(r.mobile ? { mobile: phone(r.mobile) } : {}) };
+        // A crew that was deleted or switched off since (prefill, or an older draft) is cleared, never an error: the client
+        // can't see why the row fails, because the menu shows "No crew" for a value it no longer lists.
+        const crews = (prefill["crews.options"] as OnboardingOption[]) ?? [];
+        const crewId = r.crewId && crews.some(o => o.value === r.crewId) ? r.crewId : "";
+        return { ...r, crewId, name: r.name.trim(), ...(r.mobile ? { mobile: phone(r.mobile) } : {}) };
       });
     }
     default: return text(value, max);

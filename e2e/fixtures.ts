@@ -113,6 +113,15 @@ export async function openJobPanel(page: import("@playwright/test").Page, panel:
 }
 
 /** Help is the one menu destination for the Guide and Feedback. */
+/** Send feedback lives in the menu under Help on every screen (owner, 2026-11-06): the desktop sidebar shows it; a phone opens
+ *  the menu first. Waits for the feedback sheet. */
+export async function openFeedback(page: import("@playwright/test").Page) {
+  const button = page.getByRole("button", { name: "Send feedback", exact: true }).filter({ visible: true });
+  if (!(await button.count())) await page.getByRole("button", { name: /^(Open menu|Menu)$/ }).click();
+  await button.first().click();
+  await expect(page.getByRole("dialog", { name: /Send feedback|Ask a question/ })).toBeVisible();
+}
+
 export async function openHelp(page: import("@playwright/test").Page) {
   const help = page.getByRole("link", { name: "Help", exact: true }).filter({ visible: true });
   if (!(await help.count())) await page.getByRole("button", { name: "Open menu" }).click();

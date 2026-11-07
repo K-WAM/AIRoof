@@ -1,4 +1,4 @@
-import { test, expect, settle, shot, expectHealthy, openHelp } from "./fixtures";
+import { test, expect, settle, shot, expectHealthy, openFeedback } from "./fixtures";
 import sharp from "sharp";
 import { api, must } from "../scripts/e2e/lib.cjs";
 
@@ -42,19 +42,24 @@ test("SVG and large PNG fit the two-company header", async ({ as }, testInfo) =>
   }
 });
 
-test("View as keeps Feedback visible, disabled and explained", async ({ as }) => {
+test("View as shows Feedback as a no-send preview with the viewed person's name", async ({ as }) => {
   const page = await as("superadmin");
   const response = await page.request.post("/api/admin/view-as", { data: { businessId: "e2e-roofpros", userType: "office" } });
   expect(response.ok()).toBe(true);
   await page.goto("/company/dashboard"); await settle(page);
   await expect(page.getByTestId("view-as-banner")).toBeVisible();
-  await openHelp(page);
-  const feedback = page.getByRole("button", { name: /Send feedback.*Not available/ }).filter({ visible: true });
-  await feedback.scrollIntoViewIfNeeded();
-  await expect(feedback).toBeDisabled();
-  await expect(feedback).toBeInViewport();
-  await expect(feedback.getByText("Not available while viewing as someone else")).toBeVisible();
-  expect(await feedback.getByText("Not available while viewing as someone else").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  // Owner (2026-11-06): demonstrate feedback in View as: the sheet opens with the viewed person, Send shows what would happen,
+  // and nothing is sent (View as is read-only on the server too).
+  let posted = 0;
+  page.on("request", (req) => { if (req.url().includes("/api/feedback") && req.method() === "POST") posted++; });
+  await openFeedback(page);
+  const sheet = page.getByRole("dialog", { name: "Send feedback to Luxor" });
+  await expect(sheet.getByText(/Nothing is sent/)).toBeVisible();
+  await expect(sheet.getByText(/We reply within 24 hours/)).toBeVisible();
+  await sheet.getByRole("textbox").first().fill("Preview message");
+  await sheet.getByRole("button", { name: /^Send/ }).click();
+  await expect(sheet.getByText(/preview — not sent/)).toBeVisible();
+  expect(posted).toBe(0);
   await shot(page, "rd-feedback-view-as");
   await page.request.delete("/api/admin/view-as");
 });

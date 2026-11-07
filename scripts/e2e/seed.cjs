@@ -182,9 +182,11 @@ async function seed({ reset = false } = {}) {
     const at = Date.now();
     const clientProv = { origin: "client", source: "e2e:seed", addedAt: at };
     const sampleProv = { origin: "luxor-sample", source: "e2e:seed", note: "Crew membership guessed for the demo", addedAt: at };
-    await roofing.collection("staff").doc("l3-staff-1").set({ staffId: "l3-staff-1", name: "Taylor Foreman", position: "Foreman", userType: "foreman", email: "taylor.foreman@roofing.e2e.test", mobile: "+19545550111", language: "es", crewId: "k2-crew", crewLead: true, crewProvenance: sampleProv, active: true, provenance: clientProv, createdAt: at, updatedAt: at });
+    // Its own crew: other specs rename and delete crews (e.g. "Sample crew"), which made these rows lose their crew mid-suite.
+    await roofing.collection("crews").doc("l3-crew").set({ name: "Example Roofing Crew", active: true, kind: "crew", color: "#7c3aed", createdAt: at, updatedAt: at });
+    await roofing.collection("staff").doc("l3-staff-1").set({ staffId: "l3-staff-1", name: "Taylor Foreman", position: "Foreman", userType: "foreman", email: "taylor.foreman@roofing.e2e.test", mobile: "+19545550111", language: "es", crewId: "l3-crew", crewLead: true, crewProvenance: sampleProv, active: true, provenance: clientProv, createdAt: at, updatedAt: at });
     await roofing.collection("staff").doc("l3-staff-2").set({ staffId: "l3-staff-2", name: "Morgan Estimator", position: "Estimator", userType: "office", email: "morgan.estimator@roofing.e2e.test", active: true, provenance: clientProv, createdAt: at, updatedAt: at });
-    await roofing.collection("staff").doc("l3-staff-3").set({ staffId: "l3-staff-3", name: "Riley Roofer", position: "Roofer", userType: "technician", crewId: "k2-crew", crewProvenance: sampleProv, active: true, provenance: sampleProv, createdAt: at, updatedAt: at });
+    await roofing.collection("staff").doc("l3-staff-3").set({ staffId: "l3-staff-3", name: "Riley Roofer", position: "Roofer", userType: "technician", crewId: "l3-crew", crewProvenance: sampleProv, active: true, provenance: sampleProv, createdAt: at, updatedAt: at });
     await roofing.collection("vendors").doc("l3-vendor-1").set({ vendorId: "l3-vendor-1", name: "Example Shingle Co", type: "Manufacturer", city: "Parsippany", state: "NJ", phone: "+19735550142", contactName: "Sam Rep", active: true, provenance: clientProv, createdAt: at, updatedAt: at });
     await roofing.collection("vendors").doc("l3-vendor-2").set({ vendorId: "l3-vendor-2", name: "Sample Supply House", type: "Supplier", city: "Fort Lauderdale", state: "FL", phone: "+19545550177", active: true, provenance: sampleProv, createdAt: at, updatedAt: at });
   }

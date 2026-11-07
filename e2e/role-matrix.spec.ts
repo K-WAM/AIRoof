@@ -61,7 +61,11 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
     }
 
     const officeRoutes = visibleNavLinks({ role: "owner", isEnabled: () => true }).map((link) => link.path).filter((path) => path.startsWith("/"));
-    const denied = role === "superadmin" ? [] : officeRoutes.filter((path) => !routes.includes(path));
+    // Finances / Invoices / Payroll are one menu item with a top switch (T-344, T-354): reaching any of them means the others
+    // are tabs of the same screen for this role, not forbidden routes. Each screen still enforces its own guard.
+    const moneyGroup = ["/company/billing", "/company/finances", "/company/payroll"];
+    const reachesMoney = routes.some((path) => moneyGroup.includes(path));
+    const denied = role === "superadmin" ? [] : officeRoutes.filter((path) => !routes.includes(path) && !(reachesMoney && moneyGroup.includes(path)));
     if (role !== "superadmin") {
       const admin = await as("superadmin");
       await admin.goto("/hub");

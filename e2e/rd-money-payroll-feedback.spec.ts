@@ -1,4 +1,4 @@
-import { openHelp } from "./fixtures";
+import { openFeedback } from "./fixtures";
 import { test, expect, settle, shot } from "./fixtures";
 
 test("payroll dates and example", async ({ as }) => {
@@ -25,10 +25,7 @@ for (const role of ["owner", "staff", "fieldCrew"] as const) {
     await page.goto(role === "fieldCrew" ? "/company/field" : "/company/dashboard");
     await settle(page);
     if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
-    await openHelp(page);
-    const feedback = page.getByRole("button", { name: "Send feedback" }).filter({ visible: true });
-    await feedback.click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openFeedback(page);
   });
 }
 
@@ -37,9 +34,7 @@ test("preview feedback and desktop brand", async ({ as }, testInfo) => {
   await page.goto("/company/dashboard?preview=e2e-roofpros");
   await settle(page);
   if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
-  await openHelp(page);
-    await page.getByRole("button", { name: "Send feedback" }).filter({ visible: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await openFeedback(page);
 });
 
 test("two-company header at 1440", async ({ as }, testInfo) => {

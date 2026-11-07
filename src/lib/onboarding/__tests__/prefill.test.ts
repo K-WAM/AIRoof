@@ -27,6 +27,13 @@ it("merges staff and logins by normalized name without granting access or contac
   ]);
   expect(result["crews.options"]).toEqual([{ value: "crew-a", label: "Crew A" }]);
 });
+it("never prefills a crew that was deleted or switched off", async () => {
+  fake.__seed("businesses/a/staff", "gone", { name: "Gone Crew Person", active: true, crewId: "deleted-crew" });
+  fake.__seed("businesses/a/staff", "off", { name: "Off Crew Person", active: true, crewId: "off" });
+  fake.__seed("businesses/a/crews", "off", { name: "Off", active: false });
+  const result = await resolvePrefill("a");
+  expect((result["team.people"] as Array<{ crewId: string }>).map(p => p.crewId)).toEqual(["", ""]);
+});
 it("uses the default billing company's logo, then the library default, then text", async () => {
   expect(await clientLogo("a")).toBeNull();
   fake.__seed("businesses/a/library", "logos", { logos: [{ logoId: "logo-a", name: "A", mimeType: "image/png", b64: "AAAA", variant: "color", isDefault: true }, { logoId: "logo-b", name: "B", mimeType: "image/png", b64: "BBBB", variant: "color" }] });

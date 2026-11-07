@@ -29,6 +29,14 @@ describe("onboarding validation", () => {
     expect(validateAnswers(def, { ein: "••-•••9999" }, "draft", {}, saved).valid).toBe(false);
     expect(validateAnswers(def, { ein: "••-•••6789" }, "draft").valid).toBe(false);
   });
+  it("clears a person's crew that no longer exists instead of refusing the save", () => {
+    const people: OnboardingField = { id: "people", type: "people", label: "People", prefill: "team.people" };
+    const crews = { "crews.options": [{ value: "crew-a", label: "Crew A" }] };
+    const result = check(people, [{ name: "Sample Person", crewId: "deleted-crew" }, { name: "Other Person", crewId: "crew-a" }], "submit", crews);
+    expect(result.valid).toBe(true);
+    const rows = (result as { answers: Record<string, unknown> }).answers.people as Array<{ crewId: string }>;
+    expect(rows.map(r => r.crewId)).toEqual(["", "crew-a"]);
+  });
   it("allows only defined or resolved choices", () => {
     const options = [{ value: "yes", label: "Yes" }];
     for (const type of ["select", "radio", "checkboxes"] as const) {
@@ -53,7 +61,7 @@ describe("onboarding validation", () => {
   });
   it("caps people rows and validates every optional field", () => {
     const f: OnboardingField = { id: "p", type: "people", label: "People", max: 1 };
-    for (const rows of [[{ name: "" }], [{ name: "A", email: "bad" }], [{ name: "A", appRole: "root" }], [{ name: "A", language: "xx" }], [{ name: "A", mobile: "x" }], [{ name: "A", crewId: "other" }], [{ name: "A", hidden: "x" }], [{ name: "A" }, { name: "B" }]]) expect(check(f, rows).valid).toBe(false);
+    for (const rows of [[{ name: "" }], [{ name: "A", email: "bad" }], [{ name: "A", appRole: "root" }], [{ name: "A", language: "xx" }], [{ name: "A", mobile: "x" }], [{ name: "A", hidden: "x" }], [{ name: "A" }, { name: "B" }]]) expect(check(f, rows).valid).toBe(false);
     expect(check(f, [{ name: "Alex", appRole: "none", mobile: "9545550123", language: "both", prefilled: true }]).valid).toBe(true);
   });
   it("enforces showIf and hides dynamic choices with fewer than two options", () => {

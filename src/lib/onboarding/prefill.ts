@@ -20,18 +20,21 @@ export async function resolvePrefill(businessId: string): Promise<Prefill> {
   ]);
   if (!business.exists) throw new OnboardingError("Client not found.", 404);
   const config = business.data() as BusinessConfig & { legalName?: string; addressStreet?: string; addressCity?: string; addressState?: string; addressZip?: string };
+  const activeCrews = crews.docs.filter(d => d.data().active === true);
+  const activeCrewIds = new Set(activeCrews.map(d => d.id));
+  const liveCrew = (crewId: unknown) => (typeof crewId === "string" && activeCrewIds.has(crewId) ? crewId : "");
   const people = new Map<string, OnboardingPersonRow>();
   for (const doc of staff.docs) {
     const s = doc.data() as StaffMember;
     if (!s.active || !s.name) continue;
-    people.set(normalizeName(s.name), { name: s.name, position: s.position ?? "", appRole: s.userType ?? "none", email: s.email ?? "", mobile: s.mobile ?? "", ...(s.language ? { language: s.language } : {}), crewId: s.crewId ?? "", prefilled: true });
+    people.set(normalizeName(s.name), { name: s.name, position: s.position ?? "", appRole: s.userType ?? "none", email: s.email ?? "", mobile: s.mobile ?? "", ...(s.language ? { language: s.language } : {}), crewId: liveCrew(s.crewId), prefilled: true });
   }
   for (const doc of users.docs) {
     const u = doc.data();
     const name = u.displayName || u.name;
     if (!name || u.active === false) continue;
     const key = normalizeName(name);
-    people.set(key, { ...people.get(key), name, position: u.position || people.get(key)?.position || "", appRole: userTypeOf({ role: u.role, trade: u.trade }), email: u.email || people.get(key)?.email || "", mobile: u.mobile || u.phone || people.get(key)?.mobile || "", ...(u.language ? { language: u.language } : {}), crewId: u.crewId ?? people.get(key)?.crewId ?? "", prefilled: true });
+    people.set(key, { ...people.get(key), name, position: u.position || people.get(key)?.position || "", appRole: userTypeOf({ role: u.role, trade: u.trade }), email: u.email || people.get(key)?.email || "", mobile: u.mobile || u.phone || people.get(key)?.mobile || "", ...(u.language ? { language: u.language } : {}), crewId: liveCrew(u.crewId) || people.get(key)?.crewId || "", prefilled: true });
   }
   return {
     "business.legalName": config.legalName || config.businessName,
@@ -43,7 +46,7 @@ export async function resolvePrefill(businessId: string): Promise<Prefill> {
     "business.hours": typeof config.businessHours === "string" ? config.businessHours : Object.entries(config.businessHours ?? {}).map(([day, hours]) => `${day}: ${hours}`).join("\n"),
     "business.notificationEmail": config.notificationEmail || config.contactEmail || "",
     "companies.options": companiesOf(config).map(c => ({ value: c.id, label: c.name })),
-    "crews.options": crews.docs.filter(d => d.data().active === true).map(d => ({ value: d.id, label: d.data().name || d.id })),
+    "crews.options": activeCrews.map(d => ({ value: d.id, label: d.data().name || d.id })),
     "team.people": [...people.values()],
   };
 }

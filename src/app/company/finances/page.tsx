@@ -16,7 +16,9 @@ import s from "../preview/preview.module.css";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
-function defaultFrom() { return iso(new Date(Date.now() - 90 * 86400000)); }
+// Last 12 months by default (owner review, 2026-11-07): with 90 days, "How late are unpaid invoices?" could never show the
+// 61-90 and 90+ buckets (those invoices were issued earlier) and the monthly chart filled only a third of its bars.
+function defaultFrom() { return iso(new Date(Date.now() - 365 * 86400000)); }
 function download(rows: FinanceRow[], companies?: BootstrapCompany[]) {
   const multi = (companies?.length ?? 0) >= 2;
   const shortName = (companyId: unknown) => companies?.find((c) => c.id === companyId)?.shortName ?? "";
