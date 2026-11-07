@@ -300,6 +300,7 @@ export default function AdminBusinessesPage() {
                           <Pencil size={13} strokeWidth={1.75} />
                           Edit
                         </Link>
+                        <Link href={`/admin/businesses/${row.businessId}/onboarding`} className="button" style={{ fontSize: 12, padding: "4px 10px" }}>Onboarding</Link>
                         <ViewAsMenu businessId={row.businessId} businessName={row.businessName} />
                         <a
                           href={`/company/dashboard?preview=${row.businessId}`}
