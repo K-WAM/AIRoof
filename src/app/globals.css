@@ -1579,14 +1579,19 @@ a.metric:hover {
 .cmd-result-body { flex: 1; min-width: 0; }
 
 .cmd-result-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   margin: 0 0 1px;
 }
+
+/* Only the name truncates, so an Example tag (T-376) stays readable beside a long name on a phone. */
+.cmd-result-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cmd-result-name .example-tag { flex: none; }
 
 .cmd-result-sub {
   font-size: 12px;
@@ -3878,7 +3883,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 /* === end L2 === */
 
 /* === L3 people === */
-.example-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; cursor: help; vertical-align: middle; }
+.example-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; cursor: help; vertical-align: middle; width: fit-content; }
+.example-tag--compact { margin-left: 4px; padding: 0 5px; font-size: 9.5px; font-family: inherit; line-height: 1.5; }
 .team-people { margin-bottom: var(--sp-4, 16px); }
 .team-roster-head, .team-roster-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-3, 12px); align-items: center; }
 .team-roster-head { padding: 8px var(--sp-4, 16px); font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }

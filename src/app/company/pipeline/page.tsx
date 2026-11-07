@@ -17,6 +17,8 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CompanyBadge } from "@/components/companies/CompanyBadge";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample, type Provenance } from "@/types/provenance";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { ContactEditor, type ContactEditorProps } from "@/components/requests/RequestReviewCard";
@@ -56,6 +58,8 @@ interface Lead {
   callbackPhone?: string;
   /** Set once a job has been created from this lead. */
   jobId?: string;
+  /** Sample work (T-376): shows the Example tag. */
+  provenance?: Provenance;
   createdAt: number;
 }
 
@@ -103,6 +107,8 @@ interface Appointment {
   sourceCallId?: string;
   /** Set once a job has been created from this booking — the card then opens it instead of offering "Create Job". */
   jobId?: string;
+  /** Sample work (T-376): shows the Example tag. */
+  provenance?: Provenance;
 }
 
 function timeAgo(ms: number): string {
@@ -609,6 +615,7 @@ export default function PipelinePage() {
         <div className="appt-body">
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
+            {isLuxorSample(appt) && <ExampleTag />}
             {appt.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
             {appt.jobId && jobCompanyIds[appt.jobId] && <CompanyBadge companies={companies} companyId={jobCompanyIds[appt.jobId]} />}
             {/* A waiting booking sits under "Needs Confirmation" with a note saying what Confirm does — no chip repeating it (C5). */}
@@ -776,7 +783,7 @@ export default function PipelinePage() {
                       >
                         <div className="lead-title-row">
                           <div>
-                            <p className="lead-name">{lead.callerName || "Unknown caller"}</p>
+                            <p className="lead-name">{lead.callerName || "Unknown caller"}{isLuxorSample(lead) && <ExampleTag />}</p>
                             <p className="lead-phone">{contactPhone(lead) ? fmtPhone(contactPhone(lead)) : "—"}</p>
                           </div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -861,7 +868,7 @@ export default function PipelinePage() {
                   <>
                     <div className="lead-title-row">
                       <div>
-                        <p className="lead-name">{selectedLead.callerName || "Unknown caller"}</p>
+                        <p className="lead-name">{selectedLead.callerName || "Unknown caller"}{isLuxorSample(selectedLead) && <ExampleTag />}</p>
                         <p className="lead-phone">{contactPhone(selectedLead) ? fmtPhone(contactPhone(selectedLead)) : "—"}</p>
                       </div>
                       <AttentionChip lead={selectedLead} />

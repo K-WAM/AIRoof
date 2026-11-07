@@ -8,6 +8,7 @@ import { roundCents } from "@/lib/format/money";
 import { companiesOf, defaultCompany, effectiveCompanyId, isMultiCompany } from "@/lib/companies/companies";
 import { loadBusinessConfig } from "@/lib/products/productCache";
 import type { JobInvoice } from "@/types/invoice";
+import { isLuxorSample } from "@/types/provenance";
 
 // GET /api/company/billing?businessId= — the Billing screen (Billing product): what customers owe, what's late, what
 // came in this month, and the invoices behind those numbers. One bounded query on the business's own invoices
@@ -22,6 +23,8 @@ export interface BillingRow {
   companyId?: string;
   /** Deposit invoices show a "Deposit" chip (T-304f). Missing = standard. */
   kind?: "standard" | "deposit";
+  /** An invoice made on a sample job (T-376): the row shows the Example tag. */
+  sample?: true;
   status: "sent" | "paid"; sentAt?: number; dueAt?: number; paidAt?: number; daysLate: number;
 }
 
@@ -44,7 +47,7 @@ export async function GET(req: NextRequest) {
 
   const snap = await db.collection(`businesses/${businessId}/invoices`)
     .where("status", "in", ["sent", "paid"])
-    .select("jobId", "billTo", "total", "amountPaid", "status", "sentAt", "dueAt", "paidAt", "payments", "updatedAt", "companyId")
+    .select("jobId", "billTo", "total", "amountPaid", "status", "sentAt", "dueAt", "paidAt", "payments", "updatedAt", "companyId", "provenance")
     .limit(MAX_INVOICES)
     .get();
 
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
     // Money in this month: each recorded payment by its date; a one-step "Mark paid" (no payments list) by paidAt.
     if (inv.payments?.length) paidThisMonth += inv.payments.filter((p) => p.receivedAt >= monthStart.getTime()).reduce((s, p) => s + p.amount, 0);
     else if (inv.status === "paid" && (inv.paidAt ?? 0) >= monthStart.getTime()) paidThisMonth += inv.amountPaid ?? inv.total;
-    rows.push({ invoiceId: doc.id, jobId: inv.jobId, customer: inv.billTo?.name || "—", ...(companyId ? { companyId } : {}), total: inv.total, balance, status: inv.status as "sent" | "paid", ...(inv.kind === "deposit" ? { kind: "deposit" as const } : {}), sentAt: inv.sentAt, dueAt: inv.dueAt, paidAt: inv.paidAt, daysLate });
+    rows.push({ invoiceId: doc.id, jobId: inv.jobId, customer: inv.billTo?.name || "—", ...(companyId ? { companyId } : {}), total: inv.total, balance, status: inv.status as "sent" | "paid", ...(inv.kind === "deposit" ? { kind: "deposit" as const } : {}), ...(isLuxorSample(inv) ? { sample: true as const } : {}), sentAt: inv.sentAt, dueAt: inv.dueAt, paidAt: inv.paidAt, daysLate });
   }
   const unpaid = rows.filter((r) => r.status === "sent").sort((a, b) => b.daysLate - a.daysLate || (a.dueAt ?? 0) - (b.dueAt ?? 0));
   const paid = rows.filter((r) => r.status === "paid").sort((a, b) => (b.paidAt ?? 0) - (a.paidAt ?? 0)).slice(0, 20);

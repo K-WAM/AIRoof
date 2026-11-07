@@ -40,7 +40,20 @@ function clean(value: string | undefined): string {
   return (value ?? "").trim().replace(/\s+/g, " ");
 }
 
+/**
+ * A one-line address with no separate city (a job's or the customer's own: "101 Lakeview Drive, Coral Springs, FL
+ * 33065") is the saved property {address: "101 Lakeview Drive", city: "Coral Springs"} when its words begin with the
+ * property's street and then its city. Sample work (T-376) and fully typed job addresses are written this way.
+ */
+function oneLineIsProperty(line: AddressSuggestion, property: AddressSuggestion): boolean {
+  if (line.city || !property.city) return false;
+  const words = tokenize(line.address);
+  const propertyWords = tokenize(`${property.address} ${property.city}`);
+  return propertyWords.length <= words.length && propertyWords.every((word, i) => words[i] === word);
+}
+
 function sameAddress(a: AddressSuggestion, b: AddressSuggestion): boolean {
+  if (oneLineIsProperty(a, b) || oneLineIsProperty(b, a)) return true;
   const addressKey = (s: AddressSuggestion) => tokenize(s.address).join(" ");
   if (addressKey(a) !== addressKey(b)) return false;
   const cityKey = (s: AddressSuggestion) => tokenize(s.city).join(" ");
@@ -111,10 +124,12 @@ export function suggestAddresses(input: AddressSuggestInput): AddressSuggestion[
   for (const candidate of candidates) {
     const at = seen.findIndex((s) => sameAddress(s, candidate));
     if (at < 0) { seen.push(candidate); continue; }
-    // A recent job at a saved property keeps its place in the list but shows the property's name and city.
+    // A recent job at a saved property keeps its place in the list but shows the property's name and city — and the
+    // property's street, so a one-line job address doesn't print its city twice or fill the field differently.
     const kept = seen[at];
+    const address = oneLineIsProperty(kept, candidate) ? candidate.address : kept.address;
     const city = kept.city ?? candidate.city, state = kept.state ?? candidate.state, name = kept.name ?? candidate.name;
-    seen[at] = { address: kept.address, ...(city ? { city } : {}), ...(state ? { state } : {}), ...(name ? { name } : {}) };
+    seen[at] = { address, ...(city ? { city } : {}), ...(state ? { state } : {}), ...(name ? { name } : {}) };
   }
 
   return filterAddressSuggestions(seen, input.query);

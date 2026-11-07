@@ -4,8 +4,12 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
+import { inheritSampleProvenance } from "@/types/provenance";
 import { fieldResponse } from "@/lib/jobs/fieldResponse";
 import { collectionPoll } from "@/lib/http/collectionPoll";
+
+/** How far back each Calendar delta poll reaches past its cursor (see the updatedSince branch below). */
+const DELTA_OVERLAP_MS = 60_000;
 
 // GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
 // (session or field key)
@@ -46,14 +50,18 @@ export async function GET(req: NextRequest) {
   }
 
   // Calendar's background refresh reads only changed jobs, using the automatic updatedAt index. The server
-  // watermark is captured BEFORE the read so a concurrent write is included here or on the next tick.
+  // watermark is captured BEFORE the read so a concurrent write is included here or on the next tick — and set
+  // DELTA_OVERLAP_MS back, because writers stamp updatedAt when their request starts, not when it commits (a job made
+  // from a request stamps `now`, then looks up the customer, then saves). Without the overlap a job saved a second
+  // after a poll began was older than the next cursor and never reached an open Calendar. The board merges by jobId,
+  // so a job read twice is harmless.
   const updatedSinceRaw = req.nextUrl.searchParams.get("updatedSince");
   if (updatedSinceRaw !== null) {
     const updatedSince = Number(updatedSinceRaw);
     if (!updatedSinceRaw || !Number.isFinite(updatedSince) || updatedSince < 0) {
       return NextResponse.json({ error: "Invalid updatedSince cursor" }, { status: 400 });
     }
-    const polledAt = Date.now();
+    const polledAt = Date.now() - DELTA_OVERLAP_MS;
     const snap = await db.collection(`businesses/${businessId}/jobs`).where("updatedAt", ">=", updatedSince).get();
     return NextResponse.json(fieldResponse({ jobs: snap.docs.map((d) => ({ jobId: d.id, ...d.data() })), polledAt }, gate.user));
   }
@@ -166,6 +174,8 @@ export async function POST(req: NextRequest) {
   };
 
   let job: Job;
+  // Made from a sample booking (T-376): the job is a sample too, and no real customer is linked or counted for it.
+  let sample = false;
   if (appointmentId) {
     // "New Job" prefilled from a booking: one booking makes one job — the same rule (and the same marker doc) as
     // POST /api/jobs/from-request. Without it the booking card kept offering "Create Job" and a second job got made.
@@ -173,22 +183,24 @@ export async function POST(req: NextRequest) {
     const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`appointment_${appointmentId}`);
     const result = await db.runTransaction(async (tx) => {
       const [existing, appt] = await Promise.all([tx.get(marker), tx.get(appointment)]);
-      if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false, multi: false, assigned: {} };
+      if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false, multi: false, assigned: {}, inherited: {} };
       const { counter, multi, assigned } = await assignInTransaction(tx);
       const jobId = `J-${counter}`;
-      tx.create(jobs.doc(jobId), { ...fields, ...assigned, jobId });
+      const inherited = appt.exists ? inheritSampleProvenance(appt.data(), "Job", now) : {};
+      tx.create(jobs.doc(jobId), { ...fields, ...assigned, ...inherited, jobId });
       if (appt.exists) {
         tx.create(marker, { jobId, createdAt: now });
         tx.update(appointment, { jobId });
       }
-      return { jobId, created: true, multi, assigned };
+      return { jobId, created: true, multi, assigned, inherited };
     });
     if (!result.created) {
       const stored = await jobs.doc(result.jobId).get();
       return NextResponse.json({ job: { jobId: result.jobId, ...stored.data() }, created: false }, { status: 200 });
     }
-    job = { ...fields, ...result.assigned, jobId: result.jobId };
-    if (result.multi && !customerId && clientName) customerId = await linkTypedCustomer(result.jobId);
+    job = { ...fields, ...result.assigned, ...result.inherited, jobId: result.jobId };
+    sample = Boolean(result.inherited.provenance);
+    if (result.multi && !customerId && clientName && !sample) customerId = await linkTypedCustomer(result.jobId);
   } else {
     // Atomically increment job counter to produce short human-friendly ID (J-1042, J-1043, …)
     const result = await db.runTransaction(async (tx) => {
@@ -217,7 +229,9 @@ export async function POST(req: NextRequest) {
   // to a novel name, which instead triggers the non-blocking
   // POST /api/company/customers/resolve after this returns) — bump its
   // rollups now rather than leaving them stale until some later job.
-  if (customerId) {
+  if (sample) {
+    // Nothing to link or count: see `sample` above.
+  } else if (customerId) {
     const { bumpCustomerJobStats } = await import("@/lib/customers/resolve");
     await bumpCustomerJobStats(db, businessId, customerId, now).catch(() => {
       // A stale/bad customerId shouldn't fail job creation — the job is

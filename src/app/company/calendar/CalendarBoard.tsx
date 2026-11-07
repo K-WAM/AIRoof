@@ -47,6 +47,8 @@ import { Hint } from "@/components/ui/Hint";
 import { glossaryMeaning } from "@/lib/copy/glossary";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CompanyBadge, CompanyBadgeRow, companyBadgeLabel } from "@/components/companies/CompanyBadge";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample, type Provenance } from "@/types/provenance";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
@@ -71,6 +73,8 @@ interface Appointment {
   callSummary?: string;
   /** Set once the office made a job from this booking (Pipeline → Create Job). */
   jobId?: string;
+  /** Sample work (T-376): shows the Example tag. */
+  provenance?: Provenance;
 }
 
 /** A drop (or "Change time") waiting for the dispatcher to pick a start time — T-149. */
@@ -876,7 +880,7 @@ export default function CalendarBoard() {
             <div className="c1-agenda-list">
               {unscheduled.length > RAIL_PAGE && <input type="search" aria-label={`Search unscheduled ${vocab.jobNounPlural.toLowerCase()}`} placeholder={`Search ${unscheduled.length} ${vocab.jobNounPlural.toLowerCase()}`} value={railQuery} onChange={(event) => setRailQuery(event.target.value)} />}
               {railShown.map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
-                <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
+                <strong>{job.jobId} · {job.title}{isLuxorSample(job) && <ExampleTag />}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
                 {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
                   <option value="">Schedule…</option>{workCrews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
                 </select>}
@@ -897,6 +901,7 @@ export default function CalendarBoard() {
             const apptLook = appt.assignedCrewId ? itemLook(apptState, appt.status === "confirmed") : null;
             return <article className="c1-agenda-item" data-testid={`calendar-agenda-booking-${appt.appointmentId}`} data-state={appt.assignedCrewId ? apptState : undefined} style={{ order: minuteOfDay(appt.startTime, tz), ...(apptLook ? { borderLeft: `4px solid ${apptLook.accent}`, background: apptLook.background } : {}) }} key={appt.appointmentId}>
               <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "appointment", id: appt.appointmentId })}>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</button>
+              {isLuxorSample(appt) && <ExampleTag />}
               <span>{!apptMode && "Inspection · "}{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}{appt.assignedCrewId && apptState !== "scheduled" ? ` · ${WORK_STATE_LABEL[apptState]}` : ""}</span>
               <div className="c1-agenda-actions">
                 {!readOnly && <select aria-label={`Assign ${appt.callerName ?? "booking"}`} value={appt.assignedCrewId ?? ""} disabled={busyJob === appt.appointmentId} onChange={(event) => { if (event.target.value) void placeAppt(appt.appointmentId, event.target.value, agendaDay); else void unassignAppt(appt.appointmentId); }}>
@@ -913,6 +918,7 @@ export default function CalendarBoard() {
             const look = itemLook(state, !!job.crewConfirmed || finished);
             return <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} data-state={state} style={{ order: minuteOfDay(job.scheduledStart!, tz), borderLeft: `4px solid ${look.accent}`, background: look.background }} key={job.jobId}>
             {finished ? <Link className="calendar-item-title" href={`/company/jobs/${job.jobId}${previewSuffix}`}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</Link> : <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>}
+            {isLuxorSample(job) && <ExampleTag />}
             <CompanyBadgeRow companies={companies} companyId={job.companyId}><span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}{state !== "scheduled" ? ` · ${WORK_STATE_LABEL[state]}` : ""}</span></CompanyBadgeRow>
             <div className="c1-agenda-actions">
               {!readOnly && !finished && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
@@ -1516,7 +1522,7 @@ function JobTile({ job, tz, crewGone, readOnly }: { job: Job; tz: string; crewGo
         {job.address && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>{job.address}</div>}
         {booked && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#0369a1", marginTop: 3 }}>Customer booked: {booked}</div>}
         {crewGone && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#b45309", marginTop: 3 }}>{readOnly ? `The office needs to assign an active ${resourceNoun}.` : `Its ${resourceNoun} was removed or turned off — drag it to another ${resourceNoun}`}</div>}
-        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 3 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 3 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}{isLuxorSample(job) && <ExampleTag compact />}</div>
       </div>
     </div>
   );
@@ -1530,6 +1536,7 @@ function PhoneBookingChip({ appt, tz, pending, previewSuffix, readOnly }: { appt
       <button type="button" disabled={readOnly} {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} data-testid={`phone-booking-${appt.appointmentId}`} style={{ width: "100%", textAlign: "left", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
         {!readOnly && <GripVertical size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />}
         <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</strong> {appt.callerName ?? "Booking"}
+        {isLuxorSample(appt) && <ExampleTag compact />}
       </button>
       <details style={{ marginTop: 3 }}>
         <summary style={{ cursor: "pointer", fontSize: 11, color: "var(--accent)", paddingLeft: 8 }}>Booking details</summary>
@@ -1567,7 +1574,7 @@ function ApptTile({ appt, tz, readOnly }: { appt: Appointment; tz: string; readO
           {" · "}
           {new Date(appt.startTime).toLocaleDateString("en-US", { weekday: "short", timeZone: tz })}
         </div>
-        <div style={{ fontSize: 12.5, color: "#334155", lineHeight: 1.35, marginTop: 1 }}>{appt.callerName ?? "Booking"}</div>
+        <div style={{ fontSize: 12.5, color: "#334155", lineHeight: 1.35, marginTop: 1 }}>{appt.callerName ?? "Booking"}{isLuxorSample(appt) && <ExampleTag compact />}</div>
         {appt.serviceType && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>{appt.serviceType}</div>}
         {pending && (
           <div style={{ fontSize: 10, fontWeight: 700, color: "#b45309", marginTop: 3 }}>UNCONFIRMED</div>
@@ -1632,6 +1639,7 @@ function ScheduledApptTile({
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {appt.callerName ?? "Booking"}
           </div>
+          {isLuxorSample(appt) && <ExampleTag compact />}
           {appt.serviceType && (
             <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {appt.serviceType}
@@ -1717,7 +1725,7 @@ function ScheduledTile({
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
           <WorkStateLine state={state} />
           <span className="sr-only">{itemStateWords(state, confirmed || finished)}</span>
-          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}{isLuxorSample(job) && <ExampleTag compact />}</div>
         </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", borderTop: "1px solid rgba(0,0,0,0.06)" }}>

@@ -10,6 +10,8 @@ import { matchesQuery } from "@/lib/customers/search";
 import { fmtDay, fmtPhone } from "@/lib/format";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample } from "@/types/provenance";
 import { CustomerProperties } from "./CustomerProperties";
 import { CustomerPastWork, type CustomerHistoryItem } from "./CustomerPastWork";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -383,6 +385,7 @@ function CustomerDetail({
                       <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <span style={{ fontFamily: "monospace", color: "#64748b", marginRight: 6 }}>{j.jobId}</span>
                         {j.title}
+                        {isLuxorSample(j) && <ExampleTag />}
                       </div>
                       <div style={{ fontSize: 11.5, color: "#94a3b8" }}>{fmtDay(j.createdAt, tz)}</div>
                     </div>

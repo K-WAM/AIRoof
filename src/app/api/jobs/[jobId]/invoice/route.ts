@@ -39,6 +39,7 @@ async function saveStandardDraft(db: FirebaseFirestore.Firestore, businessId: st
   catch (e) { if (e instanceof InvoiceConflict) return null; throw e; }
 }
 import { validLogoSelection } from "@/lib/documents/logoSelection";
+import { inheritSampleProvenance } from "@/types/provenance";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     invoiceId,
     businessId,
     jobId,
+    ...inheritSampleProvenance(job, "Invoice", now),
     customerId: job.customerId,
     billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: customer?.address ?? job.address },
     serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),

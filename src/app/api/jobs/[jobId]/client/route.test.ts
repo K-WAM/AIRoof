@@ -63,3 +63,17 @@ describe("PATCH /api/jobs/[jobId]/client", () => {
     expect((await call({ name: "X" })).status).toBe(403);
   });
 });
+
+describe("a sample job at a real customer's property (T-376)", () => {
+  it("changes the sample job and its draft documents, never the real customer record", async () => {
+    db.__seed("businesses/biz/jobs", "J-1000", {
+      jobId: "J-1000", status: "in_progress", clientName: "Harbor View", address: "120 Harbor Way", customerId: "cust-1", quoteId: "Q-1",
+      provenance: { origin: "luxor-sample", source: "luxor:sample-work", addedAt: 1 },
+    });
+    const response = await call({ name: "Harbor View Facilities", phone: "+15615550134" }, "J-1000");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ updated: { customer: false, quote: true } });
+    expect(db.__peek("businesses/biz/jobs", "J-1000")).toMatchObject({ clientName: "Harbor View Facilities", clientPhone: "+15615550134" });
+    expect(db.__peek("businesses/biz/customers", "cust-1")).toMatchObject({ name: "Kareem", phone: "+18254887791" });
+  });
+});

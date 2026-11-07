@@ -2,6 +2,7 @@
 // InvoiceLineItem (the AI's raw suggestions, never persisted) and from
 // src/app/admin/invoices/invoiceFlow.ts's LuxorInvoice (Luxor's own platform billing of a
 // tenant — a completely separate sequence/collection; see jobInvoiceNumber.ts).
+import type { Provenance } from "./provenance";
 
 export interface InvoiceLaborLine {
   lineId: string;
@@ -42,6 +43,8 @@ export interface JobInvoiceDiscount {
 export interface JobInvoice {
   /** Company this invoice is issued under (src/lib/companies/companies.ts resolveDocumentCompany); frozen once sent. */
   companyId?: string;
+  /** Set only on an invoice made on a sample job (T-376): kept out of Finances, removed with the sample job. */
+  provenance?: Provenance;
   payLinkNonce?: string;
   payLinkExpiresAt?: number;
   payNowPending?: { sessionId: string; at: number };

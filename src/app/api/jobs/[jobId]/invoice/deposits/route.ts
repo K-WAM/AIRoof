@@ -17,6 +17,7 @@ import { fmtMoney } from "@/lib/format/money";
 import type { JobInvoice } from "@/types/invoice";
 import type { JobQuote } from "@/types/quote";
 import type { Job } from "@/types/jobs";
+import { inheritSampleProvenance } from "@/types/provenance";
 
 const error = (message: string, status = 400) => jsonWithCache({ error: message }, "noStore", { status });
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const progressIndex = template.sections.filter(s => !s.optional || s.defaultOn).findIndex(s => s.id === "progress");
       const progress = progressIndex < 0 ? undefined : letter.blocks[progressIndex];
       const lines = { labor: [], materials: [], other: [{ lineId: "deposit", description: progress?.paragraphs.join(" ") || `Progress billing: ${percent}% complete`, amount }], taxRate: 0 };
-      const next: JobInvoice = { invoiceId, businessId, jobId, customerId: job.customerId, kind: "deposit", depositRequestId: body.requestId,
+      const next: JobInvoice = { invoiceId, businessId, jobId, ...inheritSampleProvenance(job, "Deposit invoice", now), customerId: job.customerId, kind: "deposit", depositRequestId: body.requestId,
         depositPercent: percent, depositBasis: basis, depositAgreementDate: agreementDate, status: "draft",
         billTo: { name: job.clientName ?? "", email: job.clientEmail, address: customer?.address ?? job.address }, serviceAt: job.address ?? "", description: job.title,
         ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),

@@ -157,10 +157,10 @@ export async function readBusinessCompanyActivity(
   range: { from: number; to: number },
 ): Promise<CompanyActivity> {
   const business = db.collection("businesses").doc(businessId);
-  const invoiceFields = ["companyId", "jobId", "total", "status", "amountPaid", "payments", "paidAt"] as const;
+  const invoiceFields = ["companyId", "jobId", "total", "status", "amountPaid", "payments", "paidAt", "provenance"] as const;
   const [jobsSnap, invoicesSnap, updatedInvoicesSnap] = await Promise.all([
     business.collection("jobs").where("createdAt", ">=", range.from).where("createdAt", "<", range.to)
-      .select("companyId").limit(MAX_COMPANY_JOBS).get(),
+      .select("companyId", "provenance").limit(MAX_COMPANY_JOBS).get(),
     business.collection("invoices").where("createdAt", ">=", range.from).where("createdAt", "<", range.to)
       .select(...invoiceFields).limit(MAX_COMPANY_INVOICES).get(),
     // Collected money is a payment, not an invoice: an invoice created in an earlier month can be paid this month.
@@ -169,7 +169,7 @@ export async function readBusinessCompanyActivity(
       .select(...invoiceFields).limit(MAX_COMPANY_INVOICES).get(),
   ]);
 
-  const jobs = jobsSnap.docs.map((doc) => {
+  const jobs = jobsSnap.docs.filter((doc) => doc.data().provenance?.origin !== "luxor-sample").map((doc) => {
     const companyId = doc.data().companyId;
     return typeof companyId === "string" ? { companyId } : {};
   });
@@ -181,7 +181,9 @@ export async function readBusinessCompanyActivity(
   for (const doc of updatedInvoicesSnap.docs) {
     if (!invoiceRows.has(doc.id)) invoiceRows.set(doc.id, { data: doc.data() as Record<string, unknown>, created: false });
   }
-  const rows = [...invoiceRows.entries()].filter(([, row]) => row.data.status === "sent" || row.data.status === "paid");
+  // Invoices on sample jobs (T-376) are Luxor's demo, not the client's money.
+  const rows = [...invoiceRows.entries()].filter(([, row]) => (row.data.status === "sent" || row.data.status === "paid")
+    && (row.data.provenance as { origin?: string } | undefined)?.origin !== "luxor-sample");
 
   const missingJobIds = [...new Set(rows
     .filter(([, row]) => typeof row.data.companyId !== "string" && typeof row.data.jobId === "string")

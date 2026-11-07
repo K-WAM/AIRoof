@@ -14,6 +14,7 @@ import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 import { validLogoSelection } from "@/lib/documents/logoSelection";
+import { inheritSampleProvenance } from "@/types/provenance";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest, { params }: Context) {
   const lines = quoteLinesFromFindings(findings);
   const customer = job.customerId ? (await db.collection(`businesses/${businessId}/customers`).doc(job.customerId).get()).data() : null;
   const newQuote: JobQuote = {
-    quoteId, businessId, jobId, customerId: job.customerId,
+    quoteId, businessId, jobId, ...inheritSampleProvenance(job, "Quote", now), customerId: job.customerId,
     serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),
     billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: customer?.address ?? job.address },
     findings, lines, status: "draft", hideMaterials: false, validUntil: now + 30 * 86400000, notes: DEFAULT_QUOTE_NOTES,

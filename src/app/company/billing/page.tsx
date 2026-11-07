@@ -17,6 +17,7 @@ import type { BillingRow } from "@/app/api/company/billing/route";
 import type { BootstrapCompany } from "@/types/company";
 import { CompanyFilter } from "@/components/companies/CompanyFilter";
 import { CompanyBadge } from "@/components/companies/CompanyBadge";
+import { ExampleTag } from "@/components/ui/ExampleTag";
 import { UnmatchedPayments } from "./UnmatchedPayments";
 import { PaymentsPreview } from "./PaymentsPreview";
 import { useAuth } from "@/contexts/AuthContext";
@@ -115,7 +116,7 @@ export default function BillingPage() {
             {unpaid.slice(0, shown).map((row) => (
               <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                 <div className="feed-body">
-                  <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} />{view.companies && <> <CompanyBadge companies={view.companies} companyId={row.companyId} /></>}</p>
+                  <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} />{view.companies && <> <CompanyBadge companies={view.companies} companyId={row.companyId} /></>}{row.sample && <ExampleTag />}</p>
                   <p className="feed-sub">
                     {row.daysLate > 0 ? <strong style={{ color: "#b91c1c" }}>{row.daysLate} day{row.daysLate === 1 ? "" : "s"} late</strong> : row.dueAt ? `Due ${fmt.fmtDay(row.dueAt)}` : "Due on receipt"}
                     {row.balance < row.total ? ` · ${usd(row.total - row.balance)} paid so far` : ""}
@@ -134,7 +135,7 @@ export default function BillingPage() {
               {paid.map((row) => (
                 <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                   <div className="feed-body">
-                    <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} />{view.companies && <> <CompanyBadge companies={view.companies} companyId={row.companyId} /></>}</p>
+                    <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={row.kind} />{view.companies && <> <CompanyBadge companies={view.companies} companyId={row.companyId} /></>}{row.sample && <ExampleTag />}</p>
                     <p className="feed-sub">Paid{row.paidAt ? ` ${fmt.fmtDay(row.paidAt)}` : ""}</p>
                   </div>
                   <strong style={{ whiteSpace: "nowrap" }}>{usd(row.total)}</strong>

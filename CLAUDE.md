@@ -503,6 +503,12 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
   `businesses/{id}/vendors`, `/api/company/vendors`, Library → Vendors ("Suppliers" where crews are called Vendors).
   Import from a Jobba export: `scripts/import-staff-vendors.mjs` (dry run by default; roofdoctors/e2e-* only).
 - Finances menu (T-354): `moneyNavLinks` puts the Finances overview first when the viewer can see it (imported history lives there).
+- Sample work (T-376): `scripts/seed-sample-work.mjs` (pure builder `scripts/lib/sample-work.mjs`; dry run by default, roofdoctors / e2e-*
+  only, `--replace` starts over with the same job numbers) writes jobs, a booking and requests at the client's real properties, all
+  luxor-sample. Anything made FROM a sample is a sample (`inheritSampleProvenance`, src/types/provenance.ts: a job from a sample request,
+  a quote / invoice / deposit on a sample job); a sample never writes a real customer record (no find-or-create, no job count, "Edit
+  customer details" skips it); sample invoices stay out of Finances and Usage; `findSampleDependents` (src/lib/sampleData/scan.ts) removes
+  what was made from samples (the script's `--replace` mirrors it). Run it the evening before a demo so the schedule sits around that day.
 
 ## Screen Clarity Rule (read before touching any company screen)
 

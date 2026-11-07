@@ -22,6 +22,8 @@ import { matchesJobSearch } from "@/lib/jobs/search";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { CompanyBadge, CompanyBadgeRow, companyBadgeLabel } from "@/components/companies/CompanyBadge";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample } from "@/types/provenance";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete" | "paid";
 // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
@@ -408,7 +410,7 @@ export default function JobsPage() {
                       <a href={`/company/jobs/${job.jobId}${previewSuffix}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{job.jobId}</a>
                     </td>
                     <td data-label="Job" style={{ padding: "12px 16px" }}>
-                      <div style={{ fontWeight: 600 }}>{job.title}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
+                      <div style={{ fontWeight: 600 }}>{job.title}{companyBadgeLabel(companies, job.companyId) && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}{isLuxorSample(job) && <ExampleTag />}</div>
                       {job.address && <div style={{ fontSize: 12, color: "#64748b" }}>{job.address}</div>}
                     </td>
                     <td data-label="Client" style={{ padding: "12px 16px" }}>
@@ -429,7 +431,7 @@ export default function JobsPage() {
               {/* T-183: the whole card opens the job — no per-card button or Details expander (C2/C6). */}
               {shownJobs.map((job) => <a className="c1-list-card c1-list-card--link" key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} data-testid="job-card">
                 <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-                  <strong>{job.jobId} · {job.title}</strong>
+                  <strong>{job.jobId} · {job.title}{isLuxorSample(job) && <ExampleTag />}</strong>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><CompanyBadgeRow companies={companies} companyId={job.companyId}><StatusChip status={job.status} label={job.paymentReceivedAt ? "Complete · Payment received" : undefined} /></CompanyBadgeRow></span>
                 </span>
                 <span className="c1-list-card__sub">{[job.clientName, job.address].filter(Boolean).join(" · ") || "No customer yet"}</span>

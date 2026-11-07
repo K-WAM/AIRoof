@@ -5,10 +5,11 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { resolveCustomer, bumpCustomerJobStats } from "@/lib/customers/resolve";
 import type { Job } from "@/types/jobs";
+import { inheritSampleProvenance, isLuxorSample, type Provenance } from "@/types/provenance";
 import { contactPhone } from "@/lib/format/phone";
 import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 
-type RequestRecord = { companyId?: string; jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; accessNotes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
+type RequestRecord = { companyId?: string; jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; accessNotes?: string; sourceCallId?: string; startTime?: number; endTime?: number; provenance?: Provenance; customerId?: string };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
@@ -34,7 +35,12 @@ export async function POST(req: NextRequest) {
   // letter by letter is joined, so the quote/invoice emails go to the real inbox.
   const phone = contactPhone(data);
   const email = tidyEmail(data.callerEmail);
-  const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address, companyId: body.companyId ?? data.companyId }) : null;
+  // A sample request (T-376) is about a REAL customer's property: its job links to that customer as-is and never
+  // finds-or-creates one (a made-up caller would add a duplicate to the client's list) or bumps its job count.
+  const sample = isLuxorSample(data);
+  const customer = sample
+    ? (typeof data.customerId === "string" && data.customerId && !data.customerId.includes("/") ? { customerId: data.customerId } : null)
+    : data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address, companyId: body.companyId ?? data.companyId }) : null;
   const bizRef = db.collection("businesses").doc(businessId);
   const call = data.sourceCallId ? await db.collection(`businesses/${businessId}/calls`).doc(data.sourceCallId).get() : null;
   const callSummary = call?.data()?.summary;
@@ -47,6 +53,7 @@ export async function POST(req: NextRequest) {
     ...(appointmentId ? { appointmentId } : { leadId }),
     ...(data.sourceCallId ? { sourceCallId: data.sourceCallId, callSummary: typeof callSummary === "string" ? joinSpelledEmails(callSummary) : callSummary } : {}),
     ...(customer ? { customerId: customer.customerId } : {}), createdAt: now, updatedAt: now,
+    ...inheritSampleProvenance(data, "Job", now),
     // The time the caller booked (T-149): shown on the Unscheduled tile and preselected when it's dropped on a crew.
     // NOT scheduledStart — the booking already counts against the phone AI's capacity, so copying it there would
     // count the one visit twice.
@@ -96,7 +103,7 @@ export async function POST(req: NextRequest) {
     for (const sibling of siblings) tx.update(sibling.ref, { jobId });
     return { jobId, created: true };
   });
-  if (customer && result.created) await bumpCustomerJobStats(db, businessId, customer.customerId, now);
+  if (customer && result.created && !sample) await bumpCustomerJobStats(db, businessId, customer.customerId, now);
   const stored = await jobs.doc(result.jobId).get();
   const job = { jobId: result.jobId, ...stored.data() } as Job;
   return NextResponse.json({ job, created: result.created }, { status: result.created ? 201 : 200 });

@@ -23,6 +23,8 @@ import { fmtPhone } from "@/lib/format";
 import { fmtDayTime } from "@/lib/format/datetime";
 import { AlertTriangle, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Wrench } from "lucide-react";
 import { attentionReason } from "./attention";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample, type Provenance } from "@/types/provenance";
 
 interface LeadSnapshot {
   leadId: string;
@@ -35,6 +37,7 @@ interface LeadSnapshot {
   escalated?: boolean;
   callbackState?: string;
   callbackConsent?: boolean;
+  provenance?: Provenance;
   createdAt: number;
 }
 
@@ -46,6 +49,7 @@ interface ApptSnapshot {
   status: string;
   pendingConfirmation?: boolean;
   bookedAfterHours?: boolean;
+  provenance?: Provenance;
 }
 
 interface JobSnapshot {
@@ -56,6 +60,7 @@ interface JobSnapshot {
   status: string;
   invoiceId?: string;
   lastFieldUpdate?: { at: number; by?: string; text: string };
+  provenance?: Provenance;
 }
 
 function sinceLabel(at: number): string {
@@ -438,7 +443,7 @@ export default function CompanyDashboardPage() {
                 <Link key={appt.appointmentId} href={`${apptTabHref}&appt=${appt.appointmentId}`} className={`feed-row${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--appt" style={{ background: "#fef3c7", color: "#92400e" }}><Clock size={14} /></div>
                   <div className="feed-body">
-                    <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
+                    <p className="feed-name">{appt.callerName ?? "Unknown"}{isLuxorSample(appt) && <ExampleTag />}</p>
                     <p className="feed-sub">{fmtDayTime(appt.startTime, tz)} · {appt.serviceType ?? "Booking"}{appt.bookedAfterHours === true ? " · after hours" : ""}</p>
                   </div>
                   <span className="feed-chevron">›</span>
@@ -457,7 +462,7 @@ export default function CompanyDashboardPage() {
                 <Link key={lead.leadId} href={`/company/pipeline${previewSuffix}`} className={`feed-row${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--urgent"><AlertTriangle size={14} /></div>
                   <div className="feed-body">
-                    <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
+                    <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}{isLuxorSample(lead) && <ExampleTag />}</p>
                     <p className="feed-sub">{reason}{lead.serviceRequested ? ` · ${lead.serviceRequested}` : ""}</p>
                   </div>
                   <span className="feed-chevron">›</span>
@@ -476,7 +481,7 @@ export default function CompanyDashboardPage() {
                 <Link key={appt.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`} className={`feed-row${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--appt"><Clock size={14} /></div>
                   <div className="feed-body">
-                    <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
+                    <p className="feed-name">{appt.callerName ?? "Unknown"}{isLuxorSample(appt) && <ExampleTag />}</p>
                     <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Booking"}</p>
                   </div>
                   <StatusChip status={appt.status} />
@@ -496,7 +501,7 @@ export default function CompanyDashboardPage() {
                 <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
                   <div className="feed-icon feed-icon--job"><Mic size={14} /></div>
                   <div className="feed-body">
-                    <p className="feed-name">{job.lastFieldUpdate!.by ?? "Crew"} on {job.jobId} · {sinceLabel(job.lastFieldUpdate!.at)}</p>
+                    <p className="feed-name">{job.lastFieldUpdate!.by ?? "Crew"} on {job.jobId} · {sinceLabel(job.lastFieldUpdate!.at)}{isLuxorSample(job) && <ExampleTag />}</p>
                     <p className="feed-sub">&ldquo;{job.lastFieldUpdate!.text}&rdquo;</p>
                   </div>
                   <span className="feed-chevron">›</span>
@@ -515,7 +520,7 @@ export default function CompanyDashboardPage() {
                 <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className={`feed-row${jobRows.newIds.has(job.jobId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--job"><Wrench size={14} /></div>
                   <div className="feed-body">
-                    <p className="feed-name">{job.jobId} — {job.title}</p>
+                    <p className="feed-name">{job.jobId} — {job.title}{isLuxorSample(job) && <ExampleTag />}</p>
                     <p className="feed-sub">{job.clientName ?? job.address ?? "—"}</p>
                   </div>
                   <StatusChip status={job.status} />

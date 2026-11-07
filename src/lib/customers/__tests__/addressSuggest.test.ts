@@ -120,4 +120,16 @@ describe("filterAddressSuggestions", () => {
       { address: "101 Lakeview Drive", city: "Parkland", state: "FL", name: "Lakeview Annex" },
     ]);
   });
+
+  it("a one-line job address at a saved property is that property, not a second entry (T-376 sample work)", () => {
+    const out = suggestAddresses({
+      jobAddresses: ["101 Lakeview Drive, Coral Springs, FL 33065", "101 Lakeview Drive, Parkland, FL"],
+      properties: [{ name: "Lakeview Elementary", address: "101 Lakeview Drive", city: "Coral Springs", state: "FL" }],
+    });
+    expect(out).toEqual([
+      { address: "101 Lakeview Drive", city: "Coral Springs", state: "FL", name: "Lakeview Elementary" },
+      // Same street in another city is another place.
+      { address: "101 Lakeview Drive, Parkland, FL" },
+    ]);
+  });
 });

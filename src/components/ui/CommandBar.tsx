@@ -6,6 +6,8 @@ import { Search } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample, type Provenance } from "@/types/provenance";
 
 interface Result {
   type: "lead" | "job" | "appt" | "customer";
@@ -13,7 +15,11 @@ interface Result {
   name: string;
   sub: string;
   href: string;
+  /** A record Luxor made up to show the screen working (T-376) — shown with the Example tag. */
+  sample?: boolean;
 }
+
+const sampleRow = (row: Record<string, unknown>) => isLuxorSample(row as { provenance?: Provenance | null });
 
 /** A failed fetch and an empty result set are different states (T-158). */
 type SearchStatus = "idle" | "searching" | "ready" | "error";
@@ -40,6 +46,7 @@ function buildResults(
       name: String(l.callerName ?? l.callerPhone ?? "Unknown caller"),
       sub: String(l.serviceRequested ?? l.address ?? l.status ?? ""),
       href: pipelineHref(previewSuffix, "leads", "lead", id),
+      sample: sampleRow(l),
     });
   }
 
@@ -51,6 +58,7 @@ function buildResults(
       name: String(a.callerName ?? a.callerPhone ?? "Unknown caller"),
       sub: String(a.serviceType ?? a.address ?? ""),
       href: pipelineHref(previewSuffix, "appointments", "appt", id),
+      sample: sampleRow(a),
     });
   }
 
@@ -62,6 +70,7 @@ function buildResults(
       name: `${id} — ${String(j.title ?? "")}`,
       sub: String(j.clientName ?? j.address ?? ""),
       href: `/company/jobs/${id}${previewSuffix}`,
+      sample: sampleRow(j),
     });
   }
 
@@ -281,7 +290,7 @@ export function CommandBar({ header = false }: { header?: boolean }) {
                 >
                   <span className={`cmd-type cmd-type--${r.type}`}>{TYPE_LABEL[r.type]}</span>
                   <div className="cmd-result-body">
-                    <p className="cmd-result-name">{r.name}</p>
+                    <p className="cmd-result-name"><span className="cmd-result-text">{r.name}</span>{r.sample && <ExampleTag />}</p>
                     {r.sub && <p className="cmd-result-sub">{r.sub}</p>}
                   </div>
                 </div>

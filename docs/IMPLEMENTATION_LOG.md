@@ -2944,3 +2944,34 @@ Files changed (including the shared verification artifacts in this entry's commi
   rd-money-payroll-feedback, roofdoctors-screens, role-matrix, rd-people, onboarding-portal, rd-shell-polish, rd-money, smoke,
   view-as) on desktop + phone + iPhone: 225 passed, 0 failed, 0 retries (cut at 225/234 by a 50-minute timeout), then the iPhone
   smoke spec to completion: 37 passed, 1 skipped. Unit: onboarding + finances + nav 76 passed; tsc 0; eslint 0 on changed files.
+
+## 2026-11-07 - Claude (L0) - T-376 sample work for the blank screens (+ Calendar refresh and address-list fixes)
+
+- Owner's go (2026-11-06): "a few example jobs, populated, including ones we can update". `scripts/seed-sample-work.mjs` +
+  pure builder `scripts/lib/sample-work.mjs`: 7 jobs (in progress with EN + ES crew notes, inspection with findings ready to
+  quote, finished job ready to invoice, upcoming visits), 1 phone booking waiting for confirmation, 2 requests, all at the
+  client's real properties, all `provenance.origin = "luxor-sample"`. Dry run by default; roofdoctors or emulator `e2e-*` only;
+  writes need `--apply --confirm=<id>` and, in production, the evaluation guard ON; `--replace` starts over.
+- Example tag on Jobs, the job page, Calendar (tiles, chips, agenda), Requests, Dashboard, customer job lists, Billing, the
+  field job picker and header search. Anything made from sample work is sample work (`inheritSampleProvenance`); a sample never
+  writes a real customer record; sample invoices stay out of Finances and Usage; the Sample data panel also removes what was
+  made from samples (`findSampleDependents`).
+- Found by the full browser run tonight and fixed: (1) header-search Example tag was cut off by the name's ellipsis at 375 px
+  (only the name truncates now; the spec checks the tag sits inside the row); (2) the job form listed a sample job's one-line
+  address as a second copy of the saved property (`suggestAddresses` treats "street, city, ..." as the property; unit test);
+  (3) PRE-EXISTING: a job made from a request could stay off an already-open Calendar until reload, because the job is stamped
+  before the customer lookup and saved after, while the Calendar's delta poll cursor moved past it. `/api/jobs?updatedSince=`
+  now returns a cursor 60 s behind the read (board merges by jobId). Unit test fails without the fix, passes with it;
+  demo-live failed its first try 2/2 before, passed 2/2 with `--retries=0` after. (4) sample-work spec: counted tags on the
+  15-row Jobs list (other specs add jobs) and left samples behind when an early step failed; now searches, and cleans up in
+  `afterAll`.
+- Production dry run (read-only): 7 jobs (6 notes), 1 booking, 2 requests; jobCounter 999 -> 1006; evaluation guard ON.
+- Gates on the final tree: tsc 0; eslint 0 on changed files; vitest (full, before tonight's fixes) 3,104 passed + 1 expected
+  fail, plus addressSuggest 13/13 and jobs route 14/14 after; e2e:call 12/12 (after all fixes). Playwright full run on one
+  worker: stopped at 392/514 when the dev server reached 4.8 GB with < 1 GB RAM free (19 failures, nearly all timeouts; the two
+  real ones are fixes 2 and 4 above). Fresh harness re-run of every failed file + all 153 tests not yet run: desktop 39 passed /
+  1 flaky; phone 115 passed / 2 flaky / 3 skipped; iPhone 46 passed / 1 flaky / 6 failed (role-matrix only). The iPhone failures
+  are in already-deployed code untouched by this change (shell hydration mismatch, Safari fetch rejections on navigation,
+  field-role redirect race in the spec) and are filed as T-380.
+- Also filed for the owner, not built: T-378 feedback inbox (P1-P3 priority with colour; decide PostHog Support vs our own
+  first), T-379 weather on the Calendar (was only a plan doc).

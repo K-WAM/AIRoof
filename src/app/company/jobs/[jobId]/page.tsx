@@ -9,6 +9,8 @@ import { track } from "@/lib/analytics/client";
 
 import { fmtPhone } from "@/lib/format/phone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample } from "@/types/provenance";
 import { use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -1092,6 +1094,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <h1 className="page-title job-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <Briefcase size={20} strokeWidth={1.75} className="job-title__icon" />
             {job.title}
+            {isLuxorSample(job) && <ExampleTag />}
             <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" || job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
           </h1>
           <CompanyToggle companies={companies} value={job.companyId} label="Company" ariaLabel="Company for this job" disabled={companySaving || !(user?.role === "owner" || user?.role === "staff")} onChange={id => void changeJobCompany(id)} />

@@ -31,3 +31,20 @@ export type SampleCapableCollection = (typeof SAMPLE_CAPABLE_COLLECTIONS)[number
 export function isLuxorSample(record: { provenance?: Provenance | null } | null | undefined): boolean {
   return record?.provenance?.origin === "luxor-sample";
 }
+
+/** Sample work (T-376) writes these; the Sample data panel and the seed script recognise them by this source. */
+export const SAMPLE_WORK_SOURCE = "luxor:sample-work";
+
+/**
+ * Anything made FROM a sample is a sample too (T-376): a job created from a sample request, a quote or invoice on a
+ * sample job. It shows the Example tag, stays out of the client's real numbers (Finances), and the Sample data panel
+ * removes it with its parent. Spread the result into the new record; a real parent gives {} (nothing changes).
+ */
+export function inheritSampleProvenance(
+  parent: { provenance?: Provenance | null } | null | undefined,
+  what: string,
+  now: number,
+): { provenance?: Provenance } {
+  if (!isLuxorSample(parent)) return {};
+  return { provenance: { origin: "luxor-sample", source: SAMPLE_WORK_SOURCE, note: `${what} made from Luxor sample data`, addedAt: now } };
+}

@@ -9,6 +9,8 @@ import { useMemo, useState } from "react";
 import { ChevronDown, MapPin, Search } from "lucide-react";
 import { matchesJobSearch } from "@/lib/jobs/search";
 import type { Job } from "@/types/jobs";
+import { ExampleTag } from "@/components/ui/ExampleTag";
+import { isLuxorSample } from "@/types/provenance";
 
 const LIKELY = 5;
 const DONE = new Set(["complete", "invoiced"]);
@@ -63,7 +65,7 @@ export function JobPicker({ jobs, loading, selectedId, onSelect, myCrewId, clock
         {myCrewId && job.assignedCrewId === myCrewId && job.jobId !== clockedInJobId && <Tag color="#5eead4">Your crew</Tag>}
         {DONE.has(job.status) && <Tag color="#94a3b8">Done</Tag>}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{job.title}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{job.title}{isLuxorSample(job) && <ExampleTag />}</div>
       {job.address && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
     </button>
   );
@@ -81,7 +83,7 @@ export function JobPicker({ jobs, loading, selectedId, onSelect, myCrewId, clock
           {DONE.has(selected.status) && <Tag color="#94a3b8">Done</Tag>}
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#94a3b8" }}>Change <ChevronDown size={16} strokeWidth={1.75} /></span>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.title}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.title}{isLuxorSample(selected) && <ExampleTag />}</div>
         {selected.address && (
           <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
             <MapPin size={12} strokeWidth={1.75} />{selected.address}

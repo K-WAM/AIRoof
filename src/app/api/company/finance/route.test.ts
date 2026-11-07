@@ -38,3 +38,16 @@ describe("finance gate", () => {
     expect(body.companies).toEqual(expect.arrayContaining([expect.objectContaining({ id: "rcu", shortName: "RCU" })]));
   });
 });
+
+describe("sample work stays out of the client's numbers (T-376)", () => {
+  it("an invoice made on a sample job is not a Finances row", async () => {
+    const now = Date.UTC(2026, 10, 5);
+    const invoice = (id: string, extra: Record<string, unknown>) => ({ invoiceId: id, businessId: "a", jobId: "j", billTo: { name: "Acme" }, status: "sent", labor: [], materials: [], other: [{ lineId: "1", description: "work", amount: 10 }], hideMaterials: false, taxRate: 0, laborSubtotal: 0, materialSubtotal: 0, otherSubtotal: 10, subtotal: 10, taxAmount: 0, total: 10, issuedAt: now, createdAt: now, updatedAt: now, createdBy: "x", ...extra });
+    m.db!.__seed("businesses", "a", { showcase: { finances: true } });
+    m.db!.__seed("businesses/a/invoices", "INV-1", invoice("INV-1", {}));
+    m.db!.__seed("businesses/a/invoices", "INV-2", invoice("INV-2", { provenance: { origin: "luxor-sample", source: "luxor:sample-work", addedAt: 1 } }));
+    const body = await (await GET(req())).json();
+    expect(body.rows).toHaveLength(1);
+    expect(body.rows[0]).toMatchObject({ invoiceNo: "INV-1" });
+  });
+});

@@ -1,5 +1,6 @@
 import type { JobFinding } from "./workCatalog";
 import type { DocumentOptions } from "./documentOptions";
+import type { Provenance } from "./provenance";
 
 export interface InvoiceLineItem {
   description: string;
@@ -178,6 +179,8 @@ export interface Job {
   /** The newest crew note (voice or typed), in English, so the office Dashboard can list field activity without
    *  reading every job's updates. Written by writeJobProjection. */
   lastFieldUpdate?: { at: number; by?: string; text: string };
+  /** Missing = the client's own job. "luxor-sample" = sample work (T-376): Example tag, removable from Admin → Sample data. */
+  provenance?: Provenance;
 }
 
 export type PhotoPhase = "before" | "after" | "other";

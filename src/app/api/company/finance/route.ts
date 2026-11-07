@@ -8,6 +8,7 @@ import { companiesOf, defaultCompany, effectiveCompanyId, isMultiCompany } from 
 import type { FinanceFilters, FinanceStatus } from "@/types/finance";
 import type { InvoiceHistoryRecord } from "@/types/invoiceHistory";
 import type { JobInvoice } from "@/types/invoice";
+import { isLuxorSample } from "@/types/provenance";
 
 function dateValue(value: string | null, end = false): number | undefined | null {
   if (!value) return undefined;
@@ -41,12 +42,14 @@ export async function GET(req: NextRequest) {
   const companyParam = q.get("company")?.trim();
   if (multi && companyParam && !knownCompanies.some((c) => c.id === companyParam)) return NextResponse.json({ error: "Invalid filters" }, { status: 400 });
   const company = multi ? companyParam || undefined : undefined;
-  const [history, invoices] = await Promise.all([business.collection("invoiceHistory").limit(2000).get(), business.collection("invoices").limit(2000).get()]);
-  const jobCompanies = multi ? await invoiceJobCompanies(db, businessId, invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice)) : {};
+  const [history, invoiceSnap] = await Promise.all([business.collection("invoiceHistory").limit(2000).get(), business.collection("invoices").limit(2000).get()]);
+  // An invoice made on a sample job (T-376) is Luxor's demo, never the client's money: it stays out of every number here.
+  const invoices = invoiceSnap.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice).filter((invoice) => !isLuxorSample(invoice));
+  const jobCompanies = multi ? await invoiceJobCompanies(db, businessId, invoices) : {};
   const historyRows = rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord));
   const historyCompanies = multi ? await historyCustomerCompanies(db, business, historyRows) : {};
   const filters: FinanceFilters = { from, to, ...(customer ? { customer } : {}), ...(jobType ? { jobType } : {}), ...(status ? { status: status as FinanceStatus } : {}), ...(company ? { company } : {}) };
-  const rows = [...historyRows, ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
+  const rows = [...historyRows, ...rowsFromInvoices(invoices, jobCompanies)];
   // Multi-company: every row carries its effective company. Imported history has no job/company of its own, so it
   // follows the customer it matched (only the referenced customers are read). Single-company: strip every new field
   // while retaining matched customer IDs for navigation.
@@ -59,7 +62,7 @@ export async function GET(req: NextRequest) {
   const summary = summarizeFinances(rowsForResponse, filters, Date.now(), 30, biz.timezone || "America/New_York");
   return jsonWithCache({
     ...summary,
-    capped: history.size >= 2000 || invoices.size >= 2000,
+    capped: history.size >= 2000 || invoiceSnap.size >= 2000,
     ...(multi ? { companies: knownCompanies.map((c) => ({ id: c.id, name: c.name, shortName: c.shortName, isDefault: c.id === defaultCompany(biz)?.id, logoUrl: null })) } : {}),
   }, "semiStatic");
 }

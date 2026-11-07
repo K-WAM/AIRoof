@@ -3,11 +3,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { FlaskConical } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import type { SampleRemovalPlan, SampleScan } from "@/lib/sampleData/scan";
+import type { SampleDependentCounts, SampleRemovalPlan, SampleScan } from "@/lib/sampleData/scan";
 
 const LABEL: Record<string, string> = {
   staff: "People", vendors: "Vendors", crews: "Crews", customers: "Customers", jobs: "Jobs", appointments: "Bookings", leads: "Leads",
 };
+
+/** T-376: what someone made from sample work in a demo, in words ("1 quote, 2 crew time holds"). Empty when nothing. */
+const DEPENDENT_WORDS: Record<keyof SampleDependentCounts, [string, string]> = {
+  invoices: ["invoice", "invoices"], quotes: ["quote", "quotes"], punches: ["time-clock punch", "time-clock punches"],
+  schedulingLocks: ["crew time hold", "crew time holds"], requestJobs: ["request-to-job link", "request-to-job links"],
+  fieldLinkIndex: ["field link pointer", "field link pointers"], fieldLinks: ["field link", "field links"],
+};
+export function dependentsInWords(counts: Partial<SampleDependentCounts> | undefined): string {
+  if (!counts) return "";
+  return (Object.keys(DEPENDENT_WORDS) as Array<keyof SampleDependentCounts>)
+    .filter((key) => key !== "fieldLinkIndex" && (counts[key] ?? 0) > 0)
+    .map((key) => `${counts[key]} ${DEPENDENT_WORDS[key][counts[key] === 1 ? 0 : 1]}`)
+    .join(", ");
+}
 
 /**
  * T-372: what in this client's account is the client's own data and what Luxor made up to show a screen working.
@@ -63,7 +77,8 @@ export function SampleDataPanel({ businessId }: { businessId: string }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Could not remove the samples.");
       setPlan(null);
-      setNotice("Samples removed. The client's own data was not touched.");
+      const also = dependentsInWords(data.dependentsRemoved);
+      setNotice(`Samples removed${also ? `, with ${also} made from them` : ""}. The client's own data was not touched.`);
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove the samples.");
@@ -120,6 +135,10 @@ export function SampleDataPanel({ businessId }: { businessId: string }) {
                   <span className="helper-text" style={{ display: "block", overflowWrap: "anywhere" }}>{entry.ids.join(", ")}{entry.idsTruncated ? ", …" : ""}</span>
                 </li>
               ))}
+              {dependentsInWords(plan.dependents) && (
+                <li><strong>Made from sample work: {dependentsInWords(plan.dependents)}</strong>
+                  <span className="helper-text" style={{ display: "block" }}>Quotes, invoices and crew holds someone created on a sample job while trying the app.</span></li>
+              )}
               {plan.staffCrewClears.count > 0 && (
                 <li><strong>Guessed crews cleared on {plan.staffCrewClears.count} {plan.staffCrewClears.count === 1 ? "person" : "people"}</strong>
                   <span className="helper-text" style={{ display: "block", overflowWrap: "anywhere" }}>{plan.staffCrewClears.ids.join(", ")}{plan.staffCrewClears.idsTruncated ? ", …" : ""}</span></li>

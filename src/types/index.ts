@@ -1,5 +1,6 @@
 // Core multi-tenant data types for AI Receptionist Platform
 import type { PhoneLineRegistryFields } from "./phoneLine";
+import type { Provenance } from "./provenance";
 
 export interface VoiceRef {
   provider: "vapi" | "11labs" | "cartesia" | "openai";
@@ -319,6 +320,10 @@ export interface Lead {
   // Outbound follow-up tracking
   callAttempts?: number;
   lastCallAttemptAt?: number;
+  /** Missing = a real request. "luxor-sample" = sample work (T-376): Example tag; a job made from it is a sample too. */
+  provenance?: Provenance;
+  /** Sample work only: the real customer whose property the sample request is about (a job made from it links here). */
+  customerId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -368,6 +373,10 @@ export interface Appointment {
   assignedBy?: "ai" | "office";
   // Capacity lane claimed by a phone booking before a crew/provider is assigned.
   scheduleCapacityUnit?: number;
+  /** Missing = a real booking. "luxor-sample" = sample work (T-376): Example tag; a job made from it is a sample too. */
+  provenance?: Provenance;
+  /** Sample work only: the real customer whose property the sample booking is about (a job made from it links here). */
+  customerId?: string;
   createdAt: number;
   updatedAt: number;
 }

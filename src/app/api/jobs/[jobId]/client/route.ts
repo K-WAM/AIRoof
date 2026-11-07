@@ -4,6 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildMatchKey, buildSearchTokens } from "@/lib/customers/search";
 import type { Customer, CustomerContact } from "@/types/customer";
 import type { Job } from "@/types/jobs";
+import { isLuxorSample } from "@/types/provenance";
 
 // PATCH /api/jobs/[jobId]/client — the office corrects who a job is for (name, phone, email, address).
 //
@@ -15,6 +16,8 @@ import type { Job } from "@/types/jobs";
 //   - a DRAFT quote's and a DRAFT invoice's billTo.
 // Refused once the invoice has been sent: a document the customer already has must never change underneath them (the
 // same "frozen snapshot" rule as PATCH /customers/[id]?propagate=true).
+// A sample job (T-376) sits at a REAL customer's property: its edit changes the sample job and its draft documents only,
+// never the real customer record.
 
 const LIMITS = { name: 120, phone: 40, email: 200, address: 300 } as const;
 type Field = keyof typeof LIMITS;
@@ -89,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (updatedInvoice) batch.update(invoiceSnap!.ref, { billTo, updatedAt: now });
 
   let updatedCustomer = false;
-  if (job.customerId) {
+  if (job.customerId && !isLuxorSample(job)) {
     const customerRef = base.collection("customers").doc(job.customerId);
     const customerSnap = await customerRef.get();
     if (customerSnap.exists) {

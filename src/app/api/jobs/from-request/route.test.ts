@@ -86,3 +86,23 @@ describe("POST /api/jobs/from-request", () => {
     allowed = false; expect((await POST(request({ businessId: "biz", leadId: "x" }))).status).toBe(403);
   });
 });
+
+describe("a request that is Luxor sample work (T-376)", () => {
+  const sample = { origin: "luxor-sample", source: "luxor:sample-work", addedAt: 1 };
+  it("makes a sample job linked to the request's real customer, without finding, creating or counting a customer", async () => {
+    db.__seed("businesses/biz/customers", "C-1069", { customerId: "C-1069", name: "Harbor View", jobCount: 0, matchKey: "harbor view|", searchTokens: [] });
+    db.__seed("businesses/biz/appointments", "sample-booking-1", { callerName: "Harbor View", callerPhone: "+15615550134", address: "120 Harbor Way", serviceType: "Roof leak repair", provenance: sample, customerId: "C-1069" });
+    const response = await POST(request({ businessId: "biz", appointmentId: "sample-booking-1" }));
+    expect(response.status).toBe(201);
+    const { job } = await response.json();
+    expect(job).toMatchObject({ customerId: "C-1069", provenance: { origin: "luxor-sample" } });
+    expect(db.__list("businesses/biz/customers").map((c) => c.id)).toEqual(["C-1069"]);
+    expect(db.__peek("businesses/biz/customers", "C-1069")?.jobCount).toBe(0);
+  });
+  it("a real request still finds or creates its customer and is not marked", async () => {
+    db.__seed("businesses/biz/leads", "l-real", { callerName: "Real Caller", callerPhone: "+15550101010", address: "5 Main", serviceRequested: "Repair" });
+    const { job } = await (await POST(request({ businessId: "biz", leadId: "l-real" }))).json();
+    expect(job.provenance).toBeUndefined();
+    expect(job.customerId).toBeTruthy();
+  });
+});

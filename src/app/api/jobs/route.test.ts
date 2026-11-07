@@ -50,6 +50,15 @@ describe("GET /api/jobs paging", () => {
     expect(data.jobs).toEqual([{ jobId: "changed", updatedAt: 100, status: "complete" }]);
     expect(data.polledAt).toBeGreaterThanOrEqual(100);
   });
+  it("a job stamped before a poll but saved after it still reaches the next poll (cursor overlaps)", async () => {
+    // A job made from a request stamps updatedAt first, then looks up the customer, then saves.
+    const stampedAt = Date.now() - 1_000;
+    const first = await (await GET(new NextRequest(`http://localhost/api/jobs?businessId=biz&updatedSince=${stampedAt - 5_000}`))).json();
+    expect(first.jobs.map((job: { jobId: string }) => job.jobId)).not.toContain("late");
+    db.__seed("businesses/biz/jobs", "late", { updatedAt: stampedAt, status: "open" });
+    const next = await (await GET(new NextRequest(`http://localhost/api/jobs?businessId=biz&updatedSince=${first.polledAt}`))).json();
+    expect(next.jobs.map((job: { jobId: string }) => job.jobId)).toContain("late");
+  });
   it("pages newest first through all jobs", async () => {
     const first = await list();
     expect(first.body.jobs).toHaveLength(100);

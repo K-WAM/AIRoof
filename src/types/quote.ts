@@ -1,4 +1,5 @@
 import type { JobFinding, WorkCatalogLine } from "./workCatalog";
+import type { Provenance } from "./provenance";
 
 export type QuoteStatus = "draft" | "sent" | "accepted" | "declined" | "expired";
 export interface QuoteLine extends WorkCatalogLine {
@@ -8,6 +9,8 @@ export interface QuoteLine extends WorkCatalogLine {
 export interface JobQuote {
   /** Company this quote is issued under (src/lib/companies/companies.ts resolveDocumentCompany); frozen once sent. */
   companyId?: string;
+  /** Set only on a quote made on a sample job (T-376): removed with the sample job. */
+  provenance?: Provenance;
   layout?: "itemized" | "proposal" | "tm_authorization";
   includeOptional?: string[];
   serviceAt?: string;
