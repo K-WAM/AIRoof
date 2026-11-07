@@ -337,7 +337,10 @@ const SCREEN_NOTES: Record<string, (w: Words) => Notes> = {
       "See who owes you and how much is late: Invoiced, Paid and Owed for the period you pick.",
       ...(w.multiCompany ? ["The company filter shows each company alone, or All for both together."] : []),
     ],
-    act: ["Export CSV downloads the list for your accountant."],
+    act: [
+      "Invoices and Payroll are in the top switch. When money arrives, open the invoice under Invoices and tap Record payment.",
+      "Export CSV downloads the list for your accountant.",
+    ],
   }),
   "/company/payroll": () => ({
     see: ["A preview of recorded hours from the time clock: Regular h, Overtime h and Estimated pay for each person."],

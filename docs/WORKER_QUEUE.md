@@ -2334,11 +2334,12 @@ SECURITY CHECKLIST (Claude tests every line):
   one route test per public route with the fake Firestore (src/test-utils/fakeFirestore.ts).
 
 CHECKS before your final report: `npx tsc --noEmit`; `npx eslint <your changed files>`; `npx vitest run src/lib/onboarding
-src/app/api/onboarding src/app/api/admin/businesses src/app/api/__tests__/route-guards.test.ts`; your ONE browser spec
-e2e/onboarding-portal.spec.ts against the smoke harness (`npm run e2e:up:bg`, then `npx playwright test e2e/onboarding-portal.spec.ts`;
-logins in docs/SMOKE-HARNESS.md — superadmin@e2e.test): the superadmin opens the portal for e2e-roofing, creates the link, opens
-/o/<token> in a fresh browser context, fills in and submits the texting form, and sees it on the superadmin page. Read your 375 px and
-desktop screenshots (test-results/screens/) and fix anything cramped, cut off or unreadable. Stop the harness when you're done.
+src/app/api/onboarding src/app/api/admin/businesses src/app/api/__tests__/route-guards.test.ts`. Write your ONE browser spec
+e2e/onboarding-portal.spec.ts but DO NOT start the smoke harness or run Playwright: another worker uses the harness's fixed ports right
+now, and Claude runs your spec on the merged tree. The spec, for the harness (logins in docs/SMOKE-HARNESS.md — superadmin@e2e.test): the superadmin opens the portal for e2e-roofing, creates the link, opens
+/o/<token> in a fresh browser context, fills in and submits the texting form, and sees it on the superadmin page; it saves 375 px and desktop
+screenshots of the portal, the client page and the texting form. Since you can't see screenshots, review your JSX and CSS for 375 px
+yourself: no fixed widths wider than the screen, long words wrap, 44 px touch targets, one primary button per screen.
 
 FINAL REPORT (under 40 lines): commits (hash + title), files changed, contract changes, anything not built and why, what the
 integrator must wire or check.

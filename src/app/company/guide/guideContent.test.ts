@@ -72,9 +72,11 @@ describe("role manuals", () => {
     expect(screensFor("foreman", twoCompanies).map((screen) => screen.path)).toEqual(["/company/field"]);
     expect(screensFor("inspector", twoCompanies)[0].bullets).toContain("My schedule shows your visits for the day.");
     const owner = screensFor("owner", twoCompanies).map((screen) => screen.path);
-    expect(owner).toEqual(expect.arrayContaining(["/company/settings", "/company/billing"]));
+    // T-354: an owner with the Finances overview lands there first; Invoices and Payroll sit in its top switch.
+    expect(owner).toEqual(expect.arrayContaining(["/company/settings", "/company/finances"]));
     expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Team at the top");
-    expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Finances and Payroll");
+    expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Invoices and Payroll are in the top switch");
+    expect(JSON.stringify(screensFor("owner", twoCompanies))).toContain("Record payment");
     for (const role of ["staff", "supervisor", "viewer"] as const) {
       expect(screensFor(role, twoCompanies).map((screen) => screen.path)).not.toEqual(expect.arrayContaining(["/company/team"]));
       expect(screensFor(role, twoCompanies).some((screen) => screen.path === "/company/finances")).toBe(false);

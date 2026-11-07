@@ -17,6 +17,7 @@ import { CompaniesPanel } from "./CompaniesPanel";
 import { ProductsPanel } from "./ProductsPanel";
 import { PhoneLinesPanel } from "./PhoneLinesPanel";
 import { ArchiveClientPanel } from "./ArchiveClientPanel";
+import { SampleDataPanel } from "./SampleDataPanel";
 import { isDemoTenant } from "@/lib/accounts/purpose";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 import type { AccountPurpose, EmailSendingSetup, VoiceRef } from "@/types";
@@ -946,6 +947,9 @@ export default function AdminBusinessConfigPage({
               </div>
             </div>
           </section>
+
+          {/* ─── Sample data (T-372): Luxor-made demo records vs the client's own data ─── */}
+          <SampleDataPanel businessId={businessId} />
 
           {/* ─── Archive (T-349) ─── */}
           <ArchiveClientPanel

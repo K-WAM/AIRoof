@@ -435,7 +435,12 @@ export interface AdminAuditEvent {
     | "products.updated"
     | "companies.updated"
     | "business.archived"
-    | "business.restored";
+    | "business.restored"
+    | "onboarding.link_created"
+    | "onboarding.link_rotated"
+    | "onboarding.link_revoked"
+    | "onboarding.reveal_ein"
+    | "sample_data.removed";
   targetPath: string;
   before?: unknown;
   after?: unknown;
