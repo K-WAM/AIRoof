@@ -117,5 +117,5 @@ export async function openHelp(page: import("@playwright/test").Page) {
   const help = page.getByRole("link", { name: "Help", exact: true }).filter({ visible: true });
   if (!(await help.count())) await page.getByRole("button", { name: "Open menu" }).click();
   await help.click();
-  await expect(page.getByRole("navigation", { name: "Help sections" })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Guide for" })).toBeVisible();
 }
