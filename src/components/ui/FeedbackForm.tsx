@@ -4,7 +4,7 @@ import { track } from "@/lib/analytics/client";
 
 import { useState, useRef } from "react";
 import { Send } from "lucide-react";
-import { Modal } from "@/components/ui/Modal";
+import { Sheet } from "@/components/ui/Sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -30,7 +30,7 @@ interface Props {
 /**
  * Feedback to the Luxor team (T-044/T-114), emailed to connect@luxordev.com with the sender as reply-to and the page
  * they were on. The navs decide who sees the button (company-nav: every user, and a superadmin while previewing a
- * client). Uses the shared Modal shell so spacing/backdrop/close/focus behavior matches every other dialog.
+ * client). Uses the shared Sheet shell so spacing/backdrop/close/focus behavior matches every other dialog.
  */
 export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
   const isQuestion = mode === "question";
@@ -103,7 +103,8 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
   const canSubmit = message.trim().length > 0 && status !== "sending" && status !== "sent";
 
   return (
-    <Modal open={open} onClose={handleClose} title={isQuestion ? "Ask a question" : "Send feedback to Luxor"}>
+    <Sheet open={open} onClose={handleClose} title={isQuestion ? "Ask a question" : "Send feedback to Luxor"}>
+      <div style={{ padding: "12px 20px 20px" }}>
       {status === "sent" ? (
         <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
           <p style={{ margin: "0 0 0.5rem", fontWeight: 600, color: "var(--accent)", fontSize: "0.95rem" }}>
@@ -125,6 +126,30 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
             <span style={labelStyle}>From: {user.viewAs?.label || user.displayName || userEmail} · {businessName}</span>
           </div>
 
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle} htmlFor="feedback-message">
+              {isQuestion ? "Your question" : "Message"}
+            </label>
+            <textarea
+              id="feedback-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+              placeholder={isQuestion ? "What do you need help with?" : "What's on your mind?"}
+              rows={4}
+              maxLength={MAX_MESSAGE_LENGTH}
+              disabled={status === "sending"}
+              autoFocus
+              style={{
+                ...inputStyle,
+                resize: "vertical",
+                minHeight: 100,
+              }}
+            />
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4, textAlign: "right" }}>
+              {message.length}/{MAX_MESSAGE_LENGTH}
+            </div>
+          </div>
+
           {!isQuestion && <div style={{ marginBottom: 12 }}>
             <label style={labelStyle} htmlFor="feedback-category">
               Category <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span>
@@ -142,29 +167,6 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
             </select>
           </div>}
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle} htmlFor="feedback-message">
-              {isQuestion ? "Your question" : "Message"}
-            </label>
-            <textarea
-              id="feedback-message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-              placeholder={isQuestion ? "What do you need help with?" : "What's on your mind?"}
-              rows={5}
-              maxLength={MAX_MESSAGE_LENGTH}
-              disabled={status === "sending"}
-              autoFocus
-              style={{
-                ...inputStyle,
-                resize: "vertical",
-                minHeight: 100,
-              }}
-            />
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4, textAlign: "right" }}>
-              {message.length}/{MAX_MESSAGE_LENGTH}
-            </div>
-          </div>
 
           {status === "error" && (
             <div
@@ -206,7 +208,8 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
           <p style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Goes straight to Luxor support. We reply within 24 hours.</p>
         </>
       )}
-    </Modal>
+      </div>
+    </Sheet>
   );
 }
 
