@@ -2754,3 +2754,15 @@ T-341: Map all 44 Jobba CSV files without client values; optional --setup projec
   (5 crews, 3 labor rates, 6 payment terms, tax default, 115 finding categories), 791 work orders (787 linked to 98 customers,
   4 unmatched). Firestore rules deployed with the owner's OK (16/16 rules tests; live ruleset verified identical).
 - Not done: RCU_Transparent.svg not used (pink, different artwork from the brand); T-348 phone line parked by the owner.
+
+## 2026-11-07 - Stream L4 (staff + vendor import)
+
+- T-371d / T-370b: one production import script for Roof Doctors staff and vendors.
+- New: scripts/import-staff-vendors.mjs (dry run by default; --apply --confirm=<business>; roofdoctors or e2e-* only on the
+  emulator; refuses demo-*; evaluation-guard check; batches of at most 400; prints counts and per-row lines without any
+  name, email or phone), scripts/lib/staff-vendors.mjs (stable id hashes, E.164 and email cleaning, userType priority
+  rules, crew leads, clearly marked demo crew guesses, additive planWrites that never overwrite an owner's edit), and
+  src/lib/import/__tests__/staff-vendors.test.ts (17 invented-data tests).
+- Checks: tsc clean; eslint clean on the test file (the repo config ignores scripts/*.mjs); 17/17 vitest.
+- Removals: none. The production run is left to the integrator.
+
