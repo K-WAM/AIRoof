@@ -1,6 +1,10 @@
 ## Start here — state 2026-11-07 (Claude) — onboarding portal + the owner's screen feedback, released
 
-**Released:** see the top of docs/SESSION_HANDOFF.md for the pushed commit and the deploy check. Single checkout, no worktrees.
+**Live:** `main` = `6c05e09` on crm.luxordev.com and ai-roof.vercel.app — Vercel deploy `ai-roof-k76zzdxp4` Ready, GitHub CI
+green (run 42339730416). Production checks after deploy: health OK; `/o/<fake token>` → 401 expired page (cookie cleared, no-store,
+no-referrer, noindex); `/api/onboarding` without the cookie → 401; admin onboarding page → login redirect; staff / vendors /
+sample-data APIs → 401 unauthenticated. Finances on their data (12-month default): 324 invoices, $1,199,485 invoiced, $598,345
+collected, $601,140 owed, $332,637 past due, every aging bucket filled. Single checkout, no worktrees.
 Owner's 2026-11-06 list = TODO.md section "Roof Doctors — onboarding portal + owner's screen feedback" (T-354..T-376).
 
 What changed (details: docs/IMPLEMENTATION_LOG.md 2026-11-07):
