@@ -177,6 +177,20 @@ async function seed({ reset = false } = {}) {
   /* end T-316 */
 
 
+  /* L2 shell */
+  // Fictional local artwork with the same aspect ratio as the reported RCU artwork; no client data or live writes.
+  await pros.collection("library").doc("logos").set({logos:companyProfiles.map(c=>{
+    const w=c.id==="rcu"?1000:300,h=c.id==="rcu"?387:150;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" rx="20" fill="${c.id==="rcu"?"#a62c32":"#164f69"}"/><text x="${w/2}" y="${h*0.69}" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="${h*0.6}" fill="white">${c.shortName}</text></svg>`;
+    return {logoId:c.logoId,name:c.shortName,mimeType:"image/svg+xml",variant:"color",isDefault:c.isDefault,b64:Buffer.from(svg).toString("base64"),w,h,createdAt:companyNow};
+  }),updatedAt:companyNow});
+  for(let i=0;i<30;i++) {
+    const issuedAt=Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth()-Math.floor(i/3),Math.min(5,new Date().getUTCDate()),12);
+    const id=`l2-${String(i).padStart(2,"0")}`,amount=1000+(i%3)*250,paid=i%3===0;
+    await pros.collection("invoiceHistory").doc(id).set({id,source:"jobba",sourceInvoiceId:`L2-${String(i).padStart(2,"0")}`,issuedAt,workName:i%2?"Repair":"Maintenance",billTo:i%2?"Sample South Homeowner":school.name,customerId:i%2?"C-3161":school.customerId,amount,tax:0,credits:0,amountDue:paid?0:amount,voided:false,status:paid?"Paid":"Open",importedAt:companyNow});
+  }
+  /* end L2 shell */
+
   return { tenants: Object.keys(TENANTS).length, accounts: Object.keys(ACCOUNTS).length };
 }
 
