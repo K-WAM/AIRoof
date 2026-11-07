@@ -2754,3 +2754,39 @@ T-341: Map all 44 Jobba CSV files without client values; optional --setup projec
   (5 crews, 3 labor rates, 6 payment terms, tax default, 115 finding categories), 791 work orders (787 linked to 98 customers,
   4 unmatched). Firestore rules deployed with the owner's OK (16/16 rules tests; live ruleset verified identical).
 - Not done: RCU_Transparent.svg not used (pink, different artwork from the brand); T-348 phone line parked by the owner.
+
+
+## 2026-11-07 - Stream L1 (onboarding portal)
+
+Tasks T-355 through T-359. Local branch task/rd-onboarding; no push or merge.
+Commits: af95f14 (T-357 renderer/validation/masking), a47b8f3 (T-358 payments),
+e76b432 (T-359 defaults/storage/prefill), 8f0ce4b (T-355 admin portal), and
+T-356 (this commit: private client portal, public routes and browser spec).
+
+Implemented generic client portals, step/checklist/data-review/settings editors,
+form previews and answer review, audited EIN reveal and link rotation/revocation.
+The public flow exchanges a 256-bit token for an HttpOnly cookie, resolves the
+link record on every request, and exposes an explicit public projection only.
+All five authored forms share one renderer and validator. Drafts use revisions,
+a 64 KB body cap and a persistent 20-write/minute budget. Saved EINs are masked
+on every client read. Submission mail contains only the form title and admin
+URL, uses the tenant's outbound allowlist, and never contains form answers.
+No onboarding contract or forms.ts wording changes. No removals.
+
+Evidence on the combined working tree: npx tsc --noEmit passed; changed-file
+ESLint passed; requested scoped vitest suite passed 166 tests in 23 files.
+The existing route-inventory file scan exceeded its default 5-second timeout
+under concurrent worker load; reran the scoped command with --testTimeout=30000,
+with all assertions unchanged, and it passed. Negative auth/tenant/link cases,
+all field types, masking, safe public projection, prefill, payment wording,
+plain-text rendering, and each public route are covered with fake Firestore.
+
+Added e2e/onboarding-portal.spec.ts for admin link creation, a fresh client
+context, draft/reload/required/submit flows for all five forms, admin answer
+review and EIN reveal, plus portal/client/texting desktop and phone screenshots.
+Per the owner's explicit shared-harness instruction, did not start the harness,
+run Playwright or inspect screenshots. Reviewed responsive JSX/CSS at 375 px.
+Integrator: run this spec and inspect screenshots on the merged tree; run the
+merge-batch build/regression gates. Real phone audio and real inbox delivery
+are outside harness coverage. T-360 client-specific data-review/progress seeding
+and TODO.md review-state updates remain with Claude; TODO.md was not edited.

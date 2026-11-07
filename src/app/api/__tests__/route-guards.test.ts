@@ -27,6 +27,9 @@ const GUARDS = [
 
 // Route path (relative to src/app/api, forward slashes) → why it is safe without a guard.
 const PUBLIC_ROUTES: Record<string, string> = {
+  "onboarding/route.ts": "private onboarding cookie: hashed 256-bit token resolves one tenant; expired and revoked records refused on every read",
+  "onboarding/forms/[formId]/route.ts": "private onboarding cookie scopes enabled forms to its tenant; drafts have persistent per-link budgets, strict validation and revision checks",
+  "onboarding/forms/[formId]/submit/route.ts": "private onboarding cookie scopes submission to its tenant; bounded body, same-origin, full validation and revision checks before notification",
   "webhooks/stripe-connect/route.ts": "public Stripe Connect provider callback: raw body verified by constructEvent and a separate webhook secret; tenant/account binding and ledger idempotency",
   "pay/invoice/route.ts": "public customer payment page: expiring 256-bit token is the credential; server rechecks tenant, invoice, balance and eligibility on GET/POST",
   "app-status/route.ts": "public static fact sheet and build metadata only; no tenant data, secrets, authentication, database or provider calls",
