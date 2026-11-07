@@ -19,6 +19,10 @@ import { CompanyFilter } from "@/components/companies/CompanyFilter";
 import { CompanyBadge } from "@/components/companies/CompanyBadge";
 import { UnmatchedPayments } from "./UnmatchedPayments";
 import { PaymentsPreview } from "./PaymentsPreview";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { moneyNavLinks } from "../navModel";
 
 interface BillingView {
   totals: { owed: number; overdue: number; paidThisMonth: number; unpaidCount: number; overdueCount: number };
@@ -45,6 +49,12 @@ export default function BillingPage() {
   const [failed, setFailed] = useState(false);
   const [shown, setShown] = useState(PAGE);
   const [companyFilter, setCompanyFilter] = useState("all");
+  const { user } = useAuth();
+  const { isEnabled } = useBusinessModules();
+  const showcase = useBootstrap().data?.business.showcase;
+  // Imported history (Jobba invoices) lives on the Finances overview, never on this list. Point there instead of a dead end.
+  const financesHref = moneyNavLinks({ role: user?.role, superadmin: user?.superadmin, preview: !!preview, isEnabled, showcase })
+    .some((l) => l.path === "/company/finances") ? `/company/finances${preview ? `?preview=${preview}` : ""}` : null;
 
   const load = useCallback(() => {
     if (!businessId) return;
@@ -95,7 +105,8 @@ export default function BillingPage() {
       {nothingYet ? (
         <EmptyState icon={Wallet} title="No invoices sent yet"
           body="Send an invoice from a finished job. It shows up here until the customer pays, and you record the payment on the job."
-          action={{ label: "Go to jobs", href: `/company/jobs${preview ? `?preview=${preview}` : ""}` }} testId="billing-empty" />
+          action={{ label: "Go to jobs", href: `/company/jobs${preview ? `?preview=${preview}` : ""}` }}
+          secondary={financesHref ? { label: "See past invoices in Finances", href: financesHref } : undefined} testId="billing-empty" />
       ) : (
         <>
           <div className="feed-section" data-testid="billing-unpaid">

@@ -2146,3 +2146,547 @@ c) T-270 (1), Team page: the remove button reads "Remove access"; its confirm te
 Run: npx tsc --noEmit, npx eslint on the three files, npx vitest related on the three files --run. Fix any test that
 asserted the OLD text by updating that string only.
 ```
+
+## L — Roof Doctors onboarding portal + owner screen feedback (written 2026-11-06 night) — tasks T-354..T-374 in TODO.md
+
+Claude (L0) launched all four headless and integrates: contracts on main first (src/types/onboarding.ts, src/lib/onboarding/forms.ts,
+src/types/provenance.ts, src/types/staff.ts, src/types/vendor.ts). Worktrees D:/Apps/air-wt-rd-{onboarding,shell,people,import}.
+File ownership is disjoint; globals.css = one marked block per stream; Claude wires SampleDataPanel into config/page.tsx.
+
+### L1 — Codex, **GPT-6.1 Sol, medium** — onboarding portal (T-355..T-359)
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; on screen it is "Luxor CRM").
+Stream L1 of the Roof Doctors follow-up (owner feedback 2026-11-06): the CLIENT ONBOARDING PORTAL. Three other agents work at the
+same time in other worktrees; stay inside your file list. Claude (the integrator) reviews your diff row by row and merges; you
+never push or merge.
+
+WORKTREE (already created): D:\Apps\air-wt-rd-onboarding on branch task/rd-onboarding. node_modules is a junction into the main
+checkout: never run npm install (if you truly need a package, stop and say so).
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-rd-onboarding and
+`git branch --show-current` must print task/rd-onboarding. Never edit anything under D:\Apps\6 - AI Receptionist.
+
+WHAT THE OWNER WANTS (condensed from his words): "When I open a client, I want an onboarding portal that shows their progress: a
+progress bar with check marks on top (step cards: Information request sent ✓, Initial information received ✓, Staff surveys sent ✓,
+Survey answers received — in progress, Review call — upcoming), then a checklist of what we asked for (Received / Waiting), then
+onboarding forms they receive as a link and fill in like a survey: one for texting (we register them with Twilio), one for payments
+(Stripe: it explains, it collects nothing sensitive), and any others we need. Make it look really modern and easy, nothing too long,
+branded properly, with good wording on the safe use of their data. The gaps we found in their data go there too."
+
+READ FIRST (in your worktree):
+- src/types/onboarding.ts — THE CONTRACT. Implement it exactly; if a type is wrong or missing something, change it minimally and list
+  the change in your final report.
+- src/lib/onboarding/forms.ts — the five form definitions (content written by Claude). Your renderer and validator read them; never
+  hardcode a question in a component. Edit wording only if a line is wrong, and say which in your report.
+- src/types/staff.ts (the staff directory your team prefill reads; the collection may be empty or missing — that's fine).
+- CLAUDE.md ("Cache-Control Rule", "Phase 32 Key Files", "Screen Clarity Rule"), AGENTS.md ("Definition of done"),
+  docs/ZERO-TRAINING-UX-STANDARD.md, docs/SCREEN-CLARITY-HEURISTICS.md, docs/ROOFDOCTORS-DEMO-PLAN.md §10 (every safety rule applies).
+- Patterns to copy, not reinvent:
+  * Public link flow: src/app/f/[grant]/route.ts (route handler outside /api: rate limit, HttpOnly cookie, redirect) and
+    src/app/api/quote-response/route.ts + src/lib/billing/quoteResponse.ts (sha256 hash, timingSafeEqual).
+  * Public API allowlist: PUBLIC_ROUTES in src/app/api/__tests__/route-guards.test.ts (API path → written reason).
+  * Superadmin guard: verifySuperadmin() in src/lib/auth/verifyRole.ts; audit rows in adminAuditEvents (copy the shape used in
+    src/app/api/admin/businesses/[businessId]/archive/route.ts).
+  * Client logo: src/lib/companies/bootstrap.ts (bootstrapCompanies) and src/lib/documents/letterhead.ts (resolveLetterhead):
+    multi-company = the default company's logo; else the library default logo; else the business name as text.
+  * Email: src/lib/comms/send.ts (it requires a businessId and applies the client's evaluation allowlist — keep it that way).
+  * Admin page shell: any page under src/app/admin/** (AdminNav and the superadmin gate come from the layout).
+  * Responses: jsonWithCache(data, "noStore") from src/lib/http/cache.ts on every route here (never public, never s-maxage).
+- The owner's design reference: D:\Apps\0 - Coding Standards & Specs\02-ui-ux-and-design\ui-ux-design-guide.md (forms, trust,
+  minimal design). Read the relevant parts.
+
+YOU OWN (edit only these; new files inside these folders are fine):
+- NEW src/lib/onboarding/** (store.ts, link.ts, prefill.ts, validate.ts, defaults.ts, view.ts, mask.ts, notify.ts + __tests__),
+  except forms.ts (see above)
+- NEW src/app/api/admin/businesses/[businessId]/onboarding/** (superadmin API)
+- NEW src/app/api/onboarding/** (public API, cookie-based)
+- NEW src/app/o/[token]/route.ts (the link: token → cookie → redirect)
+- NEW src/app/onboarding/** (client pages) and src/app/admin/businesses/[businessId]/onboarding/** (superadmin page)
+- NEW src/components/onboarding/**
+- src/app/admin/businesses/page.tsx — ONLY add an "Onboarding" link in each client's Actions cell (next to Edit / View as / Preview,
+  around lines 294-314)
+- src/app/admin/businesses/[businessId]/config/page.tsx — ONLY insert one `<OnboardingStrip businessId={…} />` line right under the
+  page header (the strip is your component in src/components/onboarding/)
+- src/app/api/__tests__/route-guards.test.ts — ONLY add PUBLIC_ROUTES entries for your public routes, each with a reason
+- src/app/globals.css — ONLY inside `/* === L1 onboarding === */ … /* === end L1 === */` at the very end (prefer CSS modules:
+  src/app/onboarding/onboarding.module.css, src/components/onboarding/onboarding.module.css)
+- e2e/onboarding-portal.spec.ts (new); scripts/e2e/seed.cjs ONLY inside a block marked `/* L1 onboarding */`, if you need seed data
+- docs/IMPLEMENTATION_LOG.md: append ONE entry at the very end (plain ASCII), heading "## 2026-11-07 - Stream L1 (onboarding portal)"
+NOT YOURS: everything else — in particular src/app/company/**, src/components/ui/**, src/lib/auth/**, src/middleware.ts,
+firestore.rules, src/lib/products/**, TODO.md, package.json, src/types/staff.ts|provenance.ts|vendor.ts. Need a change there? Stop and
+say so in your report.
+
+BUILD (one commit per task, message "T-xxx: <summary>"):
+
+T-355 — the superadmin portal at /admin/businesses/[businessId]/onboarding
+1. Storage (src/lib/onboarding/store.ts): clientOnboarding/{businessId} (OnboardingPortal), clientOnboardingForms/{businessId}__{formId}
+   (OnboardingSubmission), clientOnboardingLinks/{sha256 hex} (OnboardingLinkRecord). No Firestore rule matches these, so the
+   catch-all deny keeps them server-only: do not touch firestore.rules. getOrCreatePortal(businessId) creates the doc from
+   defaults.ts on first open (clientName = BusinessConfig.businessName). Business must exist (404 otherwise).
+2. defaults.ts — GENERIC defaults for any client (no client names, industry-neutral):
+   steps: "Information request sent" / "Information received" / "Setup forms sent" / "Setup forms returned" / "Review call" /
+   "Go live" (first current, the rest upcoming; each with a one-sentence detail).
+   checklist (group: items — [email] = sendByEmail, [form] = formId):
+   Documents: Document templates and completed examples [email]; How each document is used [documents] ·
+   Workflow: Workflow outline [documents]; Access to your current system, or a walkthrough ·
+   Customers and history: Customer and property list [email]; Customer phone numbers and emails [email]; Materials and price list
+   [email]; Job history export [email]; Three to five sample jobs with notes, photos and invoices [email] ·
+   Team: Staff list [team]; Who can do what [team] ·
+   Company: Logos and brand assets [email]; Company and booking details [company] ·
+   Payments: How you get paid today [payments]; Online payments setup [payments] ·
+   Text messages: Texting registration [texting].
+   forms: all five enabled, status "not_sent".
+3. API (verifySuperadmin first in every handler; zod; jsonWithCache "noStore"; the central guards already refuse View-as writes):
+   GET    …/onboarding → { portal (incl. link.token), submissions: per form { state, updatedAt, submittedAt, submittedBy } }
+   PATCH  …/onboarding → replace steps / checklist / settings / dataReview / clientName / forms[*].enabled|status. Validate: ids
+          ^[a-z0-9-]{1,40}$, ≤ 12 steps, ≤ 60 checklist items, text caps (title 80, detail 240, note 500, review body 4000), dates
+          YYYY-MM-DD. The server sets completedAt / receivedAt. Marking a step done makes the next upcoming step current.
+   POST   …/onboarding/link → create or rotate the link (crypto.randomBytes(32) base64url; store the sha256-hex record; delete the old
+          record; expires in 60 days; hint = last 4 chars; audit row). DELETE …/onboarding/link → revoke (audit row).
+   GET    …/onboarding/forms/[formId] → the submission with answers; the EIN masked ("••-•••6789") unless ?reveal=ein, which writes
+          an audit row "onboarding.reveal_ein" (Luxor needs the full number to register the business with Twilio).
+   PATCH  …/onboarding/forms/[formId] → { status: "reviewed" } (sets reviewedAt).
+   GET    …/onboarding/preview/[formId] → the definition + prefill exactly as the client would see it (for the Preview button).
+4. The page (desktop first; must also work at 375 px): header "Onboarding · <client name>", a back link to the client Edit page and an
+   "Open client view" button (opens the link in a new tab when one exists). Then, top to bottom:
+   a. ProgressTracker (shared with the client page): step cards in a row (a vertical list on phones). done = soft accent tint + check
+      icon; current = solid dark accent card with white text; upcoming = neutral. Each card: a small circle (check / step number), the
+      date line in small caps ("NOV 4", "NOV 13 · 10 A.M."), title, one-line detail, a status word (COMPLETED / IN PROGRESS /
+      UPCOMING) and, on the superadmin page only, a "Mark complete" checkbox. "3 / 5 complete" pill top right. Under the cards: a soft
+      strip "● In progress: <current step>" + settings.nextMeetingLabel. "Edit steps" opens an editor (title, detail, date, time
+      label, status; add / remove / move up-down).
+   b. Checklist: one card per group in a 2-column grid (1 column on phones). Each item: title, detail, a status chip (Received =
+      green, Partly received = amber, Waiting = neutral grey, Not needed = muted); click the chip to choose a status; "Note for Luxor
+      only" editable inline (internalNote); add / remove items; a counter "9 of 18 received" in the section header.
+   c. Forms: one row per form: title, status (Not sent / Sent / Opened / Submitted / Reviewed), submitted by + date, buttons
+      "Preview" (the client form read-only, from the preview API — no client link needed), "View answers" (a sheet listing every
+      answer by its label; EIN masked with "Show full EIN"), "Mark reviewed", and an on/off switch.
+   d. Client link card: "Create link" / "Copy link" / "Rotate link" / "Turn off", expiry date, last opened. The copied URL is
+      `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/o/<token>`. Plain warning under it: "Anyone with this link can see
+      this portal and fill in the forms. Send it only to the client's owner or office manager."
+   e. "What we found in their data" editor: title, intro, sections (heading + body textarea; add / remove / move). A preview that
+      renders it exactly as the client sees it.
+   f. Settings: setup fee per company (whole dollars), contact name + email shown to the client, next-meeting line.
+5. OnboardingStrip (for the client Edit page): one calm line — "Onboarding: 3 of 6 steps · 9 of 18 items received · 1 form to review"
+   + an "Open onboarding" button; when no portal exists yet: "Start onboarding" (creates it via GET).
+6. src/app/admin/businesses/page.tsx: an "Onboarding" link (same style as Edit) in each client's Actions cell.
+
+T-356 — the client link
+1. src/app/o/[token]/route.ts: rate-limit (≤ 30/min per IP, the same helper /f/[grant] uses); look up sha256(token); missing, revoked or
+   expired → a plain branded HTML page "This link has expired or was turned off. Ask Luxor for a new one." (never say which); success →
+   set cookie `onb` = token (HttpOnly, Secure in production, SameSite=Lax, Path=/, Max-Age = seconds until expiry), record
+   link.lastOpenedAt, 303 redirect to /onboarding.
+2. Public API (src/app/api/onboarding/**) reads ONLY the `onb` cookie (never a token or businessId from the URL or body), hashes it,
+   loads the link record (refuse revoked/expired), then the portal of THAT business only.
+   GET  /api/onboarding → PublicOnboardingView (view.ts: strips internalNote, link and fee internals; never another business's data).
+   GET  /api/onboarding/forms/[formId] → { definition, prefill, answers (masked), state, revision } for an enabled form; sets the
+        form's firstOpenedAt and status "in_progress" the first time (status "sent" before that is set when the link is created).
+   PUT  /api/onboarding/forms/[formId] → save a draft (validate in "draft" mode: types + caps, required not enforced; refuse a stale
+        revision with 409).
+   POST /api/onboarding/forms/[formId]/submit → full validation ("submit" mode: required + showIf), state "submitted", the portal form
+        status "submitted", submittedBy from the "Your name" field, then ONE notification email to Luxor (notify.ts: via
+        src/lib/comms/send.ts with the client's businessId; to connect@luxordev.com; subject "<client> sent: <form title>"; body = the
+        form title + a link to the superadmin page; NO answers in the email; a failed send is logged and never blocks the submit).
+   Limits: ≤ 20 writes/min per link, body ≤ 64 KB, people rows ≤ the field's max, every string capped by its definition.
+   Every public route goes into PUBLIC_ROUTES with a one-line reason.
+3. validate.ts: one validator for every OnboardingFieldType — ein = 9 digits stored "NN-NNNNNNN"; email; US phone → E.164 when it parses;
+   url → https only (prefix https:// when missing; reject other schemes); state = 2 letters; ZIP 5 or 5-4; money/number ≥ 0 and finite;
+   select/radio/checkboxes only from the options (or the resolved optionsFrom options); matrix values only from rows × options;
+   people rows: name required per row, the rest optional and typed. mask.ts: on every client read after saving, the EIN shows only the
+   last 4; saving a masked value back keeps the stored number (never overwrite it with dots).
+4. prefill.ts resolves every OnboardingPrefillKey: business.* from BusinessConfig (legalName falls back to businessName; address from
+   the config's address fields; hours as one readable line per day); companies.options from billingCompanies (value id, label name);
+   crews.options from the crews collection (active only); team.people = businesses/{id}/staff (src/types/staff.ts) merged with
+   businessUsers logins by normalizeName (src/lib/format/name.ts), each row prefilled: true. Prefill applies only when there is no
+   saved answer for that field.
+5. Pages (src/app/onboarding/**: client components that call the public API; no sign-in; metadata robots { index: false } and a
+   `<meta name="referrer" content="no-referrer">`; every external link target="_blank" rel="noopener noreferrer"):
+   - /onboarding: header with the client's logo (or name) left and a small "with Luxor" mark right (public/luxor-mark.png, ~20 px
+     tall); "Welcome, <clientName>" + one line on what this page is; the ProgressTracker (read-only); "Your forms" — cards (title,
+     summary, "About N minutes", status chip, one button: Start / Continue / View answers), the next unfinished one highlighted;
+     "What we still need" — the checklist grouped (chips read-only; items with a formId link to their form; sendByEmail items show
+     "Email it to <contactEmail>" as a mailto link); "What we found in your data" (plain text: "- " lines become bullets, blank lines
+     split paragraphs, never HTML); a contact footer.
+   - /onboarding/forms/[formId]: the form — sections as cards, the payments info blocks above its fields ({{setupFee}} replaced as the
+     comment at the top of forms.ts says), automatic draft save (debounced 1.5 s) with a quiet "Saved" note, inline validation messages
+     in plain words, the data-use box ("How we use this information" + the links) above the submit button, a sticky bottom bar with
+     the submit button on phones, the thank-you state after submit with a link back to the portal. The renderer appends the required
+     "Your name" field. people field = an editable table on desktop, stacked cards on phones (Name, Job title, App access, Work email,
+     Mobile, Language, Crew; add / remove row; a small "From your current system" note on prefilled rows). matrix = one row per
+     question with chip toggles per column. address = 4 inputs. ein = masked input + "Only the last 4 digits are shown after you
+     save". A reading-only form (no sections) shows the info blocks and a "Back to your portal" button.
+   - Look: calm and premium — lots of white, the app's tokens (var(--accent) teal family, the existing radius/spacing tokens,
+     --control-h), system font stack, 44 px touch targets, one primary button per screen, everything readable at 375 px. No dark
+     patterns, no countdowns, no progress-shaming.
+6. Missing / expired / revoked cookie on /onboarding → a friendly page: "Open the link Luxor sent you again, or ask us for a new one."
+
+T-357 / T-358 / T-359 — the five forms render from forms.ts through your renderer. Check each one end to end in the browser: draft
+saves, reload keeps the answers, a missing required field shows the right message, submit works, the superadmin sees the answers, the
+EIN is masked on the client side after reload and full only via "Show full EIN".
+
+SECURITY CHECKLIST (Claude tests every line):
+- No public route takes a businessId from the client; it always comes from the link record.
+- The token never appears in a URL after the /o/ hop, in a log line, in the public API response or in an email.
+- Superadmin API: verifySuperadmin first in every handler.
+- Rotating or revoking the link stops the old cookie at once (look the record up on every request; a cache of ≤ 30 s at most).
+- A client may edit a submitted form (to correct it): each save bumps revision; the superadmin sees updatedAt.
+- No dangerouslySetInnerHTML anywhere in your files; plain-text rendering only.
+- Unit tests (vitest) for validate.ts, mask.ts, view.ts (internalNote and link never leak), link.ts (hash lookup, expiry, revoke), and
+  one route test per public route with the fake Firestore (src/test-utils/fakeFirestore.ts).
+
+CHECKS before your final report: `npx tsc --noEmit`; `npx eslint <your changed files>`; `npx vitest run src/lib/onboarding
+src/app/api/onboarding src/app/api/admin/businesses src/app/api/__tests__/route-guards.test.ts`; your ONE browser spec
+e2e/onboarding-portal.spec.ts against the smoke harness (`npm run e2e:up:bg`, then `npx playwright test e2e/onboarding-portal.spec.ts`;
+logins in docs/SMOKE-HARNESS.md — superadmin@e2e.test): the superadmin opens the portal for e2e-roofing, creates the link, opens
+/o/<token> in a fresh browser context, fills in and submits the texting form, and sees it on the superadmin page. Read your 375 px and
+desktop screenshots (test-results/screens/) and fix anything cramped, cut off or unreadable. Stop the harness when you're done.
+
+FINAL REPORT (under 40 lines): commits (hash + title), files changed, contract changes, anything not built and why, what the
+integrator must wire or check.
+```
+
+### L2 — Codex, **GPT-6.1 Terra, medium** — company screens polish + Finances chart (T-361..T-369)
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; on screen it is "Luxor CRM").
+Stream L2 of the Roof Doctors follow-up (owner feedback 2026-11-06): polish on the company screens + a Finances chart. Three other
+agents work at the same time in other worktrees; stay inside your file list. Claude reviews your diff row by row and merges; you never
+push or merge.
+
+WORKTREE (already created): D:\Apps\air-wt-rd-shell on branch task/rd-shell. node_modules is a junction: never npm install.
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-rd-shell and
+`git branch --show-current` must print task/rd-shell. Never edit anything under D:\Apps\6 - AI Receptionist.
+
+READ FIRST: CLAUDE.md ("Industry-Applicability Rule", "Cache-Control Rule", "Screen Clarity Rule", "Products per client"), AGENTS.md
+("Definition of done"), docs/ZERO-TRAINING-UX-STANDARD.md, docs/SCREEN-CLARITY-HEURISTICS.md, docs/ROOFDOCTORS-DEMO-PLAN.md §10 (every
+safety rule applies). The owner's design references: D:\Apps\0 - Coding Standards & Specs\02-ui-ux-and-design\ui-ux-design-guide.md and
+charts-and-data-viz.md (same folder; for T-369).
+
+CONTEXT: the owner looked at the Roof Doctors account (two companies: RDSF = default, RCU = second) through Admin → View as → Owner
+and listed what looked wrong. A code search mapped each item (verify before editing):
+- "+ Add": QuickAddButton (src/components/ui/QuickAddButton.tsx) sits in .company-sidebar-footer (src/app/company/layout.tsx ~221-229)
+  under the Help link; top bar = <header className="company-topbar"> (layout.tsx ~234-250, CSS globals.css ~807-820).
+- Feedback: src/components/ui/FeedbackForm.tsx, mounted once in the shell (layout.tsx ~264, openFeedback ~62); trigger only on the Help
+  screen in src/app/company/CompanySectionNav.tsx (~39-42), disabled in View as. POST /api/feedback emails connect@luxordev.com.
+- Role badge: layout.tsx ~207-209 and ~257 (phone menu): userTypeDef(userTypeOf({role, trade})).label → "Admin" for role owner. In View
+  as, /api/auth/profile returns user.viewAs = { label, businessId, businessName, expiresAt } (label "Owner", or "<name> — <type>").
+- Help screen: src/app/company/guide/page.tsx — role tabs ~61-67 use aria-selected but .segment only styles [aria-pressed="true"]
+  (globals.css ~1648-1673); the "R" square = .guide-initial (~46-49) when business.logoUrl is empty (multi-company logos live in
+  business.companies). CompanySectionNav shows a "Guide" pill on /company/guide that links to the page you're on (does nothing).
+- Logos: src/components/companies/CompanyBrand.tsx (CompanyBrand + OtherCompanyBrand), CSS globals.css ~3842-3891 (several layered
+  T-338 rules). Luxor mark = /logo.png at 20-28 px (mostly empty canvas → unreadable).
+- Search label: src/components/ui/CommandBar.tsx ~282 (.cmd-type), CSS globals.css ~1562-1575.
+- Customer page: src/app/company/library/CustomersSection.tsx ~320-333 (CompanyToggle then "Who is it?"),
+  src/components/companies/CompanyToggle.tsx, CSS ~3826-3832.
+- Payments preview: src/app/company/billing/PaymentsPreview.tsx ~16-20 and ~37-39 (hard-coded "Acme Property Group").
+- Finances: src/app/company/finances/page.tsx (the API /api/company/finance already returns byMonth: 12 × { month, invoiced, collected }).
+
+YOU OWN (edit only these):
+- src/app/company/layout.tsx, src/app/company/company-nav.tsx, src/app/company/CompanySectionNav.tsx
+- src/components/ui/FeedbackForm.tsx, src/components/ui/QuickAddButton.tsx, src/components/ui/CommandBar.tsx
+- src/app/company/guide/page.tsx
+- src/components/companies/CompanyBrand.tsx, src/components/companies/CompanyToggle.tsx
+- src/app/company/library/CustomersSection.tsx — ONLY the company-switch / "Who is it?" block
+- src/app/company/billing/PaymentsPreview.tsx (+ its test)
+- src/app/company/finances/** (+ new components inside it)
+- src/app/globals.css — ONLY: the .segment selected rule, the .cmd-type rules, the T-338 header-logo block (~3842-3891), the
+  .company-toggle rules, and a new block `/* === L2 shell === */ … /* === end L2 === */` at the very end
+- e2e/rd-shell-polish.spec.ts (new); scripts/e2e/seed.cjs ONLY inside a block marked `/* L2 shell */` (if you need data)
+- docs/IMPLEMENTATION_LOG.md: append ONE entry at the very end (plain ASCII), heading "## 2026-11-07 - Stream L2 (screens)"
+NOT YOURS: everything else — in particular src/app/company/team/**, src/app/company/library/page.tsx and CrewsSection.tsx, any API
+route except reading existing ones, src/lib/auth/**, src/lib/finance/** (call it, don't change it), src/types/**, TODO.md, package.json.
+Need a change there? Stop and say so in your report.
+
+TASKS (one commit each, "T-xxx: <summary>"):
+
+T-361 — Send feedback in the menu (owner: "it should be very easy to access without clicking on a screen ... they should see what
+happens when they click it: a little input form that already has their name, it goes straight to Connect, and we reply within 24 hours").
+- Add a "Send feedback" item directly under "Help" in the sidebar AND the phone menu (company-nav.tsx; a button with an icon, styled like
+  the nav links), calling the shell's openFeedback. Same visibility as today's rule: every signed-in role including Crew (Crew lost
+  Feedback once — keep it), and the superadmin only in Preview or View as.
+- FeedbackForm: a compact sheet: a "From: <name> · <business>" line (prefilled, read-only: profile displayName, else email; business =
+  bootstrap business name), the message box (autofocus), the existing category choice, Send. Under the button: "Goes straight to Luxor
+  support. We reply within 24 hours." Success state: "Sent. Luxor will reply within 24 hours."
+- View as: the same sheet; "From" shows the viewed person (user.viewAs.label; for a type-only label like "Owner" show "Owner ·
+  <business>"); a small "Preview" notice: "You're viewing as <label>. This shows what they'd see. Nothing is sent." Send shows the
+  success state plus "(preview — not sent)" and makes NO request.
+- Remove the old disabled Send-feedback button from CompanySectionNav (the menu item replaces it). Keep the Help page's own "Ask a
+  question". /api/feedback stays as it is.
+
+T-362 — "+ Add" moves to the top right (owner: "it's at the bottom under Help; it should be at the top, perhaps top right, to declutter
+the nav"). Desktop (≥ 901 px): the top bar reads search · flexible space · "+ Add" · the second company's logo (if any). The sidebar footer
+keeps the role badge + Sign out only. Phones keep today's "+ New" in the header. Crew-only logins still never see it. Keep the existing
+quick-add menu behaviour and any keyboard shortcut.
+
+T-363 — In View as, the role badge (desktop + phone menu) shows the viewed role: the label's type part ("Owner" → OWNER, "Dominic — Office
+staff" → OFFICE STAFF) instead of userTypeDef(...).label. The empty email line under it shows the business name in View as. Real users:
+unchanged.
+
+T-364 — Help screen:
+- globals.css: `.segment[aria-selected="true"]` gets the same selected look as `.segment[aria-pressed="true"]`, with a visible focus ring
+  (this also fixes the job page's tabs that use the same pattern — check them on the screenshot).
+- CompanySectionNav: drop the self-linking "Guide" pill; the Help screen shows no section switch (its header keeps "Printable guide" and
+  "Print").
+- guide/page.tsx header: show the real logo: multi-company → the default company's logo (business.companies, isDefault); else
+  business.logoUrl; else today's initial square. Max 48 px tall, proportional (width auto, object-fit contain).
+
+T-365 — Header logos (CompanyBrand.tsx + the layered header-logo CSS):
+- Luxor mark: use the new trimmed `public/luxor-mark.png` (149×128, transparent; Claude made it from /logo.png) instead of /logo.png. Sidebar:
+  28 px tall + "Powered by Luxor" at 12 px; top bar: 20 px tall. It must read as the Luxor pyramid + "LUXOR" on your 375 px screenshot.
+- The owner says the RCU logo top right "looks stretched horizontally". The stored artwork is NOT distorted (it is the red RCU logo with its
+  tagline cropped off, 1000×387). In the browser, compare the img's rendered width/height ratio with naturalWidth/naturalHeight at 1440,
+  1024 and 375 px on a two-company tenant; if they differ, fix the CSS (height-driven sizing: fixed height, width auto, max-width none,
+  object-fit contain, no flex stretch). Collapse the layered rules into one clear block if that's what it takes. Give both company logos a
+  balanced visual weight (RDSF in the sidebar, RCU top right). Report the measured ratios before/after. Do not swap any logo file.
+
+T-366 — Search results: the type label (.cmd-type) is 34 px wide with overflow-wrap:anywhere, so "CUSTOMER" breaks into "CUST/OMER". One
+line always (white-space: nowrap; overflow-wrap: normal; width auto with a min-width so rows still align). Check every label your search
+can show (customer, job, request, invoice and vocabulary variants like "PATIENT") at 375 px.
+
+T-367 — Customer page company switch (owner: "make RDSF/RCU bigger, it looks scrunched, and 'Who is it?' sits right under it — I can't tell
+if it's a separate question"). A clearly labelled field ("Company" label above), each option ≥ 44 px tall with the company logo ~24-28 px
+tall + short name, selected = accent tint + border + check icon; then a gap of at least 20 px before "Who is it?", which keeps its own
+label. Single-company businesses: unchanged (the switch doesn't render).
+
+T-368 — "See how customers would pay online" (PaymentsPreview.tsx) shows a hard-coded "Bill to Acme Property Group / INV-1042 / $1,450"
+and a sample deposit list with Acme. Use the business's own data: issuer = the default company (logo + name from bootstrap
+business.companies, else the business name/logo); "Bill to" + amount + number = the most recent imported invoice when the viewer may read
+Finances (GET /api/company/finance — already owner/preview-gated; one request, only when the preview opens), else the first customer from
+the customers list, else "Your customer". The sample deposit list: the same source, or drop the names ("Deposit: 50% of $X"). Keep the
+"Preview" badge and keep it inert (no writes, no Stripe calls).
+
+T-369 — Finances chart + speed (src/app/company/finances/page.tsx; the API already returns byMonth):
+- ONE chart card at the top of the results: "Invoiced and collected by month". Hand-made SVG, no new dependency (no recharts, visx, d3,
+  Bklit, Tailwind: the reference prefers Bklit, but it needs Tailwind + shadcn, which this app doesn't use; follow its look: clean, soft,
+  rounded corners, no chart junk). Paired bars per month: invoiced = var(--accent); collected = a partner colour that is clearly different
+  for colour-blind users and has ≥ 3:1 contrast on the card. A y-axis in $k with 3-4 light gridlines, month labels (all on desktop, every
+  2nd or 3rd on 375 px), an inline legend, a tooltip on hover AND keyboard focus (each month is a focusable button with an aria-label like
+  "October 2026: invoiced $63,210, collected $41,800"), a visually hidden data table for screen readers, prefers-reduced-motion respected.
+- Clicking a month sets the From/To filters to that month (the totals and the list follow); the active month is highlighted; clicking it
+  again clears it.
+- It follows the company switch and the status/customer filters. byMonth is built from the filtered rows; if the date filter hides months,
+  show the 12 months ending at the filter's end date (or today) and say so in a one-line caption.
+- Phone (375 px): fits without sideways scroll, at least 160 px tall; the first screen still shows the four totals.
+- Speed: today every filter change re-fetches /api/company/finance. Fetch once per company + date window and filter customer / status /
+  aging / month in memory (the rows are in the response). One request on load; none on a status, customer or month change. Put the
+  before/after request count and load time in your report.
+
+CHECKS: `npx tsc --noEmit`; `npx eslint <changed files>`; `npx vitest related <changed files> --run`; your ONE browser spec
+e2e/rd-shell-polish.spec.ts against the smoke harness (`npm run e2e:up:bg`; logins in docs/SMOKE-HARNESS.md; scripts/e2e/seed.cjs has a
+tenant with billingCompanies — find it; add data only inside `/* L2 shell */`) at 1440 px and 375 px: the feedback menu item opens the
+sheet with the name; "+ Add" top right; the Help role tab's selected state; the search label on one line; the customer company switch; the
+Finances chart visible, and clicking a month filters the list. Read every screenshot yourself and fix anything cramped, overlapping or
+unreadable. Also run the existing e2e/smoke.spec.ts (it checks Feedback visibility per role). Stop the harness when you're done.
+
+FINAL REPORT (under 40 lines): commits (hash + title), files changed, the RCU ratio measurements, Finances request count/time before and
+after, anything not built and why.
+```
+
+### L3 — Claude agent, **Sonnet 5.5** — staff directory, Team roster, Crews, Vendors, sample data (T-370..T-372)
+```
+You are a Claude agent working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; on screen it is
+"Luxor CRM"). Stream L3 of the Roof Doctors follow-up (owner feedback 2026-11-06): people and vendors. Three other agents work at
+the same time in other worktrees; stay inside your file list. Claude (the integrator) reviews your diff and merges; you never push
+or merge.
+
+WORKTREE (already created): D:/Apps/air-wt-rd-people on branch task/rd-people. node_modules is a junction into the main checkout:
+never run npm install. Before your first edit AND before every commit: `git -C "D:/Apps/air-wt-rd-people" rev-parse --show-toplevel`
+must print D:/Apps/air-wt-rd-people and `git -C "D:/Apps/air-wt-rd-people" branch --show-current` must print task/rd-people. Use
+absolute paths under D:/Apps/air-wt-rd-people for every read and edit. NEVER edit anything under "D:/Apps/6 - AI Receptionist".
+
+WHAT THE OWNER SAID (2026-11-06, viewing the Roof Doctors account as its owner): "Settings → Team says 'No active members'. We want to
+show them the members that we have ... for the demo this is a blank slate and won't impress anybody; they need to see what it looks like
+when it's working. Create information where there is none, but keep key differentiators between data we created to show it off and the
+actual data they gave us — don't mix the two; mark it on the back end. For example, vendors: we don't have any vendors in here, and they
+gave us that. They gave us their crew list; I thought we had who is in each crew."
+What we hold (their Jobba export, read at run time by a separate import script, stream L4): 16 company contacts (names, positions, a
+few work emails and mobiles), 5 crews with a foreman each, 11 vendors (manufacturers). Nobody has a login. Crew membership beyond the
+foreman is unknown, so the import guesses it as clearly marked Luxor sample data.
+
+READ FIRST (in your worktree): src/types/provenance.ts, src/types/staff.ts, src/types/vendor.ts (THE CONTRACTS — implement exactly;
+add a field only if unavoidable and say so); src/types/team.ts and src/lib/team/userTypes.ts; src/app/api/company/team/route.ts and
+src/app/company/team/page.tsx; src/app/company/library/page.tsx and src/app/company/library/CrewsSection.tsx;
+src/app/api/company/crews/route.ts; src/lib/products/products.ts (PATH_RULES: every new API route under a product's area must match an
+entry); src/app/api/__tests__/route-guards.test.ts (every handler must call a central guard); src/lib/auth/verifyRole.ts
+(verifyOwnBusinessRole, verifyOwnBusinessOrSuperadmin, verifySuperadmin; View-as sessions are read-only — the guards refuse writes);
+src/lib/http/cache.ts (jsonWithCache tiers, all private); src/lib/format/name.ts (normalizeName); src/components/ui/EmptyState.tsx,
+Sheet.tsx, Modal.tsx, FormField.tsx; src/hooks/useBusinessModules.ts (vocab); src/test-utils/fakeFirestore.ts; CLAUDE.md
+("Industry-Applicability Rule", "Cache-Control Rule", "Screen Clarity Rule"); docs/ZERO-TRAINING-UX-STANDARD.md;
+docs/ROOFDOCTORS-DEMO-PLAN.md §10 (every safety rule applies: no emails/texts/invites from code, no new dependencies, no
+firestore.rules change — the new subcollections are server-only through the catch-all deny).
+
+YOU OWN (edit only these; new files inside these folders are fine):
+- NEW src/lib/staff/**, src/lib/vendors/**, src/lib/sampleData/** (+ __tests__)
+- NEW src/app/api/company/staff/** and src/app/api/company/vendors/**
+- NEW src/app/api/admin/businesses/[businessId]/sample-data/**
+- NEW src/app/admin/businesses/[businessId]/config/SampleDataPanel.tsx (Claude wires it into config/page.tsx — do NOT edit page.tsx)
+- NEW src/components/ui/ExampleTag.tsx
+- src/app/company/team/page.tsx (+ new components in src/app/company/team/)
+- src/app/company/library/page.tsx (the new Vendors tab only) + NEW src/app/company/library/VendorsSection.tsx
+- src/app/company/library/CrewsSection.tsx (show staff on each crew)
+- src/lib/products/products.ts — ONLY PATH_RULES entries for your new routes
+- src/app/globals.css — ONLY inside `/* === L3 people === */ … /* === end L3 === */` at the very end (or use CSS modules)
+- scripts/e2e/seed.cjs — ONLY inside a block marked `/* L3 people */` (invented staff + vendors on the e2e-roofing tenant, some marked
+  luxor-sample, so the screens can be checked)
+- docs/IMPLEMENTATION_LOG.md: append ONE entry at the very end (plain ASCII), heading "## 2026-11-07 - Stream L3 (people + vendors)"
+NOT YOURS: src/app/company/layout.tsx, company-nav.tsx, CustomersSection.tsx, CommandBar, FeedbackForm, finances/billing pages (stream
+L2); anything onboarding (stream L1); scripts/import-* (stream L4); src/types/* (contracts — ask in your report); src/lib/auth/**;
+firestore.rules; TODO.md; package.json. Need a change there? Stop and say so in your report.
+
+TASKS (one commit each, "T-xxx: <summary>"):
+
+T-371a — staff store + API
+- src/lib/staff/store.ts: list (active first, then name), get, create, patch for businesses/{businessId}/staff.
+- GET /api/company/staff: owner, staff and viewer roles (+ superadmin via ?businessId like other company routes — copy the pattern of
+  /api/company/crews). Owners get every field; other roles get name, position, userType, crewId, crewLead, crewProvenance, linkedUid,
+  provenance.origin only (no email/mobile). jsonWithCache "volatile" or "noStore".
+- POST /api/company/staff (owner): create a person (name required; position, userType, email, mobile, language, crewId optional;
+  zod; caps). provenance = { origin: "client", source: "app:team", addedAt: now }.
+- PATCH /api/company/staff/[staffId] (owner): position, userType, email, mobile, language, crewId (must be an existing crew or ""),
+  active. Changing crewId sets crewProvenance = { origin: "client", source: "app:team", addedAt: now } (an owner's confirmation turns
+  a guess into client data). Never touches provenance or linkedUid.
+- PATH_RULES: map /api/company/staff and /api/company/vendors to the same product as /api/company/crews.
+- Route tests with the fake Firestore: role access (viewer can't see emails, staff can't write), View-as write refused, validation.
+
+T-371b — Team page roster (src/app/company/team/page.tsx). ADD, don't remove: the existing Active / Invited / Disabled tabs stay below.
+- New section at the top: "Your team (N)". One row per person: logins (from the existing /api/company/team) and staff without a login
+  (from /api/company/staff), merged by linkedUid, else by normalizeName — never shown twice. Columns: Name (+ job title under it), App
+  access (the user type label from src/lib/team/userTypes.ts), Crew (name, "Lead" chip for crewLead), Login (Active / Invited / "Not
+  invited yet"). A luxor-sample crew assignment shows an <ExampleTag/> next to the crew name. Fetch both lists in parallel (one
+  round trip). Phone (375 px): stacked cards, no sideways scroll.
+- Owner taps a staff row → a Sheet: edit job title, app access, crew, language, email, mobile; Save. "Invite to the app" button opens
+  the page's EXISTING invite form prefilled with name + email + matching role — it must not send anything by itself; the existing
+  invite button stays the only sending action. In View as the sheet opens read-only (the server refuses writes anyway).
+- Business with no staff and no other members: the current empty state, unchanged.
+
+T-371c — Library → Crews shows staff (CrewsSection.tsx): under each crew list its members = logins with crewId (as today) + staff with
+that crewId (name, "No login" chip, "Lead" first, ExampleTag when crewProvenance.origin is "luxor-sample"). Staff rows are read-only
+here with a "Change on the Team page" link. One extra request (GET /api/company/staff), made in parallel with the existing one.
+
+T-370 — Vendors
+- src/lib/vendors/store.ts; GET /api/company/vendors (owner, staff, viewer); POST (owner, staff); PATCH /api/company/vendors/[vendorId]
+  (owner, staff; "delete" = active false). zod, caps (name 120, type 60, address 200, notes 1000), phone → E.164 when it parses.
+  provenance on create = { origin: "client", source: "app:library", addedAt }. Route tests like T-371a.
+- Library → a "Vendors" tab (VendorsSection.tsx), labelled "Suppliers" when the industry's vocab resource noun is "Vendor" (property
+  management calls its crews Vendors — read vocab via useBusinessModules()). Universal (every industry with a Library). List: search box
+  (name / type / city / contact, client-side), first 30 rows + "Show more", each row: name, type chip, city + state, phone as a tel:
+  link, contact name; ExampleTag on luxor-sample rows. Add / edit in a Sheet. Empty state: EmptyState with ONE action "Add a vendor".
+  Inactive vendors hidden behind a "Show inactive" toggle. 375 px: stacked rows.
+
+T-372 — sample data, marked and removable
+- src/components/ui/ExampleTag.tsx: a small muted pill "Example" with title="Sample data added by Luxor to show how this works.
+  Replace it with your own any time." (aria-label the same).
+- src/lib/sampleData/scan.ts + GET /api/admin/businesses/[businessId]/sample-data (verifySuperadmin): for every name in
+  SAMPLE_CAPABLE_COLLECTIONS, count docs with provenance.origin == "client", == "luxor-sample", and the rest ("not marked" = total −
+  both; use count() aggregations, no full reads), plus staff whose crewProvenance.origin == "luxor-sample".
+- DELETE /api/admin/businesses/[businessId]/sample-data (verifySuperadmin): DRY RUN by default (returns per collection the ids it would
+  remove + the staff whose crew guess it would clear); with ?apply=1&confirm=<businessId>: deletes the luxor-sample docs (jobs via
+  db.recursiveDelete so their subcollections go too), clears crewId + crewProvenance on staff whose crewProvenance is luxor-sample,
+  batches ≤ 400, then writes one adminAuditEvents row (copy the shape in src/app/api/admin/businesses/[businessId]/archive/route.ts).
+  Route tests: superadmin only, dry run writes nothing, apply needs the matching confirm, client records never touched.
+- SampleDataPanel.tsx: a card "Sample data" for the client Edit page: a small table (Collection · Client data · Luxor samples · Not
+  marked), one line explaining the two kinds in plain words, and "Remove all samples": shows the dry-run list in a Modal, asks to type
+  the business id, then applies and refreshes. Claude adds it to config/page.tsx at merge.
+
+CHECKS before your final report: `npx tsc --noEmit -p "D:/Apps/air-wt-rd-people"` (run from the worktree); `npx eslint <changed
+files>`; `npx vitest run <your new tests> src/app/api/__tests__/route-guards.test.ts`. No browser tests (Claude runs them on the merged
+tree), but read your own JSX carefully for 375 px layout (no fixed widths wider than the screen, wrapping text, 44 px touch targets).
+Commit each task on task/rd-people with `git -C "D:/Apps/air-wt-rd-people" …`.
+
+FINAL REPORT (under 30 lines): commits (hash + title), files changed, any contract change, the exact line Claude must add to
+config/page.tsx, anything not built and why.
+```
+
+### L4 — DeepSeek, **V4 Flash, Thinking: High** (Kilo: deepseek/deepseek-flash --variant high) — staff + vendor import script (T-371d)
+DeepSeek shares the production account (balance $4.71 on 2026-11-06), so it gets only this small task; Claude checks the balance.
+```
+You are DeepSeek (via Kilo) working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; "Luxor CRM").
+Stream L4 of the Roof Doctors follow-up: ONE production import script for staff and vendors (T-371d / T-370b). Three other agents
+work at the same time in other worktrees; stay inside your file list. Claude reviews, merges and runs the script; you never push,
+merge or run it against production.
+
+HOW TO WORK (headless run — important):
+- Read and edit files ONLY with your built-in read / edit / write tools. Use the shell ONLY for: `npx tsc --noEmit`,
+  `npx eslint <files>`, `npx vitest run <paths>`, and git status / diff / add / commit / log / rev-parse / branch.
+  Any other shell command ends your run. Never run the import script itself.
+- Worktree: D:\Apps\air-wt-rd-import, branch task/rd-import (already created; node_modules is a junction — never npm install).
+  Before the first edit and before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-rd-import and
+  `git branch --show-current` must print task/rd-import. Never edit anything under D:\Apps\6 - AI Receptionist.
+- No browser tests. Commit when done: "T-371d: staff + vendor import script (dry run by default)".
+- If stuck: stop and write what blocked you. Don't invent.
+- Real client data NEVER goes into the repo: the script reads the CSV files at run time; tests use invented names and numbers.
+
+READ FIRST: src/types/provenance.ts, src/types/staff.ts, src/types/vendor.ts (the document shapes you write — copy them exactly;
+the script is plain JS, so mirror the fields by hand); scripts/import-jobba.mjs (the CLI pattern: args, allowlist, emulator vs
+production credentials, evaluation-guard check, dry run, never printing secrets); scripts/lib/jobba-import.mjs (decodeCsvBuffer,
+parseCsv, normalizeName, digitsOnly — reuse them, don't copy them); scripts/lib/jobba-setup.mjs (setupId, crew doc ids);
+src/lib/team/userTypes.ts (user type ids); src/lib/import/__tests__/jobba-setup.test.ts (how script libs are unit-tested);
+docs/ROOFDOCTORS-DEMO-PLAN.md §10 rule 8 (production scripts).
+
+YOU OWN (new files only):
+- scripts/import-staff-vendors.mjs (the CLI)
+- scripts/lib/staff-vendors.mjs (pure mappers; no Firestore, no file system)
+- src/lib/import/__tests__/staff-vendors.test.ts (unit tests with INVENTED rows)
+- docs/IMPLEMENTATION_LOG.md: append ONE entry at the very end (plain ASCII only — no em dashes, no arrows), heading
+  "## 2026-11-07 - Stream L4 (staff + vendor import)"
+
+INPUT FILES (in --dir, default client-resources/roofdoctors/02-data-export-jobba), all CSV with a header row:
+- "Company contacts.csv": Enabled,Primary,Employee,User,First Name,Last Name,Position,Type,Mobile Phone,Email,Comments
+  (Type is a comma list like "BackOffice, Estimator" / "Service" / "Inspector, Service"; some cells are empty)
+- "Crews.csv": Enabled,Name,Types,Modes,Foreman,Supervisor,Description (Foreman / Supervisor are person names)
+- "vendors.csv": Name,Type,Address,City,State,Main,Contact (Main = phone, Contact = contact person)
+
+MAPPERS (scripts/lib/staff-vendors.mjs, all pure, all exported):
+1. staffIdFor(fullName) = "jobba-staff-" + sha256(normalizeName(fullName)).hex.slice(0,16); vendorIdFor(name) likewise with
+   "jobba-vendor-".
+2. e164(raw): 10 digits → "+1XXXXXXXXXX"; 11 digits starting with 1 → "+1…"; else null.
+3. cleanEmail(raw): lower-case, trimmed; valid only if it matches /^[^\s@]+@[^\s@]+\.[^\s@]+$/ (the export truncates some, e.g.
+   "name@domain" with no dot → return null and count it as "email dropped").
+4. mapStaff(contactRows, crewRows, existingCrews, now) → { staff: StaffMember-shaped objects, notes: string[] }:
+   - keep rows with Enabled = "Yes" and a non-empty first or last name; SKIP pseudo-users whose full name matches /power\s*board/i
+     (Jobba's Powerboard display account) — count them as "skipped (not a person)".
+   - name = "First Last" trimmed; position = Position trimmed (omit when empty); email = cleanEmail; mobile = e164;
+     active = true; language omitted (unknown).
+   - userType, first rule that matches: Primary = "Yes" → "admin"; Position contains "supervisor" → "supervisor"; Position contains
+     "office manager" → "office_admin"; Position contains "manager" → "manager"; the person is a Foreman in Crews.csv → "foreman";
+     Type contains "Inspector" → "inspector"; Type contains "BackOffice" → "office"; Position contains "technician" OR Type contains
+     "Service" → "technician"; else omit userType. (Case-insensitive.)
+   - crew (client data): for each enabled Crews.csv row whose Foreman matches a person (normalizeName), find the crew doc in
+     existingCrews (array of { crewId, name }) by normalizeName(name); set that person's crewId + crewLead: true. A person who leads
+     several crews keeps the first. The record's provenance covers it (no crewProvenance needed).
+   - crew guesses (Luxor sample, clearly marked): for each FIELD person (userType technician / foreman / inspector) still without a
+     crew: (a) if an existing crew's normalized name equals the person's normalized name, assign it with
+     crewProvenance = { origin: "luxor-sample", source: "luxor:demo-fill", note: "Matched by crew name; confirm in the Team form",
+     addedAt: now }; (b) the rest round-robin over the crews that have a lead whose userType is "foreman", sorted by crew name, with
+     the note "Crew membership guessed for the demo; confirm in the Team form". Deterministic: sort the people by name first.
+   - provenance on every staff record: { origin: "client", source: "jobba:Company contacts.csv", addedAt: now }.
+   - createdAt = updatedAt = now. Omit undefined fields entirely (Firestore rejects undefined).
+5. mapVendors(vendorRows, now) → Vendor-shaped objects: name (required; skip empty), type, address, city, state (2 letters,
+   upper-case, else omit), phone = e164(Main) ?? Main trimmed (omit if empty), contactName = Contact trimmed, active: true,
+   provenance { origin: "client", source: "jobba:vendors.csv", addedAt: now }, createdAt/updatedAt = now.
+6. planWrites(mapped, existingDocsById) → per record { id, action: "create" | "fill" | "skip", fields }: create when missing; when
+   present, "fill" ONLY fields that are missing/empty in Firestore (never overwrite an owner's edit; never touch linkedUid; never
+   replace a crewId whose crewProvenance is "client" or that has no crewProvenance); "skip" when nothing to fill.
+
+CLI (scripts/import-staff-vendors.mjs):
+- `node scripts/import-staff-vendors.mjs --business=roofdoctors [--dir=…] [--only=staff|vendors] [--apply --confirm=roofdoctors]`
+- Same allowlist as import-jobba.mjs: business "roofdoctors", or "e2e-*" only when FIRESTORE_EMULATOR_HOST is set; refuse demo-*;
+  --apply requires --confirm equal to the business id. Same credential handling (emulator / FIREBASE_SERVICE_ACCOUNT_JSON without
+  printing it). Refuse --apply when the business's evaluation guard is OFF (outboundEmailAllowlist not an array) — same message
+  style as import-jobba.mjs.
+- Reads existing crews (businesses/{id}/crews: crewId = doc id, name), existing staff and vendors (by id).
+- Dry run (default): prints counts only — staff: create N / fill N / skip N; userType breakdown; crew leads set N; crew guesses N
+  (by name match N, round-robin N); emails dropped N; pseudo-users skipped N; vendors: create N / fill N / skip N — and per-row
+  lines WITHOUT names or contact details (row number, action, userType, crew guess yes/no). Never print a name, email or phone.
+- Apply: writes in batches of ≤ 400 to businesses/{id}/staff/{staffId} and businesses/{id}/vendors/{vendorId} (create = set;
+  fill = update of the listed fields only). Idempotent: a second run reports 0 creates / 0 fills. Never sends anything; touches
+  no other collection.
+- Header comment: purpose, usage lines for dry run / apply / emulator, the safety rules above.
+
+TESTS (src/lib/import/__tests__/staff-vendors.test.ts, invented data only): userType rules (each branch), the pseudo-user skip, email
+cleaning, e164, crew lead mapping, both crew-guess paths + determinism, crewProvenance shape, vendor mapping, planWrites create /
+fill / skip / never-overwrite rules, no undefined values anywhere in the output.
+
+CHECKS: `npx tsc --noEmit`; `npx eslint scripts/import-staff-vendors.mjs scripts/lib/staff-vendors.mjs
+src/lib/import/__tests__/staff-vendors.test.ts`; `npx vitest run src/lib/import/__tests__/staff-vendors.test.ts`.
+
+FINAL REPORT (under 20 lines): the commit hash, files, test count, and any rule you could not follow exactly.
+```

@@ -7,7 +7,9 @@ const office = ["/company/dashboard", "/company/pipeline", "/company/calendar", 
 
 describe("grouped company navigation", () => {
   it.each(["owner", "staff", "viewer"])("%s sees one item per group", role => {
-    expect(paths({role, isEnabled:all, showcase:{finances:true,payroll:true}})).toEqual(office);
+    const money = role === "owner" ? "/company/finances" : "/company/billing";
+    expect(paths({role, isEnabled:all, showcase:{finances:true,payroll:true}})).toEqual(office.map(p => p === "/company/billing" ? money : p));
+    expect(paths({role, isEnabled:all})).toEqual(office);
     const labels = visibleNavLinks({role,isEnabled:all}).map(l=>l.label);
     expect(labels).toEqual(["Dashboard","Requests","Calendar","Jobs","Finances","Customers","Library","Settings","Help"]);
   });
@@ -34,7 +36,8 @@ describe("grouped company navigation", () => {
   });
   it("uses each showcase flag independently and keeps invoices tied to billing", () => {
     expect(moneyNavLinks({role:"owner",isEnabled:()=>false,showcase:{payroll:true}})).toEqual([{path:"/company/payroll",label:"Payroll"}]);
-    expect(moneyNavLinks({role:"owner",isEnabled:all,showcase:{finances:true}}).map(l=>l.path)).toEqual(["/company/billing","/company/finances"]);
+    expect(moneyNavLinks({role:"owner",isEnabled:all,showcase:{finances:true}}).map(l=>l.path)).toEqual(["/company/finances","/company/billing"]);
+    expect(moneyNavLinks({role:"owner",isEnabled:all,showcase:{finances:true,payroll:true}}).map(l=>l.path)).toEqual(["/company/finances","/company/billing","/company/payroll"]);
     expect(paths({role:"owner",isEnabled:()=>false,showcase:{payroll:true}})).toContain("/company/payroll");
   });
   it("superadmin showcase access still requires Preview", () => {

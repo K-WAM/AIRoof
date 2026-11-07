@@ -56,13 +56,18 @@ export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked
   return links;
 }
 
-/** Children use the original product and showcase rules, independently of the combined menu label. */
+/**
+ * Children use the original product and showcase rules, independently of the combined menu label. The Finances
+ * overview comes FIRST when this person can see it: the "Finances" menu item opens links[0], and the overview is the
+ * screen that holds imported history (Jobba invoices). Opening Invoices first showed an empty page to a client whose
+ * money so far lives only in that history (owner, 2026-11-06: "Finances is currently empty").
+ */
 export function moneyNavLinks({ role, superadmin, preview, isEnabled, showcase }: NavContext): Array<{path: string; label: string}> {
-  const links = isEnabled("billing") ? [{path: "/company/billing", label: "Invoices"}] : [];
-  if (role === "owner" || (superadmin && preview)) {
-    if (showcase?.finances) links.push({path: "/company/finances", label: "Finances"});
-    if (showcase?.payroll) links.push({path: "/company/payroll", label: "Payroll"});
-  }
+  const links: Array<{path: string; label: string}> = [];
+  const canSeeShowcase = role === "owner" || (superadmin && preview);
+  if (canSeeShowcase && showcase?.finances) links.push({path: "/company/finances", label: "Finances"});
+  if (isEnabled("billing")) links.push({path: "/company/billing", label: "Invoices"});
+  if (canSeeShowcase && showcase?.payroll) links.push({path: "/company/payroll", label: "Payroll"});
   return links;
 }
 
